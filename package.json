@@ -7,7 +7,8 @@
   "scripts": {
     "selftest": "npm run selftest:logic",
     "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs",
-    "serve": "node test/serve.mjs"
+    "serve": "node test/serve.mjs",
+    "docx": "node tools/docx.mjs"
   },
   "engines": {
     "node": ">=22"
