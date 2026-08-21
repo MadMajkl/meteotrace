@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node tools/dev-server.mjs",
     "selftest": "npm run selftest:logic",
-    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs",
-    "serve": "node test/serve.mjs",
+    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs",
     "docx": "node tools/docx.mjs"
   },
   "engines": {

@@ -47,7 +47,7 @@ nad vlastními `.pmtiles`) proti **rastru** (Leaflet) — každý svojí vlastn�
 byly výsledky srovnatelné.
 
 ```bash
-npm run serve             # vypíše adresu pro telefon (stejná wifi)
+npm run dev             # vypíše adresu pro telefon (stejná wifi)
 ```
 
 Měří medián FPS, nejhorších 5 %, podíl záseků a nejdelší snímek. **Rozhoduje sloupec

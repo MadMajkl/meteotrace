@@ -1,0 +1,20 @@
+# Netlify — nasazení webové poloviny MeteoTrace (R1, R2).
+#
+# Statické soubory appky leží ve web/, proxy je funkce v netlify/functions/.
+# Klíče (ORS_API_KEY) se nastavují v prostředí Netlify, NIKDY v repu.
+
+[build]
+  publish = "web"
+  functions = "netlify/functions"
+  # Žádný build krok - appka je vanilla JS s ES moduly (R1).
+  command = ""
+
+[functions]
+  node_bundler = "esbuild"
+
+# Proxy poslouchá na /api/*. Cestu si funkce hlídá sama přes `export const config`,
+# tohle je pojistka pro starší chování Netlify.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
