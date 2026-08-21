@@ -100,6 +100,12 @@ export default {
     mugwort: 'Pelyněk',
     olive: 'Oliva',
     ragweed: 'Ambrózie',
+    level: {
+      low: 'Nízká',
+      moderate: 'Střední',
+      high: 'Vysoká',
+      veryHigh: 'Velmi vysoká',
+    },
     none: 'Pro tohle místo nejsou data o pylu.',
   },
 

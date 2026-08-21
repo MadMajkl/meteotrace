@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>MeteoTrace</title>
+<meta name="description" content="Weather along your route — at every point, at the time you actually get there.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">◈</span>
+    <span class="brand-name" data-i18n="app.name">MeteoTrace</span>
+  </div>
+  <form class="search" id="search-form" role="search" autocomplete="off">
+    <input id="search-input" type="search" data-i18n-attr="placeholder:search.placeholder"
+           aria-label="Search for a place">
+    <button type="button" id="btn-locate" class="icon-btn" title="My location" aria-label="My location">⌖</button>
+  </form>
+  <ul id="search-results" class="results" hidden></ul>
+</header>
+
+<!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->
+<div id="notice" class="notice" hidden role="status"></div>
+
+<main id="station" hidden>
+
+  <section class="now card" aria-labelledby="place-name">
+    <h1 class="place" id="place-name"></h1>
+
+    <div class="now-main">
+      <span class="now-icon" id="now-icon" aria-hidden="true"></span>
+      <div>
+        <div class="now-temp" id="now-temp"></div>
+        <div class="now-cond" id="now-cond"></div>
+        <div class="now-feels"><span data-i18n="now.feelsLike"></span> <b id="now-feels"></b></div>
+      </div>
+    </div>
+
+    <dl class="details">
+      <div><dt data-i18n="now.wind"></dt><dd id="d-wind"></dd></div>
+      <div><dt data-i18n="now.gusts"></dt><dd id="d-gusts"></dd></div>
+      <div><dt data-i18n="now.humidity"></dt><dd id="d-humidity"></dd></div>
+      <div><dt data-i18n="now.precipitation"></dt><dd id="d-precip"></dd></div>
+      <div><dt data-i18n="now.cloudCover"></dt><dd id="d-cloud"></dd></div>
+      <div><dt data-i18n="now.uvIndex"></dt><dd id="d-uv"></dd></div>
+      <div><dt data-i18n="now.sunrise"></dt><dd id="d-sunrise"></dd></div>
+      <div><dt data-i18n="now.sunset"></dt><dd id="d-sunset"></dd></div>
+    </dl>
+
+    <p class="updated" id="now-updated"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-hourly">
+    <h2 id="h-hourly" data-i18n="forecast.hourly"></h2>
+    <div class="hours" id="hours"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-daily">
+    <h2 id="h-daily" data-i18n="forecast.daily"></h2>
+    <ul class="days" id="days"></ul>
+  </section>
+
+  <section class="card" id="pollen-card" hidden aria-labelledby="h-pollen">
+    <h2 id="h-pollen" data-i18n="pollen.title"></h2>
+    <ul class="pollen" id="pollen"></ul>
+  </section>
+
+</main>
+
+<div id="splash" class="splash">
+  <span class="brand-mark big" aria-hidden="true">◈</span>
+  <p id="splash-text"></p>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+/**
+ * Samotest meteostanice — převod odpovědi API na zobrazený pohled.
+ *
+ * Bez prohlížeče a bez sítě: odpověď se přibalí jako fixture.
+ * Spuštění:  npm run selftest:logic
+ */
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  parseLocalTime, formatClock, formatWeekday, isDaylight,
+  pollenLevel, POLLEN_SPECIES, buildStationView,
+} from '../web/lib/station.js';
+import { METRIC, IMPERIAL } from '../web/lib/units.js';
+
+/* ============================================================
+   ČAS — nejzrádnější část
+   ============================================================ */
+
+test('🚨 čas: naivní řetězec se vyloží podle MÍSTA, ne podle zařízení', () => {
+  // Open-Meteo s timezone=auto vrací '2026-08-21T14:00' bez značky pásma.
+  // Date.parse() by to vyložil podle pásma zařízení — Čech koukající na New York
+  // by viděl časy posunuté o šest hodin.
+  const praha = parseLocalTime('2026-08-21T14:00', 7200);      // SELČ = UTC+2
+  assert.equal(new Date(praha).toISOString(), '2026-08-21T12:00:00.000Z');
+
+  const newYork = parseLocalTime('2026-08-21T14:00', -14400);  // EDT = UTC−4
+  assert.equal(new Date(newYork).toISOString(), '2026-08-21T18:00:00.000Z');
+
+  assert.notEqual(praha, newYork, 'stejná hodina jinde je jiný okamžik');
+});
+
+test('čas: zvládne i sekundy v řetězci', () => {
+  assert.equal(
+    parseLocalTime('2026-08-21T14:00:00', 7200),
+    parseLocalTime('2026-08-21T14:00', 7200),
+  );
+});
+
+test('čas: poškozený vstup vrátí null, ne NaN datum', () => {
+  assert.equal(parseLocalTime(null, 0), null);
+  assert.equal(parseLocalTime('nesmysl', 0), null);
+  assert.equal(parseLocalTime(123, 0), null);
+});
+
+test('🚨 čas: hodiny se vypisují v pásmu prohlíženého místa', () => {
+  const ms = Date.parse('2026-08-21T12:00:00Z');
+  assert.equal(formatClock(ms, 'Europe/Prague', 'cs'), '14:00');
+  assert.equal(formatClock(ms, 'America/New_York', 'cs'), '08:00');
+  assert.equal(formatClock(ms, 'UTC', 'cs'), '12:00');
+});
+
+test('čas: chybějící hodnota se ukáže jako pomlčka', () => {
+  assert.equal(formatClock(null, 'UTC', 'cs'), '—');
+  assert.equal(formatWeekday(undefined, 'UTC', 'cs'), '—');
+});
+
+test('den/noc: řídí se východem a západem, ne hodinou na hodinkách', () => {
+  // V červnu je v Norsku v jedenáct večer světlo — podle hodin by to byla noc.
+  const sunrise = Date.parse('2026-06-21T00:30:00Z');
+  const sunset = Date.parse('2026-06-21T23:00:00Z');
+  assert.equal(isDaylight(Date.parse('2026-06-21T22:00:00Z'), sunrise, sunset), true);
+  assert.equal(isDaylight(Date.parse('2026-06-21T23:30:00Z'), sunrise, sunset), false);
+});
+
+test('den/noc: bez údajů o slunci se předpokládá den', () => {
+  // Ikona s měsícem u polední předpovědi vypadá jako chyba; opačný omyl je mírnější.
+  assert.equal(isDaylight(Date.now(), null, null), true);
+});
+
+/* ============================================================
+   PYL
+   ============================================================ */
+
+test('pyl: prahy se liší podle druhu', () => {
+  // Bříza obtěžuje při řádově nižší koncentraci než trávy.
+  assert.equal(pollenLevel('birch', 30), 'moderate');
+  assert.equal(pollenLevel('grass', 30), 'moderate');
+  assert.equal(pollenLevel('ragweed', 30), 'high', 'ambrózie je agresivní');
+});
+
+test('pyl: chybějící hodnota není nulová koncentrace', () => {
+  assert.equal(pollenLevel('birch', null), null);
+  assert.equal(pollenLevel('birch', undefined), null);
+  assert.equal(pollenLevel('neznamy', 10), null);
+});
+
+test('pyl: nula je platná hodnota a znamená nízkou zátěž', () => {
+  assert.equal(pollenLevel('birch', 0), 'low');
+});
+
+/* ============================================================
+   FIXTURE — zmenšenina skutečné odpovědi Open-Meteo
+   ============================================================ */
+
+const FORECAST = {
+  timezone: 'Europe/Prague',
+  utc_offset_seconds: 7200,
+  current: {
+    temperature_2m: 23.4, apparent_temperature: 24.1, relative_humidity_2m: 55,
+    precipitation: 0, weather_code: 2, cloud_cover: 40,
+    wind_speed_10m: 12.5, wind_direction_10m: 350, wind_gusts_10m: 28,
+  },
+  hourly: {
+    time: ['2026-08-21T12:00', '2026-08-21T13:00', '2026-08-21T14:00', '2026-08-21T15:00'],
+    temperature_2m: [22, 23.4, 24, 24.5],
+    apparent_temperature: [22.5, 24.1, 24.8, 25],
+    relative_humidity_2m: [58, 55, 52, 50],
+    precipitation_probability: [0, 5, 20, 60],
+    precipitation: [0, 0, 0.2, 1.8],
+    weather_code: [1, 2, 3, 61],
+    cloud_cover: [20, 40, 80, 95],
+    wind_speed_10m: [10, 12.5, 14, 16],
+    wind_direction_10m: [340, 350, 10, 20],
+    uv_index: [5.2, 4.8, 3.9, 2.1],
+  },
+  daily: {
+    time: ['2026-08-21', '2026-08-22', '2026-08-23'],
+    weather_code: [2, 61, 95],
+    temperature_2m_max: [25, 21, 19],
+    temperature_2m_min: [14, 13, 12],
+    precipitation_probability_max: [60, 80, 90],
+    sunrise: ['2026-08-21T05:52', '2026-08-22T05:54', '2026-08-23T05:55'],
+    sunset: ['2026-08-21T20:11', '2026-08-22T20:09', '2026-08-23T20:07'],
+  },
+};
+
+const AIR = {
+  current: { birch_pollen: 2, grass_pollen: 65, ragweed_pollen: 25, alder_pollen: null },
+};
+
+const NOW = Date.parse('2026-08-21T11:00:00Z');   // 13:00 v Praze
+
+/* ============================================================
+   SESTAVENÍ POHLEDU
+   ============================================================ */
+
+test('pohled: poškozená odpověď vrátí null, ne půlku obrazovky', () => {
+  assert.equal(buildStationView({ forecast: null, lang: 'cs', units: METRIC, nowMs: NOW }), null);
+  assert.equal(buildStationView({ forecast: {}, lang: 'cs', units: METRIC, nowMs: NOW }), null);
+});
+
+test('pohled: aktuální stav se přeloží a naformátuje', () => {
+  const v = buildStationView({ forecast: FORECAST, air: AIR, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.current.condition, 'Polojasno');
+  assert.match(v.current.temp, /23 °C/);
+  assert.match(v.current.wind, /13 km\/h/);
+  assert.equal(v.current.windDir, 'S', '350° je sever');
+  assert.match(v.current.humidity, /55 %/);
+});
+
+test('🚨 pohled: aktuální hodina je NEJBLIŽŠÍ, ne první v poli', () => {
+  // Odpověď může začínat půlnocí, i když je odpoledne.
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.hourly[0].time, '13:00', 'má začít teď, ne v poledne');
+});
+
+test('pohled: hodiny se vypisují v pásmu místa', () => {
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.deepEqual(v.hourly.map((h) => h.time), ['13:00', '14:00', '15:00']);
+  assert.equal(v.timeZone, 'Europe/Prague');
+});
+
+test('pohled: první dva dny mají jméno, ostatní zkratku', () => {
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.daily[0].day, 'Dnes');
+  assert.equal(v.daily[1].day, 'Zítra');
+  assert.notEqual(v.daily[2].day, 'Zítra');
+});
+
+test('pohled: jednotky se propíšou, jazyk zvlášť', () => {
+  const cs = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  const usa = buildStationView({ forecast: FORECAST, lang: 'cs', units: IMPERIAL, nowMs: NOW });
+  assert.match(cs.current.temp, /°C/);
+  assert.match(usa.current.temp, /°F/);
+  assert.equal(usa.current.condition, 'Polojasno', 'jazyk zůstal český');
+});
+
+test('pohled: východ a západ slunce', () => {
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.sun.sunrise, '05:52');
+  assert.equal(v.sun.sunset, '20:11');
+});
+
+test('pohled: pyl je seřazený od nejsilnějšího', () => {
+  const v = buildStationView({ forecast: FORECAST, air: AIR, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.pollen[0].species, 'grass', 'trávy 65 = vysoká');
+  assert.equal(v.pollen[0].level, 'high');
+  assert.equal(v.pollen[0].levelText, 'Vysoká');
+  assert.ok(v.pollen.every((p) => POLLEN_SPECIES.includes(p.species)));
+});
+
+test('pyl: druh bez dat se vynechá, nezobrazí jako nula', () => {
+  const v = buildStationView({ forecast: FORECAST, air: AIR, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.ok(!v.pollen.some((p) => p.species === 'alder'), 'olše nemá data → nemá být v seznamu');
+});
+
+test('pohled: chybějící pyl nespadne, jen bude prázdno', () => {
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.deepEqual(v.pollen, []);
+});
+
+test('🚨 pohled: nula se nesmí ztratit jako chybějící hodnota', () => {
+  // `pick()` musí brát nulu jako platnou — srážky 0 mm znamenají sucho,
+  // ne chybějící údaj.
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.match(v.current.precip, /0/);
+  assert.ok(!v.current.precip.includes('—'));
+});
+
+test('pohled: chybějící údaj v aktuálním stavu se doplní z hodinových dat', () => {
+  const bez = { ...FORECAST, current: { weather_code: 2 } };
+  const v = buildStationView({ forecast: bez, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.match(v.current.temp, /23 °C/, 'teplota se má vzít z hodinového pole');
+});
+
+test('pohled: ikona v noci je jiná než ve dne', () => {
+  const noc = Date.parse('2026-08-21T22:00:00Z');   // půlnoc v Praze, po západu
+  const nocni = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: noc });
+  const denni = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.notEqual(nocni.current.icon, denni.current.icon);
+});

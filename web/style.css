@@ -1,0 +1,226 @@
+/* ============================================================
+   MeteoTrace — vzhled
+   Vanilla CSS, žádný build krok (R1). Barvy jako proměnné, ať jde motiv
+   přidat jednou sadou hodnot (vzor Gulpka).
+   ============================================================ */
+
+:root {
+  --bg: #f4f7fb;
+  --bg-grad: linear-gradient(180deg, #e8f1fb 0%, #f4f7fb 42%);
+  --surface: #ffffff;
+  --surface-2: #f0f4f9;
+  --line: #dfe6ee;
+  --text: #16202b;
+  --text-soft: #63717f;
+  --accent: #1a7fd4;
+  --accent-soft: #e3f0fc;
+  --warn-bg: #fff5e2;
+  --warn-line: #e6b45c;
+  --warn-text: #7a4f0d;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(16, 32, 48, .05), 0 6px 20px rgba(16, 32, 48, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f151c;
+    --bg-grad: linear-gradient(180deg, #16212e 0%, #0f151c 42%);
+    --surface: #17202b;
+    --surface-2: #1d2836;
+    --line: #26323f;
+    --text: #e8eef5;
+    --text-soft: #93a2b2;
+    --accent: #55b0f5;
+    --accent-soft: #14293c;
+    --warn-bg: #2e2413;
+    --warn-line: #8a6a2a;
+    --warn-text: #f0d9a8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg-grad) no-repeat, var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- hlavička ---------- */
+
+.top {
+  position: sticky; top: 0; z-index: 10;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.brand-mark { color: var(--accent); font-size: 20px; }
+.brand-mark.big { font-size: 44px; }
+.brand-name { font-weight: 700; letter-spacing: -.01em; }
+
+.search { display: flex; gap: 8px; }
+
+.search input {
+  flex: 1; min-width: 0;
+  padding: 11px 14px;
+  font: inherit; color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.icon-btn {
+  flex: none; width: 44px;                 /* 44 px = spolehlivě trefitelné prstem */
+  font-size: 20px; line-height: 1;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.icon-btn:active { background: var(--accent-soft); }
+
+.results {
+  list-style: none; margin: 8px 0 0; padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.results li { padding: 11px 14px; cursor: pointer; border-top: 1px solid var(--line); }
+.results li:first-child { border-top: 0; }
+.results li:hover, .results li:focus-visible { background: var(--accent-soft); }
+.results .muted { color: var(--text-soft); font-size: 14px; }
+.results li.empty { cursor: default; color: var(--text-soft); }
+
+/* ---------- upozornění ---------- */
+
+.notice {
+  margin: 12px 16px 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 12px;
+}
+
+/* ---------- karty ---------- */
+
+main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+
+.card {
+  margin-bottom: 16px; padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin: 0 0 14px;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.place { margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+
+.now-main { display: flex; align-items: center; gap: 18px; }
+.now-icon { font-size: 60px; line-height: 1; }
+.now-temp { font-size: 46px; font-weight: 300; letter-spacing: -.03em; }
+.now-cond { font-size: 17px; }
+.now-feels { margin-top: 2px; font-size: 14px; color: var(--text-soft); }
+
+.details {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px; margin: 18px 0 0;
+  background: var(--line);                  /* mřížka je pozadí, buňky ji překryjí */
+  border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden;
+}
+.details > div { padding: 10px 12px; background: var(--surface); }
+.details dt { font-size: 12px; color: var(--text-soft); }
+.details dd { margin: 2px 0 0; font-size: 16px; font-variant-numeric: tabular-nums; }
+
+.updated { margin: 12px 0 0; font-size: 12px; color: var(--text-soft); }
+
+/* ---------- po hodinách ---------- */
+
+.hours {
+  display: flex; gap: 6px;
+  overflow-x: auto;                          /* vodorovné rolování, ne zalamování */
+  scroll-snap-type: x proximity;
+  margin: 0 -18px; padding: 0 18px 4px;
+}
+.hours::-webkit-scrollbar { height: 0; }
+
+.hour {
+  flex: none; width: 66px;
+  padding: 10px 4px;
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: 12px;
+  scroll-snap-align: start;
+}
+.hour .t { font-size: 12px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.hour .i { display: block; margin: 4px 0; font-size: 22px; }
+.hour .v { font-size: 15px; font-variant-numeric: tabular-nums; }
+.hour .p { margin-top: 2px; font-size: 11px; color: var(--accent); min-height: 15px; }
+
+/* ---------- po dnech ---------- */
+
+.days { list-style: none; margin: 0; padding: 0; }
+.days li {
+  display: grid; grid-template-columns: 1fr auto auto auto;
+  align-items: center; gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.days li:first-child { border-top: 0; }
+.days .d { font-size: 15px; }
+.days .i { font-size: 22px; }
+.days .p { font-size: 12px; color: var(--accent); min-width: 42px; text-align: right; }
+.days .r { font-variant-numeric: tabular-nums; min-width: 96px; text-align: right; }
+.days .lo { color: var(--text-soft); }
+
+/* ---------- pyl ---------- */
+
+.pollen { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pollen li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pollen .lvl {
+  padding: 3px 10px; font-size: 13px; font-weight: 600;
+  border-radius: 999px; background: var(--surface-2);
+}
+.pollen .lvl[data-level="moderate"] { background: #fdf0d5; color: #7a5a12; }
+.pollen .lvl[data-level="high"] { background: #fde3d5; color: #8a3f18; }
+.pollen .lvl[data-level="veryHigh"] { background: #fbd5d5; color: #8a1f1f; }
+
+@media (prefers-color-scheme: dark) {
+  .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
+  .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
+  .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
+}
+
+/* ---------- úvodní obrazovka ---------- */
+
+.splash {
+  display: grid; place-content: center; justify-items: center; gap: 12px;
+  min-height: 60dvh; color: var(--text-soft); text-align: center; padding: 24px;
+}
+.splash[hidden] { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .card { animation: rise .28s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+}

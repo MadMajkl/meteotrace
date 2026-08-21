@@ -99,6 +99,12 @@ export default {
     mugwort: 'Mugwort',
     olive: 'Olive',
     ragweed: 'Ragweed',
+    level: {
+      low: 'Low',
+      moderate: 'Moderate',
+      high: 'High',
+      veryHigh: 'Very high',
+    },
     none: 'No pollen data for this place.',
   },
 

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>MeteoTrace — kontrola rozvržení</title>
+<style>
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; background:#f6f8fa; color:#111; }
+  header { padding:14px 16px; border-bottom:1px solid #d0d7de; background:#fff; }
+  h1 { margin:0 0 4px; font-size:16px; }
+  .muted { color:#57606a; font-size:12px; }
+  #summary { padding:12px 16px; font-weight:700; }
+  .row { display:flex; gap:16px; overflow-x:auto; padding:16px; align-items:flex-start; }
+  .case { flex:none; }
+  .case h2 { margin:0 0 6px; font-size:13px; font-weight:600; }
+  .case .verdict { font-size:12px; font-weight:700; }
+  .ok { color:#1a7f37; } .bad { color:#cf222e; }
+  iframe { border:1px solid #d0d7de; border-radius:8px; background:#fff; display:block; height:760px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Kontrola rozvržení na úzkých displejích</h1>
+  <div class="muted">
+    Appka běží v rámech o skutečné šířce displeje, takže se měří opravdový viewport —
+    ne okno headless prohlížeče. Hlídá se, že <b>nic nepřetéká vodorovně</b>.
+  </div>
+</header>
+
+<div id="summary">Načítám…</div>
+<div class="row" id="cases"></div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   PROČ TENHLE TEST EXISTUJE
+
+   Poučení z Gulpky: pozvánka do Play byla odladěná na Pixelu 7 a vypadala
+   dobře — na iPhonu SE, iPhonu 12/13, Pixelu 5 i Galaxy S20 přitom začínala
+   až za spodní hranou. Jedna šířka displeje nestačí.
+
+   Headless prohlížeč navíc `--window-size` nepromítne spolehlivě do layoutu,
+   takže screenshot může být uříznutý, i když je CSS v pořádku (a naopak).
+   Rám o pevné šířce dá skutečný viewport a odpověď bez dohadů.
+   ────────────────────────────────────────────────────────────── */
+
+// Šířky, na kterých se to musí vejít. 320 = iPhone SE, 360 = Galaxy,
+// 390 = iPhone 12/13, 412 = Pixel, 430 = velké telefony.
+const WIDTHS = [320, 360, 390, 412, 430];
+const APP = '/?lat=50.0755&lon=14.4378&name=Praha&lang=cs';
+
+const cases = document.getElementById('cases');
+const frames = [];
+
+for (const w of WIDTHS) {
+  const box = document.createElement('div');
+  box.className = 'case';
+  box.innerHTML = `<h2>${w} px</h2><div class="verdict" id="v-${w}">…</div>`;
+  const f = document.createElement('iframe');
+  f.width = w;
+  f.src = APP;
+  box.append(f);
+  cases.append(box);
+  frames.push({ w, f });
+}
+
+/** Přeteklo něco vodorovně? Vrací i viníka, ať se nemusí hádat. */
+function overflow(doc) {
+  const root = doc.documentElement;
+  const limit = root.clientWidth;
+  const total = Math.max(root.scrollWidth, doc.body.scrollWidth);
+  if (total <= limit + 1) return null;                    // 1 px na zaokrouhlení
+
+  // Najdi prvek, který sahá nejdál doprava — obvykle to je ten, co to způsobil.
+  let worst = null, worstRight = limit;
+  for (const el of doc.querySelectorAll('body *')) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.right > worstRight + 1) { worstRight = r.right; worst = el; }
+  }
+  return {
+    total, limit,
+    culprit: worst ? `${worst.tagName.toLowerCase()}${worst.className ? '.' + String(worst.className).split(' ')[0] : ''}` : '?',
+    right: Math.round(worstRight),
+  };
+}
+
+async function run() {
+  await Promise.all(frames.map(({ f }) => new Promise((res) => {
+    if (f.contentDocument?.readyState === 'complete') res();
+    else f.addEventListener('load', res, { once: true });
+  })));
+
+  // Nech doběhnout dotazy na data — prázdná stránka nepřeteče nikdy.
+  await new Promise((r) => setTimeout(r, 4000));
+
+  let failed = 0;
+  const results = [];
+  for (const { w, f } of frames) {
+    const cell = document.getElementById('v-' + w);
+    let o;
+    try { o = overflow(f.contentDocument); }
+    catch (e) { cell.textContent = 'nešlo změřit: ' + e.message; cell.className = 'verdict bad'; failed++; results.push({ width: w, ok: false, detail: 'nešlo změřit: ' + e.message }); continue; }
+
+    if (!o) {
+      cell.textContent = '✓ vejde se';
+      cell.className = 'verdict ok';
+      results.push({ width: w, ok: true });
+    } else {
+      cell.textContent = `✕ přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})`;
+      cell.className = 'verdict bad';
+      failed++;
+      results.push({ width: w, ok: false, detail: `přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})` });
+    }
+  }
+
+  // Výsledek si přečte tools/layout-check.mjs přes ladicí protokol.
+  window.__layoutResult = { cases: results };
+
+  const s = document.getElementById('summary');
+  s.textContent = failed
+    ? `✕ ${failed} z ${WIDTHS.length} šířek přetéká.`
+    : `✓ Všech ${WIDTHS.length} šířek se vejde bez vodorovného rolování.`;
+  s.className = failed ? 'bad' : 'ok';
+  document.title = (failed ? 'FAIL' : 'OK') + ' — kontrola rozvržení';
+}
+
+run();
+</script>
+</body>
+</html>
