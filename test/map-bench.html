@@ -13,7 +13,8 @@
   header { padding:10px 12px; border-bottom:1px solid var(--line); }
   h1 { font-size:16px; margin:0 0 6px; }
   .muted { color:#57606a; font-size:12px; }
-  #map { width:100%; height:52vh; background:#e8eaed; }
+  #stage { width:100%; height:52vh; background:#e8eaed; position:relative; }
+  #stage > div { width:100%; height:100%; }
   .bar { display:flex; flex-wrap:wrap; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); }
   button { font:600 15px/1 system-ui, sans-serif; padding:12px 14px; border:1px solid var(--line);
            border-radius:10px; background:#f6f8fa; color:#111; }
@@ -21,7 +22,7 @@
   button.primary { background:#0969da; border-color:#0969da; color:#fff; }
   #status { padding:8px 12px; font-size:13px; min-height:20px; }
   table { border-collapse:collapse; width:100%; font-size:13px; }
-  th, td { border-bottom:1px solid var(--line); padding:7px 12px; text-align:right; }
+  th, td { border-bottom:1px solid var(--line); padding:7px 10px; text-align:right; }
   th:first-child, td:first-child { text-align:left; }
   thead th { background:#f6f8fa; font-size:12px; color:#57606a; }
   .ok{color:var(--ok);font-weight:700} .warn{color:var(--warn);font-weight:700} .bad{color:var(--bad);font-weight:700}
@@ -36,7 +37,8 @@
   <h1>MeteoTrace — test plynulosti mapy</h1>
   <div class="muted">
     Rozhoduje o R1 (PWA vs nativ) a o tom, čím kreslit mapu.
-    Měří se stejná naskriptovaná dráha pro oba renderery, takže jsou výsledky porovnatelné.
+    Každá knihovna dostane stejnou cestu, ale jede ji <b>vlastní animací</b> — tedy tak,
+    jak se mapa chová, když ji odhodíš prstem.
   </div>
 </header>
 
@@ -47,12 +49,12 @@
   <button id="btn-reset">Vymazat výsledky</button>
 </div>
 
-<div id="map"></div>
-<div id="status">Vyber test. Během měření se telefonu nedotýkej.</div>
+<div id="stage"></div>
+<div id="status">Vyber test. Během měření se displeje nedotýkej.</div>
 
 <table>
-  <thead><tr><th>Test</th><th>medián FPS</th><th>nejhorších 5 %</th><th>záseky</th><th>nejdelší snímek</th></tr></thead>
-  <tbody id="results"><tr><td colspan="5" class="muted">zatím nic</td></tr></tbody>
+  <thead><tr><th>Test</th><th>medián FPS</th><th>nejhorších 5 %</th><th>záseky</th><th>nejdelší</th><th>dlaždic</th></tr></thead>
+  <tbody id="results"><tr><td colspan="6" class="muted">zatím nic</td></tr></tbody>
 </table>
 
 <div id="verdict"></div>
@@ -74,14 +76,26 @@
    ⚠️ ZDROJE DLAŽDIC JSOU DOČASNÉ, JEN PRO VÝVOJ.
    V produkci je nahradí vlastní .pmtiles (viz R3). Tady jde
    výhradně o výkon vykreslování, ne o to, čí dlaždice to jsou.
+
+   ⚠️ POUČENÍ Z PRVNÍ VERZE (21. 8. 2026): dráha se NESMÍ hnát
+   tak, že se mapě každý snímek nastaví nová poloha. MapLibre to
+   snese (má vlastní vykreslovací smyčku), ale Leafletu tím
+   pokaždé shodíš a znovu spustíš načítání dlaždic → nenačte se
+   nic a měříš, jak rychle kreslí prázdno. Proto teď každá
+   knihovna jede stejnou cestu SVOJÍ vlastní animací.
    ============================================================ */
 
 const DEV_VECTOR_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const DEV_RASTER_TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 
-const START = { lat: 49.75, lng: 15.35, zoom: 9 };   // střed Čech, ať je co kreslit
-const WARMUP_MS  = 2500;                              // rozjezd, neměří se
-const MEASURE_MS = 12000;                             // vlastní měření
+// Cesta po Čechách: střídá posun i změnu měřítka, ať se kreslí pokaždé něco jiného.
+const LEGS = [
+  { lat: 50.09, lng: 14.42, zoom: 11.0 },   // Praha, blíž
+  { lat: 49.20, lng: 16.61, zoom:  8.5 },   // Brno, dál
+  { lat: 49.94, lng: 15.27, zoom: 12.0 },   // Kutná Hora, těsně
+  { lat: 50.08, lng: 12.37, zoom:  9.0 },   // Cheb, dál
+];
+const LEG_MS = 3500;
 
 let radarOn = true;
 let radarPath = null;
@@ -90,16 +104,16 @@ const results = [];
 
 const $ = (id) => document.getElementById(id);
 const statusEl = $('status');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* ---------- naskriptovaná dráha ----------
-   Oba renderery dostanou v každém snímku přesně stejný střed a zoom,
-   takže dělají stejnou práci. Ruční swipe by nebyl opakovatelný.        */
-function poseAt(tSec) {
-  return {
-    lat:  START.lat + Math.sin(tSec * 0.80) * 0.12,
-    lng:  START.lng + Math.cos(tSec * 0.80) * 0.20,
-    zoom: START.zoom + Math.sin(tSec * 0.35) * 2.2,
-  };
+/* Vždy čerstvý kontejner — po MapLibre zůstávají na prvku třídy a styly,
+   které by Leafletu do vykreslování mluvily. */
+function freshStage() {
+  const stage = $('stage');
+  stage.innerHTML = '';
+  const el = document.createElement('div');
+  stage.appendChild(el);
+  return el;
 }
 
 /* ---------- RainViewer: zjisti nejnovější snímek ---------- */
@@ -115,53 +129,45 @@ async function loadRadarPath() {
 }
 const radarTileUrl = () => radarPath ? radarPath + '/256/{z}/{x}/{y}/2/1_1.png' : null;
 
-/* ---------- měření snímků ---------- */
-function runFrames(applyPose) {
-  return new Promise((resolve) => {
-    const t0 = performance.now();
-    let prev = t0;
-    const gaps = [];
-
-    function tick(now) {
-      const elapsed = now - t0;
-      applyPose(poseAt(elapsed / 1000));
-      if (elapsed > WARMUP_MS) gaps.push(now - prev);
-      prev = now;
-      if (elapsed < WARMUP_MS + MEASURE_MS) requestAnimationFrame(tick);
-      else resolve(gaps);
-    }
+/* ---------- záznam snímků ----------
+   Běží nezávisle na animaci a jen sbírá mezery mezi snímky.        */
+function startRecorder() {
+  const gaps = [];
+  let prev = performance.now();
+  let live = true;
+  (function tick(now) {
+    if (!live) return;
+    gaps.push(now - prev);
+    prev = now;
     requestAnimationFrame(tick);
-  });
+  })(prev);
+  return { gaps, stop() { live = false; } };
 }
 
-function summarize(name, gaps) {
+function summarize(name, gaps, tiles) {
   const s = gaps.slice().sort((a, b) => a - b);
   const at = (p) => s[Math.min(s.length - 1, Math.floor(s.length * p))];
-  const medianMs = at(0.50);
-  const p95Ms    = at(0.95);            // nejhorší snímky = nejvyšší mezera
-  const jank     = gaps.filter((g) => g > 32).length / gaps.length * 100;
   return {
     name,
-    frames:   gaps.length,
-    fpsMedian: 1000 / medianMs,
-    fpsLow:    1000 / p95Ms,
-    jankPct:   jank,
+    fpsMedian: 1000 / at(0.50),
+    fpsLow:    1000 / at(0.95),          // nejhorší snímky = nejdelší mezery
+    jankPct:   gaps.filter((g) => g > 32).length / gaps.length * 100,
     worstMs:   s[s.length - 1],
+    tiles,
   };
 }
 
 /* ---------- varianta 1: vektor přes MapLibre ---------- */
 async function benchVector() {
-  const holder = $('map');
-  holder.innerHTML = '';
   const map = new maplibregl.Map({
-    container: holder,
+    container: freshStage(),
     style: DEV_VECTOR_STYLE,
-    center: [START.lng, START.lat],
-    zoom: START.zoom,
+    center: [LEGS[0].lng, LEGS[0].lat],
+    zoom: LEGS[0].zoom,
     attributionControl: { compact: true },
-    fadeDuration: 0,          // ať se neměří doběh popiskových animací
   });
+  let tiles = 0;
+  map.on('data', (e) => { if (e.dataType === 'source' && e.isSourceLoaded) tiles++; });
 
   await new Promise((res, rej) => {
     map.on('load', res);
@@ -172,32 +178,56 @@ async function benchVector() {
     map.addSource('radar', { type: 'raster', tiles: [radarTileUrl()], tileSize: 256 });
     map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': 0.75 } });
   }
+  await wait(2500);                                    // ať se načte první pohled
 
-  const gaps = await runFrames((p) => map.jumpTo({ center: [p.lng, p.lat], zoom: p.zoom }));
-  const out = summarize('Vektor (MapLibre)' + (radarOn ? ' + radar' : ''), gaps);
+  const rec = startRecorder();
+  for (const leg of LEGS.slice(1).concat(LEGS[0])) {
+    await new Promise((res) => {
+      map.easeTo({ center: [leg.lng, leg.lat], zoom: leg.zoom, duration: LEG_MS, easing: (t) => t });
+      map.once('moveend', res);
+    });
+  }
+  rec.stop();
+
+  const out = summarize('Vektor (MapLibre)' + (radarOn ? ' + radar' : ''), rec.gaps, tiles);
   map.remove();
   return out;
 }
 
 /* ---------- varianta 2: rastr přes Leaflet ---------- */
 async function benchRaster() {
-  const holder = $('map');
-  holder.innerHTML = '';
-  const map = L.map(holder, {
-    center: [START.lat, START.lng],
-    zoom: START.zoom,
-    zoomSnap: 0,              // povol zlomkový zoom, ať je dráha stejná jako u vektoru
-    zoomAnimation: false,
-    fadeAnimation: false,
+  const map = L.map(freshStage(), {
+    center: [LEGS[0].lat, LEGS[0].lng],
+    zoom: LEGS[0].zoom,
+    zoomSnap: 0,                                       // zlomkový zoom, ať je cesta stejná
     attributionControl: true,
   });
-  L.tileLayer(DEV_RASTER_TILES, { maxZoom: 19, attribution: '© OpenStreetMap, © CARTO' }).addTo(map);
+
+  let tiles = 0, failed = 0;
+  const base = L.tileLayer(DEV_RASTER_TILES, { maxZoom: 19, attribution: '© OpenStreetMap, © CARTO' });
+  base.on('tileload', () => tiles++);
+  base.on('tileerror', () => failed++);
+  base.addTo(map);
   if (radarOn && radarTileUrl()) L.tileLayer(radarTileUrl(), { opacity: 0.75 }).addTo(map);
 
-  await new Promise((r) => setTimeout(r, 1200));   // ať se stihne první sada dlaždic
+  // Počkej, až se první pohled opravdu vykreslí — jinak bys měřil prázdnou mapu.
+  await Promise.race([
+    new Promise((res) => base.once('load', res)),
+    wait(8000),
+  ]);
+  await wait(600);
 
-  const gaps = await runFrames((p) => map.setView([p.lat, p.lng], p.zoom, { animate: false }));
-  const out = summarize('Rastr (Leaflet)' + (radarOn ? ' + radar' : ''), gaps);
+  const rec = startRecorder();
+  for (const leg of LEGS.slice(1).concat(LEGS[0])) {
+    await new Promise((res) => {
+      map.flyTo([leg.lat, leg.lng], leg.zoom, { duration: LEG_MS / 1000, easeLinearity: 1 });
+      map.once('moveend', res);
+    });
+  }
+  rec.stop();
+
+  if (!tiles) statusEl.textContent = '⚠️ Nenačetla se ANI JEDNA dlaždice (' + failed + ' chyb) — čísla neplatí.';
+  const out = summarize('Rastr (Leaflet)' + (radarOn ? ' + radar' : ''), rec.gaps, tiles);
   map.remove();
   return out;
 }
@@ -207,7 +237,7 @@ const cls = (v, good, ok) => v >= good ? 'ok' : (v >= ok ? 'warn' : 'bad');
 
 function render() {
   const tb = $('results');
-  if (!results.length) { tb.innerHTML = '<tr><td colspan="5" class="muted">zatím nic</td></tr>'; $('verdict').textContent = ''; return; }
+  if (!results.length) { tb.innerHTML = '<tr><td colspan="6" class="muted">zatím nic</td></tr>'; $('verdict').textContent = ''; return; }
 
   tb.innerHTML = results.map((r) => `
     <tr>
@@ -216,10 +246,15 @@ function render() {
       <td class="${cls(r.fpsLow, 30, 20)}">${r.fpsLow.toFixed(0)}</td>
       <td class="${r.jankPct < 5 ? 'ok' : (r.jankPct < 15 ? 'warn' : 'bad')}">${r.jankPct.toFixed(1)} %</td>
       <td>${r.worstMs.toFixed(0)} ms</td>
+      <td class="${r.tiles ? '' : 'bad'}">${r.tiles}</td>
     </tr>`).join('');
 
   // Verdikt čte nejhorších 5 % — průměr klame, uživatel vnímá právě záseky.
-  const best = results.reduce((a, b) => (b.fpsLow > a.fpsLow ? b : a));
+  // Výsledek bez jediné dlaždice se do verdiktu nepočítá (měřilo by se prázdno).
+  const valid = results.filter((r) => r.tiles > 0);
+  if (!valid.length) { $('verdict').innerHTML = '⚠️ Žádný platný výsledek — nenačetly se dlaždice.'; return; }
+
+  const best = valid.reduce((a, b) => (b.fpsLow > a.fpsLow ? b : a));
   let v;
   if (best.fpsLow >= 30)      v = '✅ Plynulé. R1 (PWA) platí — nejlépe dopadl: ' + best.name;
   else if (best.fpsLow >= 20) v = '⚠️ Hraniční. Použitelné, ale je znát. Nejlépe: ' + best.name + '. Zvážit nativ.';
@@ -228,15 +263,18 @@ function render() {
 }
 
 /* ---------- obsluha ---------- */
+const RUN_S = Math.round((LEGS.length * LEG_MS) / 1000);
+
 async function run(kind) {
   if (busy) return;
   busy = true;
   document.querySelectorAll('button').forEach((b) => b.disabled = true);
-  statusEl.textContent = 'Měřím ' + (kind === 'vector' ? 'vektor' : 'rastr') +
-                         '… ' + ((WARMUP_MS + MEASURE_MS) / 1000) + ' s. Nedotýkej se displeje.';
+  statusEl.textContent = 'Načítám mapu…';
   try {
+    statusEl.textContent = 'Měřím ' + (kind === 'vector' ? 'vektor' : 'rastr') +
+                           '… ~' + RUN_S + ' s. Nedotýkej se displeje.';
     results.push(kind === 'vector' ? await benchVector() : await benchRaster());
-    statusEl.textContent = 'Hotovo.';
+    if (!statusEl.textContent.startsWith('⚠️')) statusEl.textContent = 'Hotovo.';
   } catch (e) {
     statusEl.textContent = 'Test spadl: ' + e.message;
   }
@@ -261,7 +299,7 @@ function deviceInfo() {
     if (c.getContext('webgl2')) gl = 'WebGL2';
     else if (c.getContext('webgl')) gl = 'WebGL1';
   } catch (e) { /* nevadí */ }
-  const isWebView = /; wv\)/.test(navigator.userAgent) || /Version\/[\d.]+ Chrome/.test(navigator.userAgent);
+  const isWebView = /; wv\)/.test(navigator.userAgent);
   return [
     'Prostředí: ' + (isWebView ? 'WebView (v appce)' : 'prohlížeč'),
     'Displej: ' + screen.width + '×' + screen.height + ' @ DPR ' + (devicePixelRatio || 1),
