@@ -1,0 +1,29 @@
+# Nástroje a IDE
+.claude/
+.idea/
+.vscode/
+.tmp-shot/
+*.bak
+*.bak2
+
+# Android — generované výstupy a lokální konfigurace
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+
+# ⚠️ Podpisový klíč a hesla NIKDY do gitu (vzor: Gulpka)
+android/keystore.properties
+*.jks
+*.keystore
+
+# Node (jen nástroje, samotná appka běží bez build kroku)
+node_modules/
+
+# Vlastní mapové dlaždice — velké binární soubory, negenerují se z repa (viz R3)
+*.pmtiles
+
+# Systém
+Thumbs.db
+.DS_Store
