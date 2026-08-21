@@ -1,0 +1,15 @@
+{
+  "name": "meteotrace",
+  "version": "0.0.1",
+  "description": "Počasí na trase — v bodech cesty v čase, kdy tam skutečně dorazíš.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "selftest": "npm run selftest:logic",
+    "selftest:logic": "node --test test/selftest-logic.mjs",
+    "serve": "node test/serve.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

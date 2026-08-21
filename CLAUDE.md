@@ -9,11 +9,11 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `meteotrace-rozhodnuti.md` | **Záznam rozhodnutí R0–R10 i s důvody. Čti jako první.** |
-| `meteotrace-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
-| `meteotrace-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R10 i s důvody. Čti jako první.** |
+| `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
+| `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
-**Bez přečtení `meteotrace-rozhodnuti.md` hrozí, že znovu otevřeš rozhodnutí, které už
+**Bez přečtení `02-rozhodnuti.md` hrozí, že znovu otevřeš rozhodnutí, které už
 padlo** — hlavně název (R9), PWA vs nativ (R1), proč ne Mapy.cz (R4) a proč se nestaví
 vlastní předpověď (R5).
 
