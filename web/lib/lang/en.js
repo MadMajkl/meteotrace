@@ -112,6 +112,8 @@ export default {
     title: 'Rain radar',
     play: 'Play',
     pause: 'Pause',
+    observed: 'Measured',
+    nowcast: 'Forecast',
   },
 
   settings: {

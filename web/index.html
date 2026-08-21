@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>MeteoTrace</title>
 <meta name="description" content="Weather along your route — at every point, at the time you actually get there.">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -54,6 +55,16 @@
     <p class="updated" id="now-updated"></p>
   </section>
 
+  <section class="card map-card" aria-labelledby="h-radar">
+    <h2 id="h-radar" data-i18n="radar.title"></h2>
+    <div id="map" class="map"></div>
+    <div class="radar-bar">
+      <button id="radar-play" class="icon-btn" type="button" aria-label="Play">▶</button>
+      <span id="radar-time" class="radar-time"></span>
+      <span id="radar-kind" class="radar-kind"></span>
+    </div>
+  </section>
+
   <section class="card" aria-labelledby="h-hourly">
     <h2 id="h-hourly" data-i18n="forecast.hourly"></h2>
     <div class="hours" id="hours"></div>
@@ -76,6 +87,7 @@
   <p id="splash-text"></p>
 </div>
 
+<script src="vendor/maplibre-gl.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,20 +1,41 @@
 /**
  * Most do headless Chromu přes ladicí protokol (CDP).
  *
- * ⚠️ ŽÁDNÉ ZÁVISLOSTI. Node 22+ má `WebSocket` vestavěný, takže se nic
- * neinstaluje — a `fetch` taky. Puppeteer by sem přitáhl stovky megabajtů
- * a vlastní binárku prohlížeče; my použijeme ten Chrome, co v systému
- * stejně je (`R0`).
+ * ⚠️ ŽÁDNÉ ZÁVISLOSTI. Node 22+ má `WebSocket` i `fetch` vestavěné, takže se
+ * nic neinstaluje. Puppeteer by sem přitáhl stovky megabajtů a vlastní
+ * binárku prohlížeče; my použijeme ten Chrome, co v systému stejně je (`R0`).
  *
- * ⚠️ CHYTÁK, KTERÝ STÁL ČAS: `--dump-dom` v téhle verzi Chromu vrací
- *    NULA BAJTŮ. Vypadá to, že se nic nenačetlo, ale načetlo — jen ten
- *    přepínač nefunguje. Proto se čte přes CDP, ne z výstupu příkazu.
+ * ────────────────────────────────────────────────────────────────────────
+ * 🚨 TŘI CHYTÁKY, KTERÉ STÁLY VEČER LADĚNÍ. Každý z nich vypadal jako chyba
+ *    v aplikaci, a přitom byl v tomhle nástroji.
+ *
+ * 1. ADRESA SE NEPŘEDÁVÁ NA PŘÍKAZOVÉ ŘÁDCE.
+ *    Kdo Chrome spustí rovnou s URL, připojí se k cíli, který ještě drží
+ *    PRÁZDNOU stránku před navigací. `1+1` tam vyjde, ale `document` je
+ *    prázdný a knihovny `undefined`. A pojistka „počkej na readyState"
+ *    NEPOMŮŽE: prázdná stránka je `complete` okamžitě.
+ *    Proto se startuje na `about:blank`, naváže spojení a teprve pak se
+ *    naviguje přes `Page.navigate` a čeká na `Page.loadEventFired`.
+ *
+ * 2. LADICÍ PORT MUSÍ BÝT VOLNÝ, JINAK SE PŘIPOJÍŠ K CIZÍMU PROHLÍŽEČI.
+ *    Zbylý Chrome z minulého běhu port drží, nový se na něj nenaváže —
+ *    a nástroj se tiše připojí k tomu starému. Pak se měří úplně jiná
+ *    stránka. Proto se port hledá dynamicky.
+ *
+ * 3. `Page.captureScreenshot` BEZ `Page.enable` vrátí prázdno bez chyby.
+ *    A `--screenshot` s `--virtual-time-budget` na stránce s nekonečnou
+ *    animací (radar) nevyrobí nic — v zrychleném čase se smyčka protočí
+ *    donekonečna. Proto se fotí přes protokol ve skutečném čase.
+ *
+ * Bonus: `--dump-dom` v téhle verzi Chromu vrací nula bajtů.
+ * ────────────────────────────────────────────────────────────────────────
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
 
 const CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -31,78 +52,146 @@ export function findChrome() {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Volný port — viz chyták 2. */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.on('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+/* ============================================================
+   RELACE
+   ============================================================ */
+
 /**
- * Otevře stránku, počká na výsledek a vrátí, co vyhodnotí `readResult`.
+ * Otevře prohlížeč, nanaviguje na adresu a předá relaci obsluze.
  *
  * @param {string} url
- * @param {string} readResult   JS vyhodnocený ve stránce; smí vracet Promise
+ * @param {(session: {send: Function, eval: Function}) => Promise<any>} work
  * @param {object} [opts]
- * @param {number} [opts.timeoutMs]
- * @param {number} [opts.port]
- * @returns {Promise<any>}
  */
-export async function evaluateInPage(url, readResult, opts = {}) {
-  const port = opts.port || 9333;
-  const timeoutMs = opts.timeoutMs || 45000;
-  // Vlastní dočasný profil — jinak by se headless připojil k běžícímu Chromu
-  // uživatele a ladicí port by vůbec neotevřel.
+export async function withPage(url, work, opts = {}) {
+  const port = await freePort();
+  const timeoutMs = opts.timeoutMs || 60000;
+  // Vlastní dočasný profil — bez něj se headless připojí k běžícímu Chromu
+  // uživatele a ladicí port vůbec neotevře.
   const profile = mkdtempSync(join(tmpdir(), 'mt-chrome-'));
 
-  const chrome = spawn(findChrome(), [
-    '--headless=new', '--disable-gpu', '--no-sandbox',
+  const args = [
+    '--headless=new', '--no-sandbox', '--hide-scrollbars',
+    '--no-first-run', '--no-default-browser-check',
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
-    '--no-first-run', '--no-default-browser-check',
-    url,
-  ], { stdio: 'ignore' });
+    `--window-size=${opts.width || 900},${opts.height || 1400}`,
+  ];
+  // WebGL (mapa) potřebuje softwarové vykreslování; s --disable-gpu se
+  // MapLibre vůbec nespustí.
+  if (opts.webgl !== false) args.push('--use-angle=swiftshader', '--enable-unsafe-swiftshader');
+  args.push('about:blank');                       // ⚠️ viz chyták 1
+
+  const chrome = spawn(findChrome(), args, { stdio: 'ignore' });
+  let ws = null;
 
   try {
-    const target = await waitForTarget(port, url, timeoutMs);
-    return await runOnTarget(target.webSocketDebuggerUrl, readResult, timeoutMs);
+    const target = await waitForBlankTarget(port, timeoutMs);
+    ws = new WebSocket(target.webSocketDebuggerUrl);
+    const session = await openSession(ws, timeoutMs);
+
+    await session.send('Page.enable');
+    const loaded = session.once('Page.loadEventFired', timeoutMs);
+    await session.send('Page.navigate', { url });
+    await loaded;                                  // teprve teď existuje stránka
+
+    return await work(session);
   } finally {
+    try { ws?.close(); } catch { /* už zavřené */ }
     chrome.kill();
     try { rmSync(profile, { recursive: true, force: true }); } catch { /* uklidí se příště */ }
   }
 }
 
-async function waitForTarget(port, url, timeoutMs) {
+async function waitForBlankTarget(port, timeoutMs) {
   const until = Date.now() + timeoutMs;
   while (Date.now() < until) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      const page = list.find((t) => t.type === 'page' && t.url.startsWith(url.split('?')[0]));
+      const page = list.find((t) => t.type === 'page');
       if (page?.webSocketDebuggerUrl) return page;
     } catch { /* prohlížeč ještě nenaběhl */ }
-    await wait(150);
+    await wait(120);
   }
   throw new Error('Chrome neotevřel ladicí port včas.');
 }
 
-function runOnTarget(wsUrl, expression, timeoutMs) {
+function openSession(ws, defaultTimeout) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
-    const timer = setTimeout(() => { ws.close(); reject(new Error('Vypršel čas na výsledek.')); }, timeoutMs);
-
-    ws.addEventListener('open', () => {
-      ws.send(JSON.stringify({
-        id: 1,
-        method: 'Runtime.evaluate',
-        params: { expression, awaitPromise: true, returnByValue: true },
-      }));
-    });
+    const pending = new Map();
+    const waiters = new Map();
+    let nextId = 1;
 
     ws.addEventListener('message', (ev) => {
       const msg = JSON.parse(ev.data);
-      if (msg.id !== 1) return;
-      clearTimeout(timer);
-      ws.close();
-      if (msg.result?.exceptionDetails) {
-        reject(new Error(msg.result.exceptionDetails.text || 'Chyba ve stránce'));
-      } else {
-        resolve(msg.result?.result?.value);
+      if (msg.id && pending.has(msg.id)) {
+        const { res, rej } = pending.get(msg.id);
+        pending.delete(msg.id);
+        msg.error ? rej(new Error(msg.error.message)) : res(msg.result);
+      } else if (msg.method && waiters.has(msg.method)) {
+        waiters.get(msg.method)();
+        waiters.delete(msg.method);
       }
     });
+    ws.addEventListener('error', () => reject(new Error('Spojení s prohlížečem selhalo.')));
 
-    ws.addEventListener('error', () => { clearTimeout(timer); reject(new Error('Spojení s prohlížečem selhalo.')); });
+    ws.addEventListener('open', () => resolve({
+      send: (method, params) => new Promise((res, rej) => {
+        const id = nextId++;
+        pending.set(id, { res, rej });
+        ws.send(JSON.stringify({ id, method, params }));
+      }),
+
+      once: (event, timeoutMs = defaultTimeout) => new Promise((res, rej) => {
+        const timer = setTimeout(() => rej(new Error(`Událost ${event} nedorazila.`)), timeoutMs);
+        waiters.set(event, () => { clearTimeout(timer); res(); });
+      }),
+
+      /** Vyhodnotí výraz ve stránce; smí vracet Promise. */
+      async eval(expression) {
+        const out = await this.send('Runtime.evaluate', {
+          expression, awaitPromise: true, returnByValue: true,
+        });
+        if (out.exceptionDetails) {
+          throw new Error(out.exceptionDetails.text || 'Chyba ve stránce');
+        }
+        return out.result?.value;
+      },
+    }));
   });
+}
+
+/* ============================================================
+   HOTOVÉ ÚLOHY
+   ============================================================ */
+
+/** Otevře stránku a vrátí, co vyhodnotí výraz. */
+export function evaluateInPage(url, expression, opts = {}) {
+  return withPage(url, (s) => s.eval(expression), opts);
+}
+
+/** Uloží snímek stránky. */
+export function screenshot(url, outPath, opts = {}) {
+  return withPage(url, async (s) => {
+    // Nech stránku dojít do stavu, který chceme vyfotit.
+    if (opts.waitFor) await s.eval(opts.waitFor);
+    const { data } = await s.send('Page.captureScreenshot', {
+      format: 'png', captureBeyondViewport: opts.fullPage !== false,
+    });
+    if (!data) throw new Error('Prohlížeč snímek nevrátil.');
+    writeFileSync(outPath, Buffer.from(data, 'base64'));
+    return outPath;
+  }, opts);
 }

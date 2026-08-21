@@ -224,3 +224,34 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   .card { animation: rise .28s ease both; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 }
+
+/* ---------- mapa s radarem ---------- */
+
+.map-card { padding-bottom: 12px; }
+
+.map {
+  height: 320px;
+  border-radius: 12px;
+  overflow: hidden;                 /* jinak rohy dlaždic přečuhují přes zaoblení */
+  background: var(--surface-2);
+}
+
+.radar-bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.radar-bar .icon-btn { width: 40px; height: 40px; font-size: 15px; }
+
+.radar-time {
+  font-size: 17px; font-weight: 600;
+  font-variant-numeric: tabular-nums;   /* ať čísla při animaci neposkakují */
+}
+
+.radar-kind {
+  padding: 3px 9px; font-size: 12px; font-weight: 600;
+  border-radius: 999px;
+  background: var(--surface-2); color: var(--text-soft);
+}
+/* Dopočet musí být poznat — odhad se nesmí tvářit jako naměřený stav. */
+.radar-kind[data-forecast="true"] { background: var(--accent-soft); color: var(--accent); }
+
+/* MapLibre si nese vlastní barvy; srovnat je s motivem appky. */
+.maplibregl-ctrl-attrib { font-size: 10px; }
+.maplibregl-ctrl-group { border-radius: 10px !important; overflow: hidden; }

@@ -12,6 +12,9 @@ import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
+// Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
+// nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
+let mapModule = null;
 
 const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
@@ -219,12 +222,36 @@ function render(forecast, air) {
     el('span', 'r', [document.createTextNode(d.hi + ' '), el('span', 'lo', d.lo)]),
   ]));
 
+  showRadar(view.timeZone);
+
   $('pollen-card').hidden = view.pollen.length === 0;
   fill($('pollen'), view.pollen, (p) => {
     const level = el('span', 'lvl', p.levelText);
     level.dataset.level = p.level;            // barvu odznaku řídí CSS podle stupně
     return el('li', '', [el('span', '', p.name), level]);
   });
+}
+
+/**
+ * Mapa s radarem. Načte se až teď, ne při startu appky.
+ * Selhání mapy nesmí shodit zbytek obrazovky — počasí je důležitější.
+ */
+async function showRadar(timeZone) {
+  // ?nomap=1 mapu vynechá. Používá to test rozvržení: pět rámů, každý
+  // s vlastním MapLibre a WebGL, by stránku přetížilo — a rozvržení se
+  // na mapě stejně neměří, je to div s pevnou výškou.
+  if (new URLSearchParams(location.search).get('nomap') === '1') {
+    document.querySelector('.map-card')?.remove();
+    return;
+  }
+  try {
+    mapModule ??= await import('./map.js');
+    await mapModule.showMap({
+      lat: state.place.lat, lon: state.place.lon, lang: state.lang, timeZone,
+    });
+  } catch (e) {
+    console.warn('[MeteoTrace] mapa se nenačetla:', e.message);
+  }
 }
 
 /* ---------- drobné pomůcky nad DOM ---------- */

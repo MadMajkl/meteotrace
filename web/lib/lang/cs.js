@@ -113,6 +113,8 @@ export default {
     title: 'Srážkový radar',
     play: 'Přehrát',
     pause: 'Zastavit',
+    observed: 'Naměřeno',
+    nowcast: 'Dopočet',
   },
 
   settings: {

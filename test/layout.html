@@ -46,7 +46,9 @@
 // Šířky, na kterých se to musí vejít. 320 = iPhone SE, 360 = Galaxy,
 // 390 = iPhone 12/13, 412 = Pixel, 430 = velké telefony.
 const WIDTHS = [320, 360, 390, 412, 430];
-const APP = '/?lat=50.0755&lon=14.4378&name=Praha&lang=cs';
+// nomap=1: bez mapy. Pět rámů s vlastním MapLibre a WebGL by stránku
+// přetížilo a rozvržení se na mapě neměří (div s pevnou výškou).
+const APP = '/?lat=50.0755&lon=14.4378&name=Praha&lang=cs&nomap=1';
 
 const cases = document.getElementById('cases');
 const frames = [];
