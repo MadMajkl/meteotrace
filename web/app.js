@@ -14,7 +14,7 @@ import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
-  findNearby, placeKey,
+  findNearby, savedAs,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
@@ -39,6 +39,7 @@ const state = {
   units: null,
   place: null,          // {name, country, lat, lon}
   places: emptyStore(), // uložená místa a trasy
+  banner: null,         // trvalé sdělení o stavu appky, viz notice()
 };
 
 /* ============================================================
@@ -87,8 +88,12 @@ function loadPlaces() {
  * přepsaný seznam — a to je horší než neuložit nic.
  */
 function persistPlaces() {
+  // ⚠️ Ticho je tu schválně. Zápis se volá i při pouhém přepnutí místa
+  // (`touchPlace`), což si uživatel nevyžádal — a hláška o tom, že se
+  // nepovedlo něco, oč nežádal, je jen šum. Že se v režimu jen pro čtení
+  // ukládat nedá, se říká jednou při startu (viz `init`).
   const text = serializeStore(state.places);
-  if (text === null) { notice(t('places.readOnly', state.lang)); return false; }
+  if (text === null) return false;
   try {
     localStorage.setItem(PLACES_KEY, text);
     return true;
@@ -117,17 +122,28 @@ function renderSaved() {
   const list = state.places.places;
   $('saved').hidden = list.length === 0;
 
+  const current = state.place ? findNearby(state.places, state.place) : null;
+
   // Hvězdička dává smysl, jen když je co uložit.
   const btn = $('btn-save');
-  const saved = !!state.place && !!findNearby(state.places, state.place);
   btn.disabled = !state.place || state.places.readOnly;
-  btn.textContent = saved ? '★' : '☆';
-  btn.setAttribute('aria-pressed', String(saved));
-  const label = t(saved ? 'places.remove' : 'places.save', state.lang);
+  btn.textContent = current ? '★' : '☆';
+  btn.setAttribute('aria-pressed', String(!!current));
+
+  // 🚨 Když hvězdička odebírá NĚCO JINÉHO, než co je na obrazovce, musí to
+  // být na ní vidět. Jinak klepnutí u „Karlína" smaže uloženou „Prahu"
+  // o sto dvacet metrů dál a uživatel se nedozví ani co, ani proč.
+  const other = state.place ? savedAs(state.places, state.place) : null;
+  const label = current
+    ? (other ? tf('places.removeNamed', { name: other.name }, state.lang)
+             : t('places.remove', state.lang))
+    : t('places.save', state.lang);
   btn.title = label;
   btn.setAttribute('aria-label', label);
 
-  const current = state.place ? findNearby(state.places, state.place) : null;
+  const hint = $('saved-as');
+  hint.hidden = !other;
+  hint.textContent = other ? tf('places.alreadySaved', { name: other.name }, state.lang) : '';
 
   fill($('saved-list'), list, (p) => {
     const li = document.createElement('li');
@@ -364,10 +380,19 @@ function fill(parent, items, build) {
   for (const item of items) parent.append(build(item));
 }
 
+/**
+ * Pruh s upozorněním.
+ *
+ * ⚠️ `state.banner` je trvalé sdělení o stavu appky (třeba že se uložená
+ * místa nedají měnit). Chvilkové hlášky ho smějí překrýt, ale `notice(null)`
+ * ho vrátí — jinak by ho první načtení stanice smazalo a uživatel by se
+ * o stavu appky dozvěděl jen na zlomek vteřiny při startu.
+ */
 function notice(text) {
   const n = $('notice');
-  n.textContent = text || '';
-  n.hidden = !text;
+  const msg = text || state.banner || '';
+  n.textContent = msg;
+  n.hidden = !msg;
 }
 
 function humanAge(seconds) {
@@ -413,6 +438,14 @@ function init() {
 
   applyI18n();
   renderSaved();
+
+  // 🚨 Řekni to hned, ne až při pokusu o zápis. Hvězdička je v tomhle režimu
+  // vypnutá, takže žádné klepnutí nepřijde a hláška vázaná na zápis by se
+  // nikdy nezobrazila. Stav je výjimečný, tak si pruh zaslouží.
+  if (state.places.readOnly) {
+    state.banner = t('places.readOnly', state.lang);
+    notice(null);
+  }
 
   $('search-input').addEventListener('input', (e) => onSearchInput(e.target.value));
   $('search-form').addEventListener('submit', (e) => e.preventDefault());

@@ -71,7 +71,7 @@ tohle je jen shrnutí.**
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
 | Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
 
-**219 kontrol, všechny zelené.** Commity **nejsou pushnuté** (čeká na svolení).
+**223 kontrol, všechny zelené.** Commity **nejsou pushnuté** (čeká na svolení).
 
 ### ⛔ Co blokuje pokračování
 

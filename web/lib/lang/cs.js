@@ -33,9 +33,11 @@ export default {
     saved: 'Uložená místa',
     save: 'Uložit tohle místo',
     remove: 'Odebrat z uložených',
+    removeNamed: 'Odebrat „{name}“ z uložených',
     empty: 'Hvězdičkou si sem místo uložíš.',
     full: 'Seznam byl plný, uvolnilo se nejméně používané místo.',
-    readOnly: 'Uložená místa pocházejí z novější verze appky a tady se měnit nedají.',
+    readOnly: 'Uložená místa pocházejí z novější verze appky, tady se měnit nedají. Po zavření a otevření appky by to mělo být v pořádku.',
+    alreadySaved: 'Uložené už jako „{name}“.',
   },
 
   now: {

@@ -13,7 +13,7 @@ import {
   placeKey, routeKey, normalizePlace, cleanName,
   emptyStore, parseStore, serializeStore,
   savePlace, saveRoute, forgetPlace, forgetRoute,
-  renamePlace, touchPlace, isSaved, findPlace, findRoute, findNearby,
+  renamePlace, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
   SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
 } from '../web/lib/places.js';
 
@@ -202,6 +202,33 @@ test('přejmenování: prázdné jméno se neuloží jako prázdné', () => {
 });
 
 /* ============================================================
+   SLUČOVÁNÍ SE MUSÍ DÁT VYSVĚTLIT
+   ============================================================ */
+
+test('🚨 pokrytí jiným jménem se hlásí — jinak je hvězdička past', () => {
+  // Kdo si uloží „Prahu" a otevře „Karlín" o 120 m dál, uvidí rozsvícenou
+  // hvězdičku u místa, které nikdy neukládal — a klepnutím smaže Prahu.
+  const store = savePlace(emptyStore(), PRAHA, 1000).store;
+  const karlin = { name: 'Karlín', lat: PRAHA.lat + 0.0011, lon: PRAHA.lon };
+
+  assert.equal(isSaved(store, karlin), true, 'hvězdička svítí');
+  assert.equal(savedAs(store, karlin).name, 'Praha', 'a musí se říct proč');
+});
+
+test('shodné jméno se nehlásí — není co vysvětlovat', () => {
+  const store = savePlace(emptyStore(), PRAHA, 1000).store;
+  assert.equal(savedAs(store, { name: 'Praha', lat: PRAHA.lat + 0.0008, lon: PRAHA.lon }), null);
+  assert.equal(savedAs(store, { name: 'praha', lat: PRAHA.lat, lon: PRAHA.lon }), null,
+    'velikost písmen nerozhoduje');
+});
+
+test('vzdálené místo se nehlásí jako pokryté', () => {
+  const store = savePlace(emptyStore(), PRAHA, 1000).store;
+  assert.equal(savedAs(store, BRNO), null);
+  assert.equal(savedAs(store, { name: 'X', lat: 'nesmysl' }), null);
+});
+
+/* ============================================================
    STROP A VYHAZOVÁNÍ
    ============================================================ */
 
@@ -347,6 +374,20 @@ test('starší verze schématu se načte a povýší', () => {
   assert.equal(store.readOnly, false);
   assert.equal(store.version, SCHEMA_VERSION);
   assert.equal(store.places.length, 1);
+});
+
+test('🚨 povýšení nesmí ztratit ani jedno místo', () => {
+  // Až přibude verze 2, musí sem přibýt krok v MIGRATIONS a test k němu.
+  // Tenhle test hlídá pravidlo samo: co bylo uložené, to po povýšení zůstává.
+  const before = [PRAHA, BRNO, { name: 'Wien', lat: 48.2082, lon: 16.3719 }];
+  for (const version of [0, 1, undefined]) {
+    const store = parseStore(JSON.stringify({ version, places: before }));
+    assert.deepEqual(
+      store.places.map((p) => p.name),
+      ['Praha', 'Brno', 'Wien'],
+      `verze ${version}`,
+    );
+  }
 });
 
 test('chybějící verze se bere jako současná', () => {

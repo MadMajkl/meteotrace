@@ -181,12 +181,40 @@ export function parseStore(text) {
     };
   }
 
+  const current = migrate(data, version);
+
   return {
     version: SCHEMA_VERSION,
-    places: readList(data.places, readPlace).slice(0, MAX_PLACES),
-    routes: readList(data.routes, readRoute).slice(0, MAX_ROUTES),
+    places: readList(current.places, readPlace).slice(0, MAX_PLACES),
+    routes: readList(current.routes, readRoute).slice(0, MAX_ROUTES),
     readOnly: false,
   };
+}
+
+/**
+ * Povýšení starších dat na současný tvar.
+ *
+ * 🚨 PRAVIDLO: KAŽDÁ ZMĚNA `SCHEMA_VERSION` MUSÍ PŘIDAT KROK SEM A TEST K NĚMU.
+ *    Tohle je jediné místo v appce, kde se dá uživateli nenávratně zničit
+ *    seznam, který skládal rok — a pozná se to až u něj na telefonu, dávno
+ *    po vydání. Krok, který si neví rady, ať RADŠI ZÁZNAM VYNECHÁ, než aby
+ *    ho přepsal odhadem: chybějící místo si uživatel uloží znovu, přepsané
+ *    špatnými souřadnicemi ho pošle koukat na počasí jinam.
+ *
+ * Kroky se řetězí: `1` povýší z verze 0 na 1, `2` z 1 na 2 a tak dál.
+ * Zatím není co povyšovat — schéma je od začátku ve verzi 1.
+ *
+ * @type {Record<number, (data: object) => object>}
+ */
+const MIGRATIONS = {};
+
+function migrate(data, from) {
+  let out = data;
+  for (let v = from + 1; v <= SCHEMA_VERSION; v++) {
+    const step = MIGRATIONS[v];
+    if (step) out = step(out);
+  }
+  return out;
 }
 
 /**
@@ -407,6 +435,29 @@ export function isSaved(store, placeOrKey) {
   if (typeof placeOrKey === 'string') return store.places.some((p) => p.key === placeOrKey);
   return !!findNearby(store, placeOrKey);
 }
+
+/**
+ * Uložené místo, které tohle místo POKRÝVÁ POD JINÝM JMÉNEM — jinak `null`.
+ *
+ * 🚨 BEZ TOHOHLE JE HVĚZDIČKA PAST. Kdo si uloží „Prahu" a pak si otevře
+ *    „Karlín" o sto dvacet metrů dál, uvidí rozsvícenou hvězdičku u místa,
+ *    které nikdy neukládal — a klepnutím smaže Prahu, aniž by její jméno
+ *    kdekoli padlo. Slučování je samo o sobě správně (dva body sto metrů
+ *    od sebe mají v předpovědi TOTOŽNÉ počasí, druhá položka by nic
+ *    nepřidala), ale musí se o něm říct nahlas.
+ *
+ * Shodné jméno se nehlásí — tam není co vysvětlovat.
+ */
+export function savedAs(store, raw) {
+  const place = normalizePlace(raw);
+  if (!place) return null;
+  const near = findNearby(store, place);
+  if (!near) return null;
+  return sameName(near.name, place.name) ? null : near;
+}
+
+/** Velikost písmen nerozhoduje: „praha" a „Praha" je totéž jméno. */
+const sameName = (a, b) => String(a).toLocaleLowerCase() === String(b).toLocaleLowerCase();
 
 export function findPlace(store, key) {
   return store.places.find((p) => p.key === key) || null;

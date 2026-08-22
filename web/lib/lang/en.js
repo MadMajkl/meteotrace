@@ -30,9 +30,11 @@ export default {
     saved: 'Saved places',
     save: 'Save this place',
     remove: 'Remove from saved',
+    removeNamed: 'Remove “{name}” from saved',
     empty: 'Tap the star to keep a place here.',
     full: 'The list was full, so the least used place made way.',
-    readOnly: 'Saved places come from a newer version of the app and cannot be changed here.',
+    readOnly: 'Saved places come from a newer version of the app, so they cannot be changed here. Reopening the app should sort it out.',
+    alreadySaved: 'Already saved as “{name}”.',
   },
 
   now: {
