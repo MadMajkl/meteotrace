@@ -74,7 +74,7 @@ tohle je jen shrnutí.**
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 
-**289 kontrol, všechny zelené.** **17 commitů NENÍ pushnutých** (čeká na výslovné svolení).
+**289 kontrol, všechny zelené.** **Vše pushnuto** (22. 8. 2026, `f1a9384`). Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 
