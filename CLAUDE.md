@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R11 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R12 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -35,7 +35,8 @@ a vyměnitelná konfigurací**, ne přepisem.
 - **Android = tenký WebView obal.** Jeden zdroj pravdy jsou webové soubory v rootu repa;
   po každé změně sync do `android/app/src/main/assets/www/`.
   **Nikdy needituj kopie v `assets/www/` ani v `build/`.**
-- **Klient nikdy nevolá cizí doménu** — jen vlastní `/api/…` (R2). V appce to obsluhuje
+- **Klient nevolá cizí doménu pro DATA** — jen vlastní `/api/…` (R2). **Výjimkou jsou
+  mapové dlaždice** (radar, podklad), které se stahují napřímo — viz R12. V appce to obsluhuje
   `WebViewAssetLoader` s vlastním `PathHandler`, na webu Netlify Function.
 - Referenční jazyk je **`en`**, první překlad `cs`. Jednotky (°C/°F, km/h) jsou
   **samostatná osa, ne součást jazyka**.
@@ -73,7 +74,7 @@ tohle je jen shrnutí.**
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 
-**289 kontrol, všechny zelené.** **16 commitů NENÍ pushnutých** (čeká na výslovné svolení).
+**289 kontrol, všechny zelené.** **17 commitů NENÍ pushnutých** (čeká na výslovné svolení).
 
 ### ⛔ Co blokuje pokračování
 

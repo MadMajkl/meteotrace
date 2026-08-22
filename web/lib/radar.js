@@ -14,7 +14,9 @@
  *   · je jich při jednom pohledu na mapu desítky a při animaci stovky —
  *     hnát je přes funkci na Netlify by bylo pomalé a spálilo by to
  *     měsíční příděl volání,
- *   · nenesou žádný klíč ani nic o uživateli,
+ *   · nenesou žádný klíč — důvod, proč R2 vzniklo, tady odpadá
+ *     (⚠️ ale IP adresa a User-Agent uživatele se k RainVieweru dostanou;
+ *     to je cena té výjimky a patří to do zásad soukromí, viz R12),
  *   · obrázky nepodléhají CORS, takže důvod, kvůli kterému R2 vzniklo,
  *     tady vůbec nenastává.
  *
