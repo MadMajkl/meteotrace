@@ -90,7 +90,11 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+// ⚠️ Bez uvedené adresy poslouchá Node na `::` v režimu dual-stack, tedy na
+// IPv6 I na IPv4 zároveň. S natvrdo zadaným '0.0.0.0' to byla jen IPv4 —
+// a prohlížeč si `localhost` přeloží podle RFC 6724 přednostně na `::1`,
+// takže appka na localhostu odmítala spojení, přestože server běžel.
+server.listen(PORT, () => {
   const addrs = Object.values(networkInterfaces()).flat()
     .filter((n) => n && n.family === 'IPv4' && !n.internal)
     .map((n) => n.address);

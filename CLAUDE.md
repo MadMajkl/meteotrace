@@ -108,8 +108,6 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   kódu by ukázalo výstrahu pro celý kraj jedinému městu. Viz R11.
 - **🚨 Výřez odpovědi podle polohy patří AŽ ZA CACHE.** V cache leží odpověď společná
   všem; kdyby se ukládal výřez, dostal by druhý tazatel data prvního a nepoznal by to.
-- **⚠️ Naživo ověřuj přes `127.0.0.1`, ne `localhost`** — server poslouchá na IPv4,
-  Chrome si localhost přeloží na IPv6 a spojení odmítne.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
