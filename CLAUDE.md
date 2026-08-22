@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R10 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R11 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -70,8 +70,9 @@ tohle je jen shrnutí.**
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
 | Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
+| Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 
-**223 kontrol, všechny zelené.** **12 commitů NENÍ pushnutých** (čeká na výslovné svolení).
+**252 kontrol, všechny zelené.** **13 commitů NENÍ pushnutých** (čeká na výslovné svolení).
 
 ### ⛔ Co blokuje pokračování
 
@@ -86,6 +87,7 @@ které nikdy nevidělo skutečnou odpověď, bývá vedle.
 npm run selftest            # čistá logika: bez prohlížeče, bez sítě, ~1 s
 npm run dev                 # appka + testy + proxy na jednom portu (8099)
 npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
+npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, ne za běhu)
 npm run docx                # dokumentace do Wordu
 ```
 
@@ -100,6 +102,9 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   (vypnuté tlačítko klik nepošle), zato vyskakovala u akce, o kterou nikdo nežádal.
   **U každého ochranného opatření se ptej: co z toho uvidí uživatel, a dělá tlačítko
   přesně to, co říká jeho popisek?**
+- **🚨 Geokód `CISORP` ve výstraze NENÍ rozsah, jen zástupce.** Týž kód nese pokaždé
+  jinou sadu ORP; skutečný rozsah je jen v českém textu `areaDesc`. Přiřazení podle
+  kódu by ukázalo výstrahu pro celý kraj jedinému městu. Viz R11.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
