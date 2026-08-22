@@ -71,7 +71,7 @@ tohle je jen shrnutí.**
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
 | Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
 
-**223 kontrol, všechny zelené.** Commity **nejsou pushnuté** (čeká na svolení).
+**223 kontrol, všechny zelené.** **12 commitů NENÍ pushnutých** (čeká na výslovné svolení).
 
 ### ⛔ Co blokuje pokračování
 
@@ -93,6 +93,13 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Správné chování, o kterém se mlčí, se od chyby nedá odlišit.** Testy ověřují,
+  co se stane, ne co se o tom uživatel dozví — a přesně tam se schovaly dvě vady
+  v uložených místech: slučování podle vzdálenosti udělalo z hvězdičky past (mazala
+  místo, jehož jméno nikde nepadlo) a hláška o režimu jen pro čtení byla nedosažitelná
+  (vypnuté tlačítko klik nepošle), zato vyskakovala u akce, o kterou nikdo nežádal.
+  **U každého ochranného opatření se ptej: co z toho uvidí uživatel, a dělá tlačítko
+  přesně to, co říká jeho popisek?**
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
