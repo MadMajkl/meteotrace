@@ -55,9 +55,45 @@ a vyměnitelná konfigurací**, ne přepisem.
 Vzorem procesu i architektury je Gulpka — `C:\develop\napij_se-pracovni\`, zejména
 `napijse-poznamky\DOKUMENTACE-appka_b.md` a `skilly-claude-gulpka.md`.
 
-## Aktuální stav
+## Aktuální stav (k 21. 8. 2026)
 
-Projekt je **před první řádkou produkčního kódu**. Běží ověření R1: `test/map-bench.html`
-porovná vykreslování vektoru (MapLibre) a rastru (Leaflet) na reálném telefonu.
-**Dokud tenhle test neproběhne, nepiš produkční kód** — jeho výsledek rozhoduje o tom,
-jestli PWA větev vůbec platí.
+**Podrobný a průběžně vedený stav je v `..\dokumentace\03-vyvoj-progress.md` — čti ho,
+tohle je jen shrnutí.**
+
+| Hotovo | |
+|---|---|
+| Architektura (R1) | ověřená měřením: 60 FPS na Samsungu A53 |
+| ETA jádro | `web/lib/eta.js` |
+| Proxy vrstva | `server/proxy.js`, Netlify Function, ověřená naživo |
+| i18n, jednotky, kódy počasí | `web/lib/`, referenční jazyk **en** |
+| Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
+| Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
+| Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
+
+**184 kontrol, všechny zelené.** Devět commitů **není pushnutých** (čeká na svolení).
+
+### ⛔ Co blokuje pokračování
+
+**Chybí klíč k openrouteservice.** Zdarma na `account.heigit.org`, vloží se do proměnné
+prostředí `ORS_API_KEY`. Bez něj vrací `/api/route` chybu 500 a **nejde dodělat obrazovku
+trasy** — logika je hotová a otestovaná proti přibaleným odpovědím, ale UI psané naslepo,
+které nikdy nevidělo skutečnou odpověď, bývá vedle.
+
+### Příkazy
+
+```bash
+npm run selftest            # čistá logika: bez prohlížeče, bez sítě, ~1 s
+npm run dev                 # appka + testy + proxy na jednom portu (8099)
+npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
+npm run docx                # dokumentace do Wordu
+```
+
+### Na co narazit nechceš
+
+Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
+
+- **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
+  dva segfaulty). Referenční přístroj je **Samsung A53**.
+- **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
+  Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **Layoutový test běží s `?nomap=1`** — pět rámů s vlastním MapLibre by stránku přetížilo.
