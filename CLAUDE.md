@@ -72,10 +72,11 @@ tohle je jen shrnutí.**
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
 | Ukládání míst | `web/lib/places.js` + správa v dialogu (přejmenování, mazání), ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
+| Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `web/lib/map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 
-**297 kontrol, všechny zelené.** **Vše pushnuto** (22. 8. 2026, `299f411`). Push jen na výslovné svolení.
+**306 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 
@@ -91,6 +92,7 @@ npm run selftest            # čistá logika: bez prohlížeče, bez sítě, ~1 
 npm run dev                 # appka + testy + proxy na jednom portu (8099)
 npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
 npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, ne za běhu)
+npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
 npm run docx                # dokumentace do Wordu
 ```
 
@@ -118,6 +120,9 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **🚨 Vrstva přidaná do mapy navrch přebije všechno pod sebou** — a radar se zakládá
   znovu při KAŽDÉM snímku animace. Cokoli, co má být nad radarem, se mu musí předat
   jako `beforeId`, jinak to po vteřině zmizí samo.
+- **⚠️ Podklad mapy je vlastní `.pmtiles` a čte se po kouskách** — server MUSÍ umět
+  `Range`. Pozor: `bytes=-500` znamená POSLEDNÍCH 500 bajtů, a rejstřík archivu je
+  právě na konci.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**

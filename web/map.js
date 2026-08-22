@@ -5,9 +5,12 @@
  * co se dá spočítat bez stránky — které snímky existují, který je na řadě,
  * jak zní adresa dlaždice — leží v `lib/radar.js` a je otestované.
  *
- * ⚠️ PODKLADOVÉ DLAŽDIDCE JSOU DOČASNÉ. OpenFreeMap je tu jen do doby, než
- *    budeme mít vlastní Protomaps `.pmtiles` (`R3`). Adresa se skládá jen
- *    tady, takže je to výměna na jednom místě.
+ * ✅ PODKLAD JE VLASTNÍ (`R3`): jeden soubor `.pmtiles` na naší doméně a
+ *    vlastní styl v `lib/map-style.js`. Žádný cizí poskytovatel, žádný klíč,
+ *    žádný limit — a mapa se dá vzít offline, protože je to jeden soubor.
+ *
+ * ⚠️ Server musí umět ČÁSTEČNÉ STAHOVÁNÍ (`Range`). Archiv má gigabajty
+ *    a prohlížeč si z něj bere jen kousky; bez toho se nenačte nic.
  *
  * ⚠️ `tile.openstreetmap.org` je vyloučený natrvalo — jejich pravidla
  *    zakazují použití v mobilní aplikaci. Není to o technologii,
@@ -21,12 +24,14 @@ import {
   radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
+import { buildStyle } from './lib/map-style.js';
 
-/** DOČASNÝ podkladový styl — nahradí ho vlastní pmtiles (R3). */
-const DEV_STYLE = {
-  light: 'https://tiles.openfreemap.org/styles/positron',
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-};
+/**
+ * Vlastní dlaždice (`R3`). Jeden soubor `.pmtiles`, ze kterého si prohlížeč
+ * bere jen ty kousky, které právě potřebuje — proto musí server umět
+ * částečné stahování (`Range`).
+ */
+const TILES_URL = '/data/cz.pmtiles';
 
 /** Jak dlouho se čeká, než se mapa vzdá a řekne to nahlas. */
 const MAP_LOAD_TIMEOUT_MS = 12000;
@@ -52,6 +57,7 @@ const WARN_COLORS = {
 };
 
 let map = null;
+let protokolZapsan = false;
 /** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
 let styleReady = false;
 let frames = [];
@@ -63,9 +69,12 @@ let timeZone = 'UTC';
 
 const $ = (id) => document.getElementById(id);
 
-/** Podklad podle motivu zařízení. Vlastní styl přijde s R3. */
-const styleUrl = () =>
-  matchMedia('(prefers-color-scheme: dark)').matches ? DEV_STYLE.dark : DEV_STYLE.light;
+/** Podklad podle motivu zařízení — vlastní styl, vlastní data (R3). */
+const styleFor = () => buildStyle({
+  tilesUrl: new URL(TILES_URL, location.href).href,
+  dark: matchMedia('(prefers-color-scheme: dark)').matches,
+  lang,
+});
 
 /**
  * Založí mapu. Volá se až při prvním zobrazení — MapLibre je skoro megabajt
@@ -76,9 +85,16 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
   timeZone = tz || 'UTC';
 
   if (!map) {
+    // Protokol `pmtiles://` se musí zaregistrovat DŘÍV, než mapa vznikne —
+    // jinak si o dlaždice řekne a nikdo jí neodpoví.
+    if (!protokolZapsan) {
+      maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
+      protokolZapsan = true;
+    }
+
     map = new maplibregl.Map({
       container: $('map'),
-      style: styleUrl(),
+      style: styleFor(),
       center: [lon, lat],
       zoom: 7,
       attributionControl: { compact: true },

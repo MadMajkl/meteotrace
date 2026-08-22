@@ -15,7 +15,8 @@
  */
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { join, extname, normalize } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -80,11 +81,42 @@ const server = createServer(async (req, res) => {
     const info = await stat(path);
     if (!info.isFile()) { res.writeHead(404).end('Nenalezeno'); return; }
 
-    res.writeHead(200, {
-      'Content-Type': MIME[extname(path).toLowerCase()] || 'application/octet-stream',
+    const typ = MIME[extname(path).toLowerCase()] || 'application/octet-stream';
+    const spolecne = {
+      'Content-Type': typ,
       // Bez cache, ať telefon po úpravě souboru nedrží starou verzi.
       'Cache-Control': 'no-store',
-    }).end(await readFile(path));
+      // ⚠️ Bez tohohle si prohlížeč o výřez ani neřekne a .pmtiles nepojede:
+      // celý archiv má gigabajty a čte se po kouskách, ne najednou (R3).
+      'Accept-Ranges': 'bytes',
+    };
+
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (range) {
+      const [, odText, doText] = range;
+      // Tvar "bytes=-500" znamená posledních 500 bajtů, ne "od nuly do 500".
+      const od = odText === '' ? Math.max(0, info.size - Number(doText)) : Number(odText);
+      const doByte = odText === '' || doText === ''
+        ? info.size - 1
+        : Math.min(Number(doText), info.size - 1);
+
+      if (od >= info.size || od > doByte) {
+        res.writeHead(416, { 'Content-Range': `bytes */${info.size}` }).end();
+        return;
+      }
+      res.writeHead(206, {
+        ...spolecne,
+        'Content-Range': `bytes ${od}-${doByte}/${info.size}`,
+        'Content-Length': doByte - od + 1,
+      });
+      createReadStream(path, { start: od, end: doByte }).pipe(res);
+      return;
+    }
+
+    // ⚠️ Čte se PROUDEM, ne do paměti. Podkladová mapa má 1,4 GB a načíst si ji
+    // celou do paměti kvůli jednomu dotazu by server složilo.
+    res.writeHead(200, { ...spolecne, 'Content-Length': info.size });
+    createReadStream(path).pipe(res);
   } catch {
     res.writeHead(404).end('Nenalezeno');
   }

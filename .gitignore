@@ -24,6 +24,10 @@ node_modules/
 # Vlastní mapové dlaždice — velké binární soubory, negenerují se z repa (viz R3)
 *.pmtiles
 
+# Stažené nástroje (pmtiles.exe má 59 MB) — každý si je stáhne skriptem
+tools/bin/
+
 # Systém
 Thumbs.db
 .DS_Store
+
