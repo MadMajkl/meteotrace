@@ -73,7 +73,7 @@ tohle je jen shrnutí.**
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 
-**287 kontrol, všechny zelené.** **14 commitů NENÍ pushnutých** (čeká na výslovné svolení).
+**289 kontrol, všechny zelené.** **16 commitů NENÍ pushnutých** (čeká na výslovné svolení).
 
 ### ⛔ Co blokuje pokračování
 
@@ -108,6 +108,11 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   kódu by ukázalo výstrahu pro celý kraj jedinému městu. Viz R11.
 - **🚨 Výřez odpovědi podle polohy patří AŽ ZA CACHE.** V cache leží odpověď společná
   všem; kdyby se ukládal výřez, dostal by druhý tazatel data prvního a nepoznal by to.
+- **🚨 U dlaždic nestačí stav odpovědi.** RainViewer nad svým stropem (z7) vrací
+  `200 image/png` s natištěným nápisem „Zoom Level Not Supported". Pozná se to jen
+  velikostí a otiskem souboru. Strop je v `radar.js` jako `MAX_ZOOM` a MUSÍ být
+  i v `maxzoom` rastrového zdroje. Pozor: u `tileSize: 256` si MapLibre říká
+  o úroveň VYŠŠÍ, než je přiblížení mapy — proto jsou dlaždice 512px.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**

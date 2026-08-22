@@ -17,7 +17,9 @@
 'use strict';
 
 import { t } from './lib/i18n.js';
-import { radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel } from './lib/radar.js';
+import {
+  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, TILE_SIZE, MAX_ZOOM,
+} from './lib/radar.js';
 import { apiGet } from './lib/api.js';
 
 /** DOČASNÝ podkladový styl — nahradí ho vlastní pmtiles (R3). */
@@ -104,7 +106,14 @@ function drawFrame() {
   if (map.getLayer(RADAR_LAYER)) map.removeLayer(RADAR_LAYER);
   if (map.getSource(RADAR_SOURCE)) map.removeSource(RADAR_SOURCE);
 
-  map.addSource(RADAR_SOURCE, { type: 'raster', tiles: [url], tileSize: 256 });
+  // ⚠️ `maxzoom` tu není kosmetika. Bez něj si knihovna říká o dlaždice nad
+  // strop RainVieweru a ten místo chyby vrací obrázek s nápisem „Zoom Level
+  // Not Supported" — přes celou mapu. A pozor na velikost: u 256px dlaždic si
+  // MapLibre říká o úroveň VYŠŠÍ, než je přiblížení mapy (jeho vnitřní dlaždice
+  // má 512), takže mapa otevřená na zoomu 7 sahala rovnou na z8, tedy za strop.
+  map.addSource(RADAR_SOURCE, {
+    type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM,
+  });
   map.addLayer({
     id: RADAR_LAYER, type: 'raster', source: RADAR_SOURCE,
     paint: { 'raster-opacity': 0.75 },

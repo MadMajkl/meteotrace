@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel,
+  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, TILE_SIZE, MAX_ZOOM,
 } from '../web/lib/radar.js';
 
 /** Zmenšenina skutečné odpovědi RainVieweru (tvar ověřen 21. 8. 2026). */
@@ -67,7 +67,7 @@ test('snímky: záznam bez cesty nebo bez času se přeskočí', () => {
 test('adresa: šablona nechá zástupné texty mapě', () => {
   const [f] = radarFrames(FEED);
   const url = tileTemplate(f);
-  assert.ok(url.startsWith('https://tilecache.rainviewer.com/v2/radar/1787326200/256/'));
+  assert.ok(url.startsWith('https://tilecache.rainviewer.com/v2/radar/1787326200/512/'));
   assert.ok(url.includes('{z}/{x}/{y}'), 'souřadnice doplní mapová knihovna');
   assert.ok(url.endsWith('/2/1_1.png'));
 });
@@ -123,4 +123,27 @@ test('popisek: čas v pásmu místa a příznak dopočtu', () => {
 
 test('popisek: chybějící snímek dá pomlčku', () => {
   assert.equal(frameLabel(null, 'UTC', 'cs').time, '—');
+});
+
+/* ============================================================
+   STROP PŘIBLÍŽENÍ
+
+   🚨 Našel to až uživatel na obrazovce, ne test: nad svým stropem RainViewer
+   nevrací chybu, ale obrázek se stavem 200 a natištěným nápisem „Zoom Level
+   Not Supported". Kontrola stavu odpovědi tuhle vadu NEODHALÍ.
+   ============================================================ */
+
+test('🚨 strop přiblížení je pojmenovaná konstanta, ne číslo v mapě', () => {
+  // Kdyby ležel jen v map.js, nikdo by ho nenašel a při první úpravě mapy
+  // by zmizel. Změřeno 22. 8. 2026: od z8 výš vrací RainViewer cedule.
+  assert.equal(typeof MAX_ZOOM, 'number');
+  assert.equal(MAX_ZOOM, 7);
+});
+
+test('🚨 dlaždice jsou 512px — u 256px si knihovna říká o úroveň navíc', () => {
+  // MapLibre má vnitřní dlaždici 512, takže u 256px zdroje žádá z+1. Mapa
+  // otevřená na zoomu 7 tak sahala rovnou za strop a ukázala cedule.
+  assert.equal(TILE_SIZE, 512);
+  const url = tileTemplate({ path: 'https://x/y/123' });
+  assert.ok(url.includes('/512/'), url);
 });

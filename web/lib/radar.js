@@ -29,7 +29,21 @@
 export const COLOR_SCHEME = 2;
 
 /** Velikost dlaždice. 256 je lehčí na data, 512 ostřejší na displeji s vysokou hustotou. */
-export const TILE_SIZE = 256;
+export const TILE_SIZE = 512;
+
+/**
+ * 🚨 Nejvyšší přiblížení, které RainViewer pro radar vydává.
+ *
+ * Nad ním NEVRACÍ chybu — vrátí obrázek se stavem 200, typem `image/png`
+ * a natištěným nápisem **„Zoom Level Not Supported"**. Kdo kontroluje jen
+ * stav odpovědi, prohlásí to za v pořádku a uživatel má přes mapu nalepené
+ * cedule. Změřeno 22. 8. 2026 nad Prahou: od `z8` výš je to pokaždé týž
+ * obrázek (shodný otisk), a to u velikosti 256 i 512 px.
+ *
+ * Musí se propsat do `maxzoom` rastrového zdroje, aby mapová knihovna nad
+ * tuhle hranici vůbec nesahala a poslední dobrou dlaždici si zvětšila sama.
+ */
+export const MAX_ZOOM = 7;
 
 /**
  * Snímky ze seznamu → jednotný seznam se skutečnými časy.
