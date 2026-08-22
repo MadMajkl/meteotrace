@@ -28,8 +28,22 @@
   <nav id="saved" class="saved" hidden aria-labelledby="saved-title">
     <h2 id="saved-title" class="sr-only" data-i18n="places.saved"></h2>
     <ul id="saved-list" class="chips"></ul>
+    <!-- Správa je zvlášť: řádek nahoře slouží k PŘEPNUTÍ jedním klepnutím,
+         přejmenování a mazání by se do něj pletlo. -->
+    <button id="btn-manage" class="icon-btn manage" type="button">⋯</button>
   </nav>
 </header>
+
+<!-- Správa uložených míst. Nativní <dialog>: ohlídá si zavření klávesou Esc,
+     vrácení ohniska i to, že se pod ním nedá klikat. -->
+<dialog id="places-dialog" class="sheet" aria-labelledby="places-dialog-title">
+  <div class="sheet-head">
+    <h2 id="places-dialog-title" data-i18n="places.manageTitle"></h2>
+    <button id="places-close" class="icon-btn" type="button">✕</button>
+  </div>
+  <p id="places-note" class="hint" hidden></p>
+  <ul id="places-manage" class="manage-list"></ul>
+</dialog>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->
 <div id="notice" class="notice" hidden role="status"></div>

@@ -363,3 +363,78 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 @media (prefers-color-scheme: dark) {
   .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
 }
+
+/* ── Správa uložených míst ─────────────────────────────────────────────── */
+.saved { display: flex; align-items: center; gap: 8px; }
+.saved .chips { flex: 1; min-width: 0; }
+
+.icon-btn.manage {
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-soft);
+}
+
+/* Nativní <dialog>: zavření Escapem, vrácení ohniska a zamčené pozadí
+   zadarmo. Na telefonu vypadá jako spodní list, na širokém displeji jako
+   okno uprostřed. */
+.sheet {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 16px;
+  width: min(520px, calc(100vw - 24px));
+  box-shadow: var(--shadow);
+}
+.sheet::backdrop { background: rgba(8, 14, 22, .55); }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.sheet-head h2 { margin: 0; font-size: 17px; }
+
+.manage-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+
+.manage-row { display: flex; align-items: center; gap: 8px; }
+
+.manage-name {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.manage-name:disabled { opacity: .6; }
+
+.manage-remove {
+  flex: none;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Druhé klepnutí maže. Musí to být vidět na první pohled — tlačítko, které
+   po prvním klepnutí vypadá stejně, svádí ke klepnutí naslepo. */
+.manage-remove.armed {
+  border-color: #b3261e;
+  color: #b3261e;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+}

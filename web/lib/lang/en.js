@@ -35,6 +35,16 @@ export default {
     full: 'The list was full, so the least used place made way.',
     readOnly: 'Saved places come from a newer version of the app, so they cannot be changed here. Reopening the app should sort it out.',
     alreadySaved: 'Already saved as “{name}”.',
+    manage: 'Manage saved places',
+    manageTitle: 'Saved places',
+    close: 'Close',
+    nameLabel: 'Name of the saved place',
+    removeOne: 'Remove',
+    confirmRemove: 'Really remove?',
+    nameEmpty: 'A name cannot be empty, so the original was kept.',
+    renamed: 'Renamed to “{name}”.',
+    removed: '“{name}” was removed.',
+    count: '{count} of {max} places used',
   },
 
   now: {

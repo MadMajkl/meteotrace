@@ -70,7 +70,7 @@ tohle je jen shrnutí.**
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
-| Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
+| Ukládání míst | `web/lib/places.js` + správa v dialogu (přejmenování, mazání), ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |

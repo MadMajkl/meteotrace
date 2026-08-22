@@ -15,7 +15,7 @@ import { buildWarningsView } from './lib/warnings-view.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
-  findNearby, savedAs,
+  findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
@@ -159,6 +159,110 @@ function renderSaved() {
     li.append(chip);
     return li;
   });
+}
+
+/* ============================================================
+   SPRÁVA ULOŽENÝCH MÍST
+
+   Řádek v hlavičce slouží k PŘEPNUTÍ jedním klepnutím. Přejmenování
+   a mazání sem nepatří — proto zvlášť, v dialogu.
+   ============================================================ */
+
+function openPlaces() {
+  renderManage();
+  $('places-dialog').showModal();
+}
+
+/**
+ * Seznam pro správu.
+ *
+ * ⚠️ Překresluje se po každé změně, takže rozepsané jméno by se ztratilo.
+ * Proto se překresluje jen při otevření, po přejmenování a po odebrání —
+ * ne při psaní.
+ */
+function renderManage() {
+  const list = state.places.places;
+  const note = $('places-note');
+
+  // Tři různé věci, které se nesmí splést: nemám nic uloženého · mám plno ·
+  // nemůžu měnit. Prázdný dialog beze slova vypadá jako rozbitá appka.
+  if (state.places.readOnly) note.textContent = t('places.readOnly', state.lang);
+  else if (!list.length) note.textContent = t('places.empty', state.lang);
+  else note.textContent = tf('places.count', { count: list.length, max: MAX_PLACES }, state.lang);
+  note.hidden = false;
+
+  fill($('places-manage'), list, (p) => {
+    const li = document.createElement('li');
+    li.className = 'manage-row';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'manage-name';
+    input.value = p.name;
+    // Strop délky je vidět rovnou v poli — ořezat jméno až při ukládání
+    // a nic neříct by vypadalo jako chyba.
+    input.maxLength = MAX_NAME;
+    input.disabled = state.places.readOnly;
+    input.setAttribute('aria-label', t('places.nameLabel', state.lang));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = p.name; input.blur(); }
+    });
+    input.addEventListener('blur', () => commitRename(p, input));
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'manage-remove';
+    del.disabled = state.places.readOnly;
+    setRemoveLabel(del, false);
+    // ⚠️ Uložená místa appka neumí znovu získat, takže mazání má dvě klepnutí.
+    // Ne dialogem — ten se odklikává naslepo. Tlačítko samo řekne, co udělá.
+    del.addEventListener('click', () => {
+      if (del.dataset.armed !== '1') {
+        for (const jiny of $('places-manage').querySelectorAll('.manage-remove')) {
+          setRemoveLabel(jiny, false);
+        }
+        setRemoveLabel(del, true);
+        return;
+      }
+      state.places = forgetPlace(state.places, p.key);
+      persistPlaces();
+      notice(tf('places.removed', { name: p.name }, state.lang));
+      renderManage();
+      renderSaved();
+    });
+
+    li.append(input, del);
+    return li;
+  });
+}
+
+function setRemoveLabel(btn, armed) {
+  btn.dataset.armed = armed ? '1' : '0';
+  btn.textContent = armed
+    ? t('places.confirmRemove', state.lang)
+    : t('places.removeOne', state.lang);
+  btn.classList.toggle('armed', armed);
+}
+
+function commitRename(place, input) {
+  const nove = input.value;
+  if (nove === place.name) return;
+
+  const pred = state.places;
+  state.places = renamePlace(state.places, place.key, nove);
+
+  // Sklad se nezměnil → jméno bylo prázdné. Musí se to říct, jinak se pole
+  // jen samo od sebe vrátí a vypadá to jako chyba appky.
+  if (state.places === pred) {
+    input.value = place.name;
+    notice(t('places.nameEmpty', state.lang));
+    return;
+  }
+  persistPlaces();
+  notice(tf('places.renamed', { name: input.value.trim() }, state.lang));
+  renderManage();
+  renderSaved();
 }
 
 /* ============================================================
@@ -510,6 +614,14 @@ function init() {
   $('search-form').addEventListener('submit', (e) => e.preventDefault());
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
+  $('btn-manage').addEventListener('click', openPlaces);
+  $('places-close').addEventListener('click', () => $('places-dialog').close());
+  // Rozepsané jméno se má uložit i tehdy, když se dialog zavře klávesou Esc
+  // nebo klepnutím vedle — jinak by práce zmizela bez varování.
+  $('places-dialog').addEventListener('close', () => {
+    const otevrene = document.activeElement;
+    if (otevrene && otevrene.classList?.contains('manage-name')) otevrene.blur();
+  });
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.top')) hideResults();
   });

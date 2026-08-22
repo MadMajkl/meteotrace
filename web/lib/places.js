@@ -378,9 +378,17 @@ export function forgetRoute(store, key) {
 export function renamePlace(store, key, name) {
   if (store.readOnly) return store;
   const clean = cleanName(name);
+
+  // ⚠️ Prázdné jméno sklad NEMĚNÍ. Dřív se dosadil klíč, jenže ten je vnitřní
+  // adresa záznamu („50.075,14.438"), ne jméno — uživateli by se místo
+  // „Domova" najednou ukazovaly souřadnice a původní jméno by bylo pryč.
+  // Volající pozná podle nezměněného skladu, že se nic nestalo, a může to
+  // říct nahlas.
+  if (!clean) return store;
+
   return {
     ...store,
-    places: store.places.map((p) => (p.key === key ? { ...p, name: clean || p.key } : p)),
+    places: store.places.map((p) => (p.key === key ? { ...p, name: clean } : p)),
   };
 }
 

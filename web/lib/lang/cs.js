@@ -38,6 +38,16 @@ export default {
     full: 'Seznam byl plný, uvolnilo se nejméně používané místo.',
     readOnly: 'Uložená místa pocházejí z novější verze appky, tady se měnit nedají. Po zavření a otevření appky by to mělo být v pořádku.',
     alreadySaved: 'Uložené už jako „{name}“.',
+    manage: 'Spravovat uložená místa',
+    manageTitle: 'Uložená místa',
+    close: 'Zavřít',
+    nameLabel: 'Jméno uloženého místa',
+    removeOne: 'Odebrat',
+    confirmRemove: 'Opravdu odebrat?',
+    nameEmpty: 'Jméno nemůže být prázdné, původní zůstalo.',
+    renamed: 'Přejmenováno na „{name}“.',
+    removed: 'Místo „{name}“ je odebrané.',
+    count: 'Využito {count} z {max} míst',
   },
 
   now: {

@@ -195,10 +195,16 @@ test('smazání: neznámý klíč není chyba', () => {
   assert.equal(store.places.length, 0);
 });
 
-test('přejmenování: prázdné jméno se neuloží jako prázdné', () => {
+test('🚨 přejmenování: prázdné jméno nechá původní, nedosadí klíč', () => {
+  // Změněno 22. 8. 2026 při stavbě správy míst. Dřív se dosadil klíč —
+  // jenže to je vnitřní adresa záznamu, ne jméno. Kdo omylem smazal text,
+  // uviděl místo „Domova" souřadnice a původní jméno bylo nenávratně pryč.
   let store = savePlace(emptyStore(), PRAHA, 1000).store;
+  store = renamePlace(store, placeKey(PRAHA), 'Domov');
+  const pred = store;
   store = renamePlace(store, placeKey(PRAHA), '   ');
-  assert.equal(store.places[0].name, placeKey(PRAHA));
+  assert.equal(store.places[0].name, 'Domov');
+  assert.equal(store, pred, 'sklad se nemá měnit vůbec, ať to volající pozná');
 });
 
 /* ============================================================
