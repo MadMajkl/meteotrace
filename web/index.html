@@ -22,6 +22,13 @@
     <button type="button" id="btn-locate" class="icon-btn" title="My location" aria-label="My location">⌖</button>
   </form>
   <ul id="search-results" class="results" hidden></ul>
+
+  <!-- Uložená místa. Jedno klepnutí = přepnutí, proto jsou v hlavičce
+       a ne schovaná v nastavení. -->
+  <nav id="saved" class="saved" hidden aria-labelledby="saved-title">
+    <h2 id="saved-title" class="sr-only" data-i18n="places.saved"></h2>
+    <ul id="saved-list" class="chips"></ul>
+  </nav>
 </header>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->
@@ -30,7 +37,10 @@
 <main id="station" hidden>
 
   <section class="now card" aria-labelledby="place-name">
-    <h1 class="place" id="place-name"></h1>
+    <div class="place-row">
+      <h1 class="place" id="place-name"></h1>
+      <button id="btn-save" class="icon-btn star" type="button" aria-pressed="false">☆</button>
+    </div>
 
     <div class="now-main">
       <span class="now-icon" id="now-icon" aria-hidden="true"></span>

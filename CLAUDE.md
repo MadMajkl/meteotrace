@@ -55,7 +55,7 @@ a vyměnitelná konfigurací**, ne přepisem.
 Vzorem procesu i architektury je Gulpka — `C:\develop\napij_se-pracovni\`, zejména
 `napijse-poznamky\DOKUMENTACE-appka_b.md` a `skilly-claude-gulpka.md`.
 
-## Aktuální stav (k 21. 8. 2026)
+## Aktuální stav (k 22. 8. 2026)
 
 **Podrobný a průběžně vedený stav je v `..\dokumentace\03-vyvoj-progress.md` — čti ho,
 tohle je jen shrnutí.**
@@ -69,8 +69,9 @@ tohle je jen shrnutí.**
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
 | Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
+| Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
 
-**184 kontrol, všechny zelené.** Devět commitů **není pushnutých** (čeká na svolení).
+**219 kontrol, všechny zelené.** Commity **nejsou pushnuté** (čeká na svolení).
 
 ### ⛔ Co blokuje pokračování
 

@@ -26,6 +26,15 @@ export default {
     searching: 'Searching…',
   },
 
+  places: {
+    saved: 'Saved places',
+    save: 'Save this place',
+    remove: 'Remove from saved',
+    empty: 'Tap the star to keep a place here.',
+    full: 'The list was full, so the least used place made way.',
+    readOnly: 'Saved places come from a newer version of the app and cannot be changed here.',
+  },
+
   now: {
     feelsLike: 'Feels like',
     wind: 'Wind',

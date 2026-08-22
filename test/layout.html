@@ -50,6 +50,26 @@ const WIDTHS = [320, 360, 390, 412, 430];
 // přetížilo a rozvržení se na mapě neměří (div s pevnou výškou).
 const APP = '/?lat=50.0755&lon=14.4378&name=Praha&lang=cs&nomap=1';
 
+/* Uložená místa: řádek s odkazy je nejširší obsah hlavičky, takže se musí
+   měřit taky. Prázdný seznam se schová celý a neotestoval by nic — proto
+   se před měřením nasype pár míst, mezi nimi schválně jedno s dlouhým jménem.
+
+   ⚠️ Rámy sdílejí úložiště s appkou, takže se původní obsah nejdřív schová
+   a po měření vrátí. Kdo si tuhle stránku otevře ve svém prohlížeči, nesmí
+   kvůli testu přijít o svoje uložená místa. */
+const PLACES_KEY = 'meteotrace.places.v1';
+const previousPlaces = localStorage.getItem(PLACES_KEY);
+
+localStorage.setItem(PLACES_KEY, JSON.stringify({
+  version: 1,
+  places: [
+    { key: '50.076,14.438', lat: 50.0755, lon: 14.4378, name: 'Praha', country: 'Česko', savedAt: 3, usedAt: 3 },
+    { key: '50.638,14.116', lat: 50.6381, lon: 14.1158, name: 'Ústí nad Labem-Střekov', country: 'Česko', savedAt: 2, usedAt: 2 },
+    { key: '49.195,16.607', lat: 49.1951, lon: 16.6068, name: 'Brno', country: 'Česko', savedAt: 1, usedAt: 1 },
+  ],
+  routes: [],
+}));
+
 const cases = document.getElementById('cases');
 const frames = [];
 
@@ -113,6 +133,10 @@ async function run() {
       results.push({ width: w, ok: false, detail: `přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})` });
     }
   }
+
+  // Úložiště patří uživateli, ne testu.
+  if (previousPlaces === null) localStorage.removeItem(PLACES_KEY);
+  else localStorage.setItem(PLACES_KEY, previousPlaces);
 
   // Výsledek si přečte tools/layout-check.mjs přes ladicí protokol.
   window.__layoutResult = { cases: results };

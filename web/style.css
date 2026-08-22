@@ -103,6 +103,52 @@ body {
 .results .muted { color: var(--text-soft); font-size: 14px; }
 .results li.empty { cursor: default; color: var(--text-soft); }
 
+/* ---------- uložená místa ---------- */
+
+/* Nadpis jen pro odečítač obrazovky: vidoucí pozná řádek podle hvězdiček,
+   nevidomý potřebuje slyšet, co ten seznam je. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
+.saved { margin-top: 10px; }
+
+.chips {
+  display: flex; gap: 8px;
+  list-style: none; margin: 0; padding: 2px 0;
+  overflow-x: auto;                          /* radši rolovat než zalamovat hlavičku */
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { height: 0; }
+
+.chip {
+  flex: none;
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 7px 13px;
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.chip:hover { background: var(--accent-soft); }
+.chip[aria-current="true"] {
+  color: var(--accent); font-weight: 600;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.place-row { display: flex; align-items: start; gap: 10px; }
+.place-row .place { flex: 1; min-width: 0; }
+
+/* Hvězdička drží stejnou plochu jako ostatní tlačítka (44 px), ale bez rámečku —
+   uvnitř karty by druhý rámeček dělal nepořádek. */
+.star { width: 44px; height: 44px; margin: -8px -6px 0 0; background: none; border: 0; }
+.star[aria-pressed="true"] { color: var(--accent); }
+.star[disabled] { color: var(--text-soft); cursor: default; }
+
 /* ---------- upozornění ---------- */
 
 .notice {

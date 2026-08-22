@@ -29,6 +29,15 @@ export default {
     searching: 'Hledám…',
   },
 
+  places: {
+    saved: 'Uložená místa',
+    save: 'Uložit tohle místo',
+    remove: 'Odebrat z uložených',
+    empty: 'Hvězdičkou si sem místo uložíš.',
+    full: 'Seznam byl plný, uvolnilo se nejméně používané místo.',
+    readOnly: 'Uložená místa pocházejí z novější verze appky a tady se měnit nedají.',
+  },
+
   now: {
     feelsLike: 'Pocitově',
     wind: 'Vítr',

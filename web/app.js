@@ -12,6 +12,10 @@ import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
+import {
+  parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
+  findNearby, placeKey,
+} from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
 let mapModule = null;
@@ -21,10 +25,20 @@ const requests = createRequestGroup();
 
 const STORE_KEY = 'meteotrace.v1';
 
+/**
+ * Uložená místa mají VLASTNÍ klíč, oddělený od nastavení.
+ *
+ * 🚨 Nastavení se dá znovu naklikat za deset vteřin, seznam míst posbíraný
+ * za rok ne. Kdyby ležely v jednom záznamu, pokažený zápis nastavení by
+ * vzal s sebou i data, která appka neumí znovu získat.
+ */
+const PLACES_KEY = 'meteotrace.places.v1';
+
 const state = {
   lang: 'en',
   units: null,
   place: null,          // {name, country, lat, lon}
+  places: emptyStore(), // uložená místa a trasy
 };
 
 /* ============================================================
@@ -48,6 +62,86 @@ function save() {
       place: state.place, units: state.units, lang: state.lang,
     }));
   } catch { /* nevadí */ }
+}
+
+/* ============================================================
+   ULOŽENÁ MÍSTA
+
+   Rozhodování je v `lib/places.js` — tady zbývá jen sáhnout do úložiště
+   a přemalovat řádek s odkazy.
+   ============================================================ */
+
+function loadPlaces() {
+  try {
+    state.places = parseStore(localStorage.getItem(PLACES_KEY));
+  } catch {
+    state.places = emptyStore();
+  }
+}
+
+/**
+ * Zapsat se nemusí povést dvakrát: úložiště může být zakázané, nebo plné.
+ *
+ * ⚠️ Zapisuje se CELÝ sklad najednou, ne po záznamech. Kdyby se ukládalo
+ * po kouskách a zápis by uprostřed selhal, zbyl by v úložišti napůl
+ * přepsaný seznam — a to je horší než neuložit nic.
+ */
+function persistPlaces() {
+  const text = serializeStore(state.places);
+  if (text === null) { notice(t('places.readOnly', state.lang)); return false; }
+  try {
+    localStorage.setItem(PLACES_KEY, text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Hvězdička u jména místa: uložit / odebrat. */
+function toggleSave() {
+  if (!state.place) return;
+
+  const existing = findNearby(state.places, state.place);
+  if (existing) {
+    state.places = forgetPlace(state.places, existing.key);
+  } else {
+    const res = savePlace(state.places, state.place, Date.now());
+    state.places = res.store;
+    if (res.full) notice(t('places.full', state.lang));
+  }
+  persistPlaces();
+  renderSaved();
+}
+
+function renderSaved() {
+  const list = state.places.places;
+  $('saved').hidden = list.length === 0;
+
+  // Hvězdička dává smysl, jen když je co uložit.
+  const btn = $('btn-save');
+  const saved = !!state.place && !!findNearby(state.places, state.place);
+  btn.disabled = !state.place || state.places.readOnly;
+  btn.textContent = saved ? '★' : '☆';
+  btn.setAttribute('aria-pressed', String(saved));
+  const label = t(saved ? 'places.remove' : 'places.save', state.lang);
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+
+  const current = state.place ? findNearby(state.places, state.place) : null;
+
+  fill($('saved-list'), list, (p) => {
+    const li = document.createElement('li');
+    const chip = el('button', 'chip', p.name);
+    chip.type = 'button';
+    if (current && current.key === p.key) chip.setAttribute('aria-current', 'true');
+    chip.addEventListener('click', () => {
+      state.places = touchPlace(state.places, p.key, Date.now());
+      persistPlaces();
+      selectPlace({ name: p.name, country: p.country, lat: p.lat, lon: p.lon });
+    });
+    li.append(chip);
+    return li;
+  });
 }
 
 /* ============================================================
@@ -132,6 +226,7 @@ function selectPlace(place) {
   hideResults();
   $('search-input').value = '';
   $('search-input').blur();
+  renderSaved();
   loadStation();
 }
 
@@ -304,6 +399,7 @@ function placeFromUrl() {
 
 function init() {
   load();
+  loadPlaces();
 
   const q = new URLSearchParams(location.search);
   const fromUrl = placeFromUrl();
@@ -316,10 +412,12 @@ function init() {
   if (!state.units) state.units = defaultUnits(navigator.language || '');
 
   applyI18n();
+  renderSaved();
 
   $('search-input').addEventListener('input', (e) => onSearchInput(e.target.value));
   $('search-form').addEventListener('submit', (e) => e.preventDefault());
   $('btn-locate').addEventListener('click', locate);
+  $('btn-save').addEventListener('click', toggleSave);
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.top')) hideResults();
   });
