@@ -75,7 +75,7 @@ tohle je jen shrnutí.**
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 
-**297 kontrol, všechny zelené.** **1 commit NENÍ pushnutý** (push jen na výslovné svolení).
+**297 kontrol, všechny zelené.** **Vše pushnuto** (22. 8. 2026, `299f411`). Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 
