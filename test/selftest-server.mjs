@@ -475,3 +475,27 @@ test('🚨 výstrahy: prošlé se vyhodí i v přehledu bez souřadnic', async (
   assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná']);
   assert.equal(res.body.misto, undefined, 'bez souřadnic se místo pořád neřeší');
 });
+
+test('výstrahy: hranice území se přiloží jen na vyžádání', async () => {
+  const bez = await vystrahy(LITOMERICE);
+  const s = await vystrahy({ ...LITOMERICE, geo: '1' });
+  assert.equal(bez.res.body.geometrie, undefined, 'bez geo=1 se hranice neposílá');
+  const g = s.res.body.geometrie;
+  assert.ok(['Polygon', 'MultiPolygon'].includes(g.type), g.type);
+  assert.ok(g.coordinates.length, 'hranice není prázdná');
+});
+
+test('🚨 výstrahy: hranice se nepřikládá, když není co kreslit', async () => {
+  // Kilobajty navíc za obrys, který by na mapě jen svítil bez důvodu.
+  // Plzeň v testovacím feedu žádnou výstrahu nemá.
+  const { res } = await vystrahy({ lat: '49.7384', lon: '13.3736', geo: '1' });
+  assert.deepEqual(res.body.warnings, []);
+  assert.equal(res.body.geometrie, undefined, 'žádná výstraha = žádný obrys');
+  assert.equal(res.body.misto.nazev, 'Plzeň', 'místo se pozná i bez výstrahy');
+});
+
+test('výstrahy: hranice nezvětší klíč cache ani nejde ven', async () => {
+  const { res, fetchImpl } = await vystrahy({ ...LITOMERICE, geo: '1' });
+  assert.equal(res.status, 200);
+  assert.ok(!fetchImpl.calls[0].url.includes('geo='), 'feed o naší mapě nic vědět nemá');
+});

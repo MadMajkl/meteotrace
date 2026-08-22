@@ -98,7 +98,8 @@ export const UPSTREAMS = {
     // feed a teprve odpověď se z něj krájí podle polohy. Kdyby se cachoval už
     // výřez, dostal by druhý tazatel výstrahy prvního — a nepoznal by to.
     // `lang` vybírá jazykovou verzi z feedu (nese obě), `lat`/`lon` výřez podle místa.
-    local: ['lang', 'lat', 'lon'],
+    // `geo=1` navíc přiloží hranici území, aby ji mapa uměla vykreslit.
+    local: ['lang', 'lat', 'lon', 'geo'],
     ttl: 5 * MINUTE,
   },
 };

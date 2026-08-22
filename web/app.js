@@ -285,7 +285,7 @@ async function loadStation() {
       return Promise.all([
         apiGet('forecast', { ...common, ...FORECAST_PARAMS }, { signal }),
         apiGet('air', { ...common, ...AIR_PARAMS }, { signal }).catch(() => null),
-        apiGet('warnings', { lat: place.lat, lon: place.lon, lang: state.lang }, { signal })
+        apiGet('warnings', { lat: place.lat, lon: place.lon, lang: state.lang, geo: 1 }, { signal })
           .catch(() => null),
       ]);
     });
@@ -317,6 +317,13 @@ function renderWarnings(payload) {
   const note = $('warnings-note');
   note.textContent = view.zprava;
   note.hidden = !view.zprava;
+
+  // Obrys do mapy: kreslí se podle NEJZÁVAŽNĚJŠÍ výstrahy, protože pohled na
+  // mapu má odpovídat tomu, co je nahoře na kartě. Mapa se zakládá později
+  // a líně, takže se to jen odloží sem.
+  state.warningArea = view.polozky.length && payload?.geometrie
+    ? { geometrie: payload.geometrie, trida: view.polozky[0].trida }
+    : null;
 
   const list = $('warnings-list');
   list.replaceChildren();
@@ -409,6 +416,9 @@ async function showRadar(timeZone) {
     await mapModule.showMap({
       lat: state.place.lat, lon: state.place.lon, lang: state.lang, timeZone,
     });
+    // I když výstraha není, musí se zavolat — jinak by po přepnutí místa
+    // zůstal na mapě viset obrys toho předchozího.
+    mapModule.showWarningArea(state.warningArea?.geometrie || null, state.warningArea?.trida);
   } catch (e) {
     console.warn('[MeteoTrace] mapa se nenačetla:', e.message);
   }

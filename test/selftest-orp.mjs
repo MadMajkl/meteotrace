@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  unpackAreas, findArea, parseAreaDesc, areaCovers, matchWarningAreas,
+  unpackAreas, findArea, parseAreaDesc, areaCovers, matchWarningAreas, areaGeoJSON,
 } from '../web/lib/orp.js';
 import { ORP_DATA } from '../web/data/orp-boundaries.js';
 
@@ -288,4 +288,42 @@ test('výběr: prázdné vstupy nespadnou', () => {
 test('výběr: výstraha bez oblastí se nikomu nepřiřadí', () => {
   const bezOblasti = { event: 'Bouřky', severity: 'Moderate', areas: [] };
   assert.deepEqual(matchWarningAreas([bezOblasti], [LITOMERICE]), []);
+});
+
+/* ============================================================
+   ÚZEMÍ PRO MAPU
+   ============================================================ */
+
+test('🚨 GeoJSON: pořadí souřadnic se překlopí na [délka, šířka]', () => {
+  // Tentýž chyták jako u trasy. Pro ČR obě čísla existují, takže zaměněné
+  // pořadí nespadne — jen tiše přesune území do Indického oceánu.
+  const [u] = unpackAreas(ctverec());
+  const g = areaGeoJSON(u);
+  assert.equal(g.type, 'Polygon');
+  assert.deepEqual(g.coordinates[0][0], [14, 50], 'nejdřív délka, pak šířka');
+});
+
+test('GeoJSON: díry zůstanou dírami', () => {
+  const [u] = unpackAreas(ctverec({ sDirou: true }));
+  const g = areaGeoJSON(u);
+  assert.equal(g.coordinates.length, 2, 'vnější prstenec + díra');
+});
+
+test('GeoJSON: vícedílné území dá MultiPolygon', () => {
+  const skutecne = UZEMI.filter((u) => u.polygony.length > 1);
+  assert.ok(skutecne.length, 'v datech ČÚZK vícedílná území jsou');
+  assert.equal(areaGeoJSON(skutecne[0]).type, 'MultiPolygon');
+});
+
+test('GeoJSON: prázdné území vrátí null, ne rozbitý útvar', () => {
+  for (const spatne of [null, undefined, {}, { polygony: [] }]) {
+    assert.equal(areaGeoJSON(spatne), null);
+  }
+});
+
+test('GeoJSON: skutečné území je řádově kilobajty, ne megabajty', () => {
+  // Přikládá se k odpovědi na mobilní data, tak ať se to nevymkne.
+  const litomerice = UZEMI.find((u) => u.nazev === 'Litoměřice');
+  const kb = JSON.stringify(areaGeoJSON(litomerice)).length / 1024;
+  assert.ok(kb < 60, `hranice Litoměřic má ${Math.round(kb)} kB`);
 });

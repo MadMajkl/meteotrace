@@ -185,6 +185,27 @@ export function findArea(point, areas) {
 }
 
 /**
+ * Území jako GeoJSON, aby ho mapa uměla vykreslit.
+ *
+ * ⚠️ Uvnitř appky se počítá s `[šířka, délka]`, GeoJSON chce `[délka, šířka]`.
+ * Prohození se dělá tady — je to totéž místo a tentýž chyták jako u trasy
+ * (pro ČR obě čísla existují, takže zaměněné pořadí nespadne, jen tiše
+ * přesune území do Indického oceánu).
+ *
+ * @param {{polygony: Array<Array<Array<[number, number]>>>}} uzemi
+ * @returns {{type: 'Polygon'|'MultiPolygon', coordinates: Array}|null}
+ */
+export function areaGeoJSON(uzemi) {
+  if (!uzemi?.polygony?.length) return null;
+  const prohod = (polygon) => polygon.map((prstenec) => prstenec.map(([lat, lon]) => [lon, lat]));
+
+  if (uzemi.polygony.length === 1) {
+    return { type: 'Polygon', coordinates: prohod(uzemi.polygony[0]) };
+  }
+  return { type: 'MultiPolygon', coordinates: uzemi.polygony.map(prohod) };
+}
+
+/**
  * Rozebere popis oblasti z výstrahy.
  *
  * Tvary, které feed používá (ověřeno na 84 různých popisech):

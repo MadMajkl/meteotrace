@@ -13,7 +13,7 @@
 'use strict';
 
 import { isKnownService, buildUrl, upstreamHeaders, cacheKey, ttlFor, trimWarnings } from './upstreams.js';
-import { findArea, matchWarningAreas } from './orp.js';
+import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -167,12 +167,23 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // `pokryto: false` dovolí klientovi říct, jak to je.
   if (!misto) return { warnings: [], misto: null, pokryto: false, filtrovano: true };
 
-  return {
-    warnings: matchWarningAreas(vystrahy, [misto]),
+  const vybrane = matchWarningAreas(vystrahy, [misto]);
+  const out = {
+    warnings: vybrane,
     misto: { nazev: misto.nazev, kraj: misto.kraj },
     pokryto: true,
     filtrovano: true,
   };
+
+  // Hranice území se přikládá jen na vyžádání (`geo=1`) a jen když je co
+  // kreslit. Je to řádově kilobajty — na mobilních datech se to počítá,
+  // a kdo mapu neotevře, nemá důvod to platit.
+  if (params.geo === '1' && vybrane.length) {
+    const cele = opts.areas.find((u) => u.nazev === misto.nazev);
+    const geometrie = cele ? areaGeoJSON(cele) : null;
+    if (geometrie) out.geometrie = geometrie;
+  }
+  return out;
 }
 
 /**

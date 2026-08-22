@@ -28,10 +28,32 @@ const DEV_STYLE = {
   dark: 'https://tiles.openfreemap.org/styles/dark',
 };
 
+/** Jak dlouho se čeká, než se mapa vzdá a řekne to nahlas. */
+const MAP_LOAD_TIMEOUT_MS = 12000;
+
 const RADAR_SOURCE = 'radar';
 const RADAR_LAYER = 'radar';
 
+const WARN_SOURCE = 'vystraha';
+const WARN_FILL = 'vystraha-vypln';
+const WARN_LINE = 'vystraha-obrys';
+
+/**
+ * Barvy obrysu výstrahy. Odpovídají štítkům závažnosti na kartě nad mapou —
+ * kdyby si každá plocha barvila po svém, člověk by mezi kartou a mapou
+ * nespojil, že jde o tutéž věc.
+ */
+const WARN_COLORS = {
+  extreme: '#b3261e',
+  severe: '#d2691e',
+  moderate: '#e6b45c',
+  minor: '#b0b8c2',
+  unknown: '#6b7a8c',
+};
+
 let map = null;
+/** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
+let styleReady = false;
 let frames = [];
 let index = 0;
 let timer = 0;
@@ -62,15 +84,74 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    await new Promise((res) => map.on('load', res));
+
+    // ⚠️ Na událost `load` se čeká se stropem. Kdyby nedorazila — a viděl jsem
+    // to: styl se zasekne bez jediné chyby v konzoli — zůstalo by čekání viset
+    // navždy a s ním i všechno za ním: radar by se nikdy nenačetl a uživatel
+    // by koukal na černý obdélník bez vysvětlení. Se stropem se aspoň řekne,
+    // že se mapa nepovedla.
+    map.on('load', () => { styleReady = true; });
+    await Promise.race([
+      new Promise((res) => map.on('load', res)),
+      new Promise((res) => setTimeout(res, MAP_LOAD_TIMEOUT_MS)),
+    ]);
+
+    // ⚠️ Instance se NENULUJE, i když se styl nepovedl. Mapa je pořád na
+    // obrazovce a další pokus by v témže místě založil druhou — dvě mapy přes
+    // sebe, každá s vlastním WebGL. Radar se prostě nekreslí a řekne se to.
+    if (!styleReady) {
+      $('radar-time').textContent = t('error.failed', lang);
+      return;
+    }
 
     new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
     $('radar-play').addEventListener('click', togglePlay);
+
+    // Mapa se zakládá dřív, než má karta konečnou velikost, a MapLibre si
+    // rozměr sám nehlídá. Pozorovatel to srovná — a zároveň pokryje otočení
+    // telefonu a rozložení skládacího displeje, kde se plocha mění za běhu.
+    new ResizeObserver(() => map.resize()).observe($('map'));
+
   } else {
+    if (!styleReady) {
+      $('radar-time').textContent = t('error.failed', lang);
+      return;
+    }
     map.easeTo({ center: [lon, lat], zoom: 7 });
   }
 
   await loadFrames();
+}
+
+/**
+ * Obrys území, pro které platí výstraha.
+ *
+ * ⚠️ Kreslí se NAD radar, ne pod něj. Pod radarem by ho srážky překryly zrovna
+ * v tom případě, kdy je nejvíc potřeba — tedy když nad územím opravdu prší.
+ *
+ * Výplň je záměrně slabá: mapa má pořád sloužit hlavně radaru. Nese informaci
+ * „tady výstraha platí", ne „tady se dívej".
+ */
+export function showWarningArea(geometrie, trida = 'unknown') {
+  if (!map || !styleReady) return;
+
+  for (const id of [WARN_FILL, WARN_LINE]) if (map.getLayer(id)) map.removeLayer(id);
+  if (map.getSource(WARN_SOURCE)) map.removeSource(WARN_SOURCE);
+  if (!geometrie) return;
+
+  map.addSource(WARN_SOURCE, {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: geometrie, properties: {} },
+  });
+  const barva = WARN_COLORS[trida] || WARN_COLORS.unknown;
+  map.addLayer({
+    id: WARN_FILL, type: 'fill', source: WARN_SOURCE,
+    paint: { 'fill-color': barva, 'fill-opacity': 0.12 },
+  });
+  map.addLayer({
+    id: WARN_LINE, type: 'line', source: WARN_SOURCE,
+    paint: { 'line-color': barva, 'line-width': 2, 'line-opacity': 0.9 },
+  });
 }
 
 async function loadFrames() {
@@ -99,6 +180,7 @@ async function loadFrames() {
  * by se rozbilo při první změně knihovny.
  */
 function drawFrame() {
+  if (!styleReady) return;
   const frame = frames[index];
   const url = tileTemplate(frame);
   if (!url) return;
@@ -114,10 +196,13 @@ function drawFrame() {
   map.addSource(RADAR_SOURCE, {
     type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM,
   });
+  // ⚠️ Radar se zakládá znovu při KAŽDÉM snímku animace. Kdyby se přidával
+  // navrch, po prvním překreslení by přebil obrys výstrahy — a ten by zmizel
+  // sám od sebe po vteřině, což se hledá mizerně. Proto se vkládá POD něj.
   map.addLayer({
     id: RADAR_LAYER, type: 'raster', source: RADAR_SOURCE,
     paint: { 'raster-opacity': 0.75 },
-  });
+  }, map.getLayer(WARN_FILL) ? WARN_FILL : undefined);
 
   const label = frameLabel(frame, timeZone, lang);
   $('radar-time').textContent = label.time;

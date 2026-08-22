@@ -73,8 +73,9 @@ tohle je jen shrnutí.**
 | Ukládání míst | `web/lib/places.js`, ověřené naživo (trasy zatím jen v logice) |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
+| Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 
-**289 kontrol, všechny zelené.** **Vše pushnuto** (22. 8. 2026, `f1a9384`). Push jen na výslovné svolení.
+**297 kontrol, všechny zelené.** **1 commit NENÍ pushnutý** (push jen na výslovné svolení).
 
 ### ⛔ Co blokuje pokračování
 
@@ -114,6 +115,9 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   velikostí a otiskem souboru. Strop je v `radar.js` jako `MAX_ZOOM` a MUSÍ být
   i v `maxzoom` rastrového zdroje. Pozor: u `tileSize: 256` si MapLibre říká
   o úroveň VYŠŠÍ, než je přiblížení mapy — proto jsou dlaždice 512px.
+- **🚨 Vrstva přidaná do mapy navrch přebije všechno pod sebou** — a radar se zakládá
+  znovu při KAŽDÉM snímku animace. Cokoli, co má být nad radarem, se mu musí předat
+  jako `beforeId`, jinak to po vteřině zmizí samo.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
