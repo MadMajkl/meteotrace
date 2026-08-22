@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
+
+<!-- Kde leží podkladová mapa (R3). Archiv má 1,4 GB, takže neleží u appky,
+     ale v objektovém úložišti — a jeho adresa se liší podle nasazení.
+     Prázdná hodnota = soubor vedle appky, tak to jede při vývoji.
+     ⚠️ Doména musí umět Range i CORS, jinak se z archivu nenačte nic. -->
+<meta name="meteotrace:tiles" content="">
 <title>MeteoTrace</title>
 <meta name="description" content="Weather along your route — at every point, at the time you actually get there.">
 <link rel="stylesheet" href="vendor/maplibre-gl.css">

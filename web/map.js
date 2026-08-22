@@ -25,13 +25,7 @@ import {
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
 import { buildStyle } from './lib/map-style.js';
-
-/**
- * Vlastní dlaždice (`R3`). Jeden soubor `.pmtiles`, ze kterého si prohlížeč
- * bere jen ty kousky, které právě potřebuje — proto musí server umět
- * částečné stahování (`Range`).
- */
-const TILES_URL = '/data/cz.pmtiles';
+import { tilesUrl } from './lib/tiles-config.js';
 
 /** Jak dlouho se čeká, než se mapa vzdá a řekne to nahlas. */
 const MAP_LOAD_TIMEOUT_MS = 12000;
@@ -71,7 +65,7 @@ const $ = (id) => document.getElementById(id);
 
 /** Podklad podle motivu zařízení — vlastní styl, vlastní data (R3). */
 const styleFor = () => buildStyle({
-  tilesUrl: new URL(TILES_URL, location.href).href,
+  tilesUrl: tilesUrl(),
   dark: matchMedia('(prefers-color-scheme: dark)').matches,
   lang,
 });
