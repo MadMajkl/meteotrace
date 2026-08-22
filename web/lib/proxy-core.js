@@ -13,6 +13,7 @@
 'use strict';
 
 import { isKnownService, buildUrl, upstreamHeaders, cacheKey, ttlFor, trimWarnings } from './upstreams.js';
+import { findArea, matchWarningAreas } from './orp.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -109,6 +110,69 @@ export function transformBody(service, body, params = {}) {
     return { warnings: trimWarnings(body, lang) };
   }
   return body;
+}
+
+/**
+ * Výřez odpovědi podle polohy tazatele.
+ *
+ * ⚠️ TOHLE SE DĚLÁ AŽ ZA CACHE, a je to podstatné. Pod klíčem cache leží
+ * odpověď společná všem (celý ořezaný feed); teprve tady se z ní krájí to,
+ * co se týká jednoho místa. Kdyby se ukládal až výřez, dostal by druhý tazatel
+ * výstrahy prvního — a neměl by jak to poznat.
+ *
+ * Bez souřadnic se nefiltruje podle místa — appka může chtít i celý přehled.
+ * Prošlé výstrahy se ale vyhazují vždycky.
+ *
+ * @param {string} service
+ * @param {any} body                     odpověď po {@link transformBody}
+ * @param {Record<string,string>} params
+ * @param {object} [opts]
+ * @param {Array} [opts.areas]  rozbalené hranice ORP (`unpackAreas`)
+ * @param {number} [opts.nowMs] čas pro vyhození prošlých výstrah
+ */
+export function filterByPlace(service, body, params = {}, opts = {}) {
+  if (service !== 'warnings') return body;
+
+  // 🚨 Feed nese i výstrahy, které dávno skončily — v odpovědi z 22. 8. jich
+  // byla víc než polovina. Ven se posílat nemají: je to zbytečný objem na
+  // mobilních datech. Přesné odfiltrování dělá až klient při výpisu, protože
+  // tahle odpověď se drží v cache minuty a mezitím může něco vypršet.
+  const vsechny = (body && body.warnings) || [];
+  const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : 0;
+  const vystrahy = nowMs
+    ? vsechny.filter((w) => {
+      if (!w.expires) return true;
+      const konec = new Date(w.expires).getTime();
+      return Number.isNaN(konec) || konec > nowMs;
+    })
+    : vsechny;
+
+  // Bez souřadnic se nefiltruje podle místa — appka může chtít i celý přehled.
+  // Prošlé se ale vyhazují tak jako tak: jsou k ničemu v obou případech.
+  const lat = Number(params.lat);
+  const lon = Number(params.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { ...body, warnings: vystrahy };
+
+  // Hranice nejsou po ruce (nezapojený obal, ořezané nasazení). Vrátit všechno
+  // je lepší než zamlčet bouřku — ale MUSÍ to být poznat, jinak by se odhad
+  // tvářil jako výběr. Od toho je `filtrovano`.
+  if (!opts.areas || !opts.areas.length) {
+    return { warnings: vystrahy, misto: null, pokryto: false, filtrovano: false };
+  }
+
+  const misto = findArea([lat, lon], opts.areas);
+
+  // Bod mimo pokrytí (cizina). Prázdný seznam je správná odpověď — ale sám
+  // o sobě vypadá stejně jako „nic nehrozí", což je něco úplně jiného.
+  // `pokryto: false` dovolí klientovi říct, jak to je.
+  if (!misto) return { warnings: [], misto: null, pokryto: false, filtrovano: true };
+
+  return {
+    warnings: matchWarningAreas(vystrahy, [misto]),
+    misto: { nazev: misto.nazev, kraj: misto.kraj },
+    pokryto: true,
+    filtrovano: true,
+  };
 }
 
 /**

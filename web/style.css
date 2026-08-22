@@ -303,3 +303,63 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* MapLibre si nese vlastní barvy; srovnat je s motivem appky. */
 .maplibregl-ctrl-attrib { font-size: 10px; }
 .maplibregl-ctrl-group { border-radius: 10px !important; overflow: hidden; }
+
+/* ── Výstrahy ──────────────────────────────────────────────────────────
+   Barva nese závažnost, ale NIKDY sama: vedle ní vždycky stojí i slovo
+   („Vysoká", „Střední"). Barvoslepý uživatel ani telefon na slunci by se
+   z odstínu nic nedozvěděl. */
+.warnings { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.warn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 1px solid var(--warn-line);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.warn-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn-line) 30%, transparent);
+}
+
+.warn-title { font-size: 15px; }
+
+.warn-where {
+  grid-column: 2;
+  font-size: 13px;
+  opacity: .85;
+}
+
+/* Rozsah se čte z lidského textu, takže nemusí vyjít. Když nevyšel, musí to
+   být vidět — jinak se odhad tváří jako zjištění. */
+.warn-uncertain { font-style: italic; }
+
+.warn-extreme { --warn-line: #b3261e; --warn-bg: #fdecea; --warn-text: #7f1710; }
+.warn-severe  { --warn-line: #d2691e; --warn-bg: #fdf0e6; --warn-text: #7a3d0b; }
+.warn-unknown { --warn-line: #6b7a8c; --warn-bg: #eef2f6; --warn-text: #37424f; }
+
+@media (prefers-color-scheme: dark) {
+  .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
+  .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
+  .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
+}
+
+/* Nízká závažnost se ztlumí — vedle střední byla k nerozeznání a čtyři stejně
+   výrazné řádky se čtou stejně špatně jako žádný. */
+.warn-minor { --warn-line: #b0b8c2; --warn-bg: #f6f8fa; --warn-text: #4a5561; }
+
+@media (prefers-color-scheme: dark) {
+  .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
+}

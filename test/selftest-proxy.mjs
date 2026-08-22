@@ -266,3 +266,41 @@ test('výstrahy: prázdný nebo poškozený feed nespadne', () => {
   assert.deepEqual(trimWarnings({ warnings: [] }), []);
   assert.deepEqual(trimWarnings({ warnings: [{ alert: {} }] }), []);
 });
+
+/* ============================================================
+   MÍSTNÍ PARAMETRY
+
+   Souřadnice u výstrah se ven neposílají — zpracují se u nás. To má dva
+   důsledky, které se dají snadno zkazit tichem.
+   ============================================================ */
+
+test('🚨 místní parametry: souřadnice nejsou zahozené, jen se neposílají ven', () => {
+  // Kdyby se hlásily jako zahozené, log by tvrdil, že se ztratilo něco,
+  // co se ve skutečnosti použilo — a hledala by se neexistující chyba.
+  const { allowed, dropped } = filterParams('warnings', { lat: '50.5', lon: '14.1' });
+  assert.deepEqual(allowed, {}, 'ven nejde nic');
+  assert.deepEqual(dropped, [], 'ale zahozené to není');
+});
+
+test('🚨 místní parametry: souřadnice NESMÍ být v klíči cache', () => {
+  // Pod jedním klíčem leží celý feed společný všem; výřez podle polohy se
+  // dělá až za cache. Kdyby souřadnice do klíče vstoupily, měl by každý
+  // uživatel vlastní kopii celého feedu a cache by ztratila smysl.
+  assert.equal(
+    cacheKey('warnings', { lat: '50.5', lon: '14.1' }),
+    cacheKey('warnings', {}),
+  );
+});
+
+test('místní parametry: cizí parametr se pořád hlásí jako zahozený', () => {
+  const { dropped } = filterParams('warnings', { lat: '50.5', vymysl: '1' });
+  assert.deepEqual(dropped, ['vymysl']);
+});
+
+test('místní parametry: jazyk se taky zpracuje u nás, ne ven', () => {
+  // Feed nese obě jazykové verze a vybírá se z nich při ořezu. Log tvrdil,
+  // že se `lang` zahodil — a hledala by se kvůli tomu neexistující chyba.
+  const { allowed, dropped } = filterParams('warnings', { lang: 'cs' });
+  assert.deepEqual(allowed, {});
+  assert.deepEqual(dropped, []);
+});

@@ -91,6 +91,14 @@ export const UPSTREAMS = {
   warnings: {
     base: 'https://feeds.meteoalarm.org/api/v1/warnings/feeds-czechia',
     params: [],
+    // Parametry, které se ven NEPOSÍLAJÍ — zpracují se u nás. Feed umí vydat
+    // jen celou republiku, takže výběr podle polohy dělá proxy sama.
+    //
+    // ⚠️ Do klíče cache patřit NESMÍ: pod jedním klíčem se drží celý ořezaný
+    // feed a teprve odpověď se z něj krájí podle polohy. Kdyby se cachoval už
+    // výřez, dostal by druhý tazatel výstrahy prvního — a nepoznal by to.
+    // `lang` vybírá jazykovou verzi z feedu (nese obě), `lat`/`lon` výřez podle místa.
+    local: ['lang', 'lat', 'lon'],
     ttl: 5 * MINUTE,
   },
 };
@@ -119,11 +127,15 @@ export function filterParams(service, input) {
     ? [...input.entries()]
     : Object.entries(input || {});
 
+  const local = spec.local || [];
   const allowed = {};
   const dropped = [];
   for (const [key, value] of entries) {
     if (spec.params.includes(key)) allowed[key] = String(value);
-    else dropped.push(key);
+    // Místní parametr se ven neposílá, ale zahozený není — zpracuje se u nás.
+    // Kdyby se hlásil jako zahozený, log by tvrdil, že se ztratil něco, co se
+    // ve skutečnosti použilo.
+    else if (!local.includes(key)) dropped.push(key);
   }
   return { allowed, dropped };
 }

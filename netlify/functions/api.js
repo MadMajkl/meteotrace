@@ -10,6 +10,8 @@
 
 import { serveProxy } from '../../server/proxy.js';
 import { createCache } from '../../web/lib/ttl-cache.js';
+import { unpackAreas } from '../../web/lib/orp.js';
+import { ORP_DATA } from '../../web/data/orp-boundaries.js';
 
 /**
  * Cache přežije jen mezi dotazy, které trefí tutéž instanci funkce.
@@ -19,6 +21,13 @@ import { createCache } from '../../web/lib/ttl-cache.js';
  * minutový limit ORS (40/min, viz R4).
  */
 const cache = createCache({ maxEntries: 200 });
+
+/**
+ * Hranice ORP se rozbalí jednou při studeném startu (~5 ms) a instance si je
+ * drží. Kdyby se rozbalovaly při každém dotazu, platilo by se to zbytečně
+ * pokaždé — a je to čistý výpočet, který se mezi dotazy nemění.
+ */
+const areas = unpackAreas(ORP_DATA);
 
 export default async function handler(request) {
   const url = new URL(request.url);
@@ -31,6 +40,7 @@ export default async function handler(request) {
     env: process.env,
   }, {
     cache,
+    areas,
     log: (msg, detail) => console.log(`[proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
   });
 

@@ -13,7 +13,7 @@
 
 'use strict';
 
-import { planRequest, transformBody, responseHeaders, errorBody } from '../web/lib/proxy-core.js';
+import { planRequest, transformBody, filterByPlace, responseHeaders, errorBody } from '../web/lib/proxy-core.js';
 
 /** Kolik sekund se čeká na cizí službu, než to vzdáme. */
 export const UPSTREAM_TIMEOUT_S = 12;
@@ -26,6 +26,8 @@ export const UPSTREAM_TIMEOUT_S = 12;
  * @param {Record<string,string>} [req.env]
  * @param {object} deps
  * @param {object} deps.cache            z `createCache()`
+ * @param {Array} [deps.areas]           rozbalené hranice ORP pro výběr výstrah podle polohy
+ * @param {() => number} [deps.now]      hodiny (kvůli testu), výchozí `Date.now`
  * @param {typeof fetch} [deps.fetchImpl]
  * @param {(msg: string, detail?: object) => void} [deps.log]
  * @returns {Promise<{status: number, headers: object, body: any}>}
@@ -49,11 +51,15 @@ export async function serveProxy(req, deps) {
 
   const params = normalizeParams(req.params);
 
+  // Výřez podle polohy se dělá až za cache — v cache leží odpověď společná
+  // všem. Viz `filterByPlace()`.
+  const proMisto = (value) => filterByPlace(plan.service, value, params, { areas: deps.areas, nowMs: (deps.now || Date.now)() });
+
   // 1) Čerstvé v cache → hotovo, ven se nechodí.
   const hit = cache.get(plan.cacheKey);
   if (hit && hit.fresh) {
     log('cache: čerstvé', { key: plan.cacheKey });
-    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: hit.value };
+    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(hit.value) };
   }
 
   // 2) Ven.
@@ -62,7 +68,7 @@ export async function serveProxy(req, deps) {
     const out = transformBody(plan.service, body, params);
     cache.set(plan.cacheKey, out, plan.ttlS);
     log('staženo', { service: plan.service, key: plan.cacheKey });
-    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: out };
+    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(out) };
   } catch (e) {
     // 3) Nepovedlo se. Máme-li prošlou odpověď, je nesrovnatelně lepší než chyba —
     //    desetiminutová předpověď v autě na špatném signálu pořád poslouží.
@@ -72,7 +78,7 @@ export async function serveProxy(req, deps) {
       return {
         status: 200,
         headers: responseHeaders({ ttlS: plan.ttlS, fresh: false, ageS: hit.ageS }),
-        body: hit.value,
+        body: proMisto(hit.value),
       };
     }
     log('upstream selhal a není co nabídnout', { service: plan.service, chyba: e.message });

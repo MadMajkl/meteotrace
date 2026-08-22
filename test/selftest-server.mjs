@@ -13,6 +13,10 @@ import assert from 'node:assert/strict';
 import { createCache } from '../web/lib/ttl-cache.js';
 import { parseApiPath, planRequest, transformBody, responseHeaders } from '../web/lib/proxy-core.js';
 import { serveProxy } from '../server/proxy.js';
+import { unpackAreas } from '../web/lib/orp.js';
+import { ORP_DATA } from '../web/data/orp-boundaries.js';
+
+const AREAS = unpackAreas(ORP_DATA);
 
 /* ============================================================
    POMŮCKY — falešné hodiny a falešný upstream
@@ -332,4 +336,142 @@ test('obsluha: hlásí zahozené parametry do logu', async () => {
   const radek = zapsano.find(([m]) => m === 'zahozené parametry');
   assert.ok(radek, 'zahození se musí objevit v logu');
   assert.deepEqual(radek[1].dropped, ['podvrh']);
+});
+
+/* ============================================================
+   VÝSTRAHY PODLE POLOHY
+
+   Feed umí vydat jen celou republiku, takže výběr dělá proxy. Kritické je,
+   KDY: až za cache. V cache leží odpověď společná všem.
+   ============================================================ */
+
+const FEED = {
+  warnings: [
+    { alert: { info: [{
+      language: 'cs', event: 'Bouřky', severity: 'Moderate',
+      area: [{ areaDesc: 'Ústecký kraj', geocode: [{ valueName: 'CISORP', value: '4216' }] }],
+    }] } },
+    { alert: { info: [{
+      language: 'cs', event: 'Vichřice', severity: 'Severe',
+      area: [{ areaDesc: 'Jihomoravský kraj (Brno)', geocode: [{ valueName: 'CISORP', value: '6203' }] }],
+    }] } },
+  ],
+};
+
+const LITOMERICE = { lat: '50.5344', lon: '14.1316' };
+const BRNO = { lat: '49.1951', lon: '16.6068' };
+
+async function vystrahy(params, deps = {}) {
+  const fetchImpl = deps.fetchImpl || fakeFetch({ body: FEED });
+  const res = await serveProxy(
+    { pathname: '/api/warnings', params, env: ENV },
+    { cache: deps.cache || createCache(), fetchImpl, areas: deps.areas ?? AREAS },
+  );
+  return { res, fetchImpl };
+}
+
+test('výstrahy: bez souřadnic se vrátí všechny', async () => {
+  const { res } = await vystrahy({});
+  assert.equal(res.body.warnings.length, 2);
+  assert.equal(res.body.misto, undefined, 'bez souřadnic se místo neřeší');
+});
+
+test('výstrahy: se souřadnicemi projde jen to, co se místa týká', async () => {
+  const { res } = await vystrahy(LITOMERICE);
+  assert.deepEqual(res.body.warnings.map((w) => w.event), ['Bouřky']);
+  assert.equal(res.body.misto.nazev, 'Litoměřice');
+  assert.equal(res.body.misto.kraj, 'Ústecký kraj');
+  assert.equal(res.body.pokryto, true);
+});
+
+test('🚨 výstrahy: druhý tazatel NESMÍ dostat výřez prvního', async () => {
+  // Jádro věci. Pod klíčem cache leží celý feed, ne výřez — kdyby se ukládal
+  // výřez, dostal by Brňák výstrahy Litoměřic a neměl by jak to poznat.
+  const cache = createCache();
+  const fetchImpl = fakeFetch({ body: FEED });
+
+  const prvni = await vystrahy(LITOMERICE, { cache, fetchImpl });
+  const druhy = await vystrahy(BRNO, { cache, fetchImpl });
+
+  assert.deepEqual(prvni.res.body.warnings.map((w) => w.event), ['Bouřky']);
+  assert.deepEqual(druhy.res.body.warnings.map((w) => w.event), ['Vichřice']);
+  assert.equal(druhy.res.body.misto.nazev, 'Brno');
+  assert.equal(fetchImpl.calls.length, 1, 'druhý dotaz se obsloužil z cache, ven se nešlo');
+});
+
+test('🚨 výstrahy: místo mimo pokrytí to přizná, nemlčí', async () => {
+  // Prázdný seznam sám o sobě vypadá stejně jako „nic nehrozí" — a to je
+  // něco úplně jiného než „o tomhle místě nic nevíme".
+  const { res } = await vystrahy({ lat: '48.2082', lon: '16.3738' });   // Vídeň
+  assert.deepEqual(res.body.warnings, []);
+  assert.equal(res.body.pokryto, false);
+  assert.equal(res.body.filtrovano, true);
+  assert.equal(res.body.misto, null);
+});
+
+test('🚨 výstrahy: bez hranic se vrátí všechno, ale je to poznat', async () => {
+  // Radši výstraha navíc než zamlčená bouřka — ale odhad se nesmí tvářit
+  // jako výběr, jinak by UI lhalo o tom, čeho se výstraha týká.
+  const { res } = await vystrahy(LITOMERICE, { areas: [] });
+  assert.equal(res.body.warnings.length, 2);
+  assert.equal(res.body.filtrovano, false);
+  assert.equal(res.body.pokryto, false);
+});
+
+test('výstrahy: souřadnice se ven neposílají', async () => {
+  const { res, fetchImpl } = await vystrahy(LITOMERICE);
+  assert.equal(res.status, 200);
+  assert.ok(!fetchImpl.calls[0].url.includes('lat='), 'feed o poloze nic vědět nemá');
+  assert.ok(!fetchImpl.calls[0].url.includes('lon='));
+});
+
+test('výstrahy: prošlá odpověď se taky ořízne podle polohy', async () => {
+  // Když upstream selže, servíruje se prošlé z cache — i to musí projít
+  // výřezem, jinak by výpadek najednou ukázal výstrahy celé republiky.
+  const cache = createCache();
+  await vystrahy(LITOMERICE, { cache });
+  cache.get('warnings?');                        // záznam tam je
+  const { res } = await vystrahy(BRNO, {
+    cache,
+    fetchImpl: fakeFetch(new Error('upstream leží')),
+  });
+  assert.deepEqual(res.body.warnings.map((w) => w.event), ['Vichřice']);
+});
+
+test('🚨 výstrahy: prošlé se ven neposílají', async () => {
+  // Ve skutečné odpovědi z 22. 8. byla víc než polovina záznamů dávno po
+  // platnosti — je to zbytečný objem na mobilních datech.
+  const nowMs = Date.parse('2026-08-22T12:00:00+02:00');
+  const feed = { warnings: [
+    { alert: { info: [{ language: 'cs', event: 'Stará bouřka', severity: 'Moderate',
+      expires: '2026-08-17T18:00:00+02:00',
+      area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
+    { alert: { info: [{ language: 'cs', event: 'Platná bouřka', severity: 'Moderate',
+      expires: '2026-08-22T20:00:00+02:00',
+      area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
+  ] };
+  const res = await serveProxy(
+    { pathname: '/api/warnings', params: LITOMERICE, env: ENV },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs },
+  );
+  assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná bouřka']);
+});
+
+test('🚨 výstrahy: prošlé se vyhodí i v přehledu bez souřadnic', async () => {
+  // Snadno se přehlédne: filtr podle místa se bez souřadnic přeskočí, ale
+  // vyhození prošlých se přeskočit nesmí — jinak celostátní přehled ukazuje
+  // bouřky z minulého týdne.
+  const nowMs = Date.parse('2026-08-22T12:00:00+02:00');
+  const feed = { warnings: [
+    { alert: { info: [{ language: 'cs', event: 'Stará', severity: 'Minor',
+      expires: '2026-08-17T18:00:00+02:00', area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
+    { alert: { info: [{ language: 'cs', event: 'Platná', severity: 'Minor',
+      expires: '2026-08-22T20:00:00+02:00', area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
+  ] };
+  const res = await serveProxy(
+    { pathname: '/api/warnings', params: {}, env: ENV },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs },
+  );
+  assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná']);
+  assert.equal(res.body.misto, undefined, 'bez souřadnic se místo pořád neřeší');
 });

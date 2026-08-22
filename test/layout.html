@@ -105,6 +105,30 @@ function overflow(doc) {
   };
 }
 
+/** Nejhorší případy do karty výstrah — jinak by se měřila prázdná karta. */
+function nasypVystrahy(doc) {
+  const card = doc.getElementById('warnings-card');
+  const list = doc.getElementById('warnings-list');
+  if (!card || !list) return;
+  card.hidden = false;
+  const vzorky = [
+    ['warn-unknown', 'Neznámá závažnost', 'Velmi silné bouřky a přívalové srážky · 14:00–18:00',
+     'Platí pro Brandýs nad Labem-Stará Boleslav, Ústí nad Labem-Střekov.'],
+    ['warn-severe', 'Vysoká', 'Vysoké teploty · do 17:00', 'Platí pro Litoměřice.'],
+    ['warn-minor', 'Nízká', 'Vysoké riziko požárů · do 08:00', 'Nepodařilo se přesně určit, kde platí.'],
+  ];
+  list.replaceChildren();
+  for (const [trida, badge, titul, kde] of vzorky) {
+    const li = doc.createElement('li');
+    li.className = 'warn ' + trida;
+    const b = doc.createElement('span'); b.className = 'warn-badge'; b.textContent = badge;
+    const h = doc.createElement('strong'); h.className = 'warn-title'; h.textContent = titul;
+    const k = doc.createElement('span'); k.className = 'warn-where'; k.textContent = kde;
+    li.append(b, h, k);
+    list.append(li);
+  }
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -113,6 +137,12 @@ async function run() {
 
   // Nech doběhnout dotazy na data — prázdná stránka nepřeteče nikdy.
   await new Promise((r) => setTimeout(r, 4000));
+
+  // ⚠️ Karta výstrah bývá prázdná — v ČR většinu času žádná výstraha neplatí,
+  // takže by se na ní nezměřilo nic. Před měřením se proto nasypou schválně
+  // ty nejhorší případy: nejdelší štítek závažnosti („Neznámá závažnost")
+  // a dlouhý název jevu vedle sebe na jednom řádku.
+  for (const { f } of frames) nasypVystrahy(f.contentDocument);
 
   let failed = 0;
   const results = [];

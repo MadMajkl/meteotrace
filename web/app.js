@@ -11,6 +11,7 @@
 import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
+import { buildWarningsView } from './lib/warnings-view.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -275,16 +276,22 @@ async function loadStation() {
   $('place-name').textContent = place.name;
 
   try {
-    const [fc, air] = await requests.run('station', async (signal) => {
+    const [fc, air, warn] = await requests.run('station', async (signal) => {
       const common = { latitude: place.lat, longitude: place.lon };
       // Pyl je doplněk — když se nepovede, počasí se kvůli němu neshodí.
+      // Pyl ani výstrahy nesmí shodit počasí — proto `catch`. U výstrah se
+      // ale neúspěch NEZAMLČÍ: `null` se propíše do stavu „nepodařilo se
+      // načíst", což je něco jiného než „nic nehrozí".
       return Promise.all([
         apiGet('forecast', { ...common, ...FORECAST_PARAMS }, { signal }),
         apiGet('air', { ...common, ...AIR_PARAMS }, { signal }).catch(() => null),
+        apiGet('warnings', { lat: place.lat, lon: place.lon, lang: state.lang }, { signal })
+          .catch(() => null),
       ]);
     });
 
     render(fc.data, air?.data);
+    renderWarnings(warn ? warn.data : null);
 
     if (fc.stale) {
       notice(tf('error.stale', { age: humanAge(fc.ageS) }, state.lang));
@@ -292,6 +299,48 @@ async function loadStation() {
   } catch (e) {
     if (requests.isAbort(e)) return;          // zrušený dotaz není chyba
     notice(`${t('error.failed', state.lang)} ${e.message}`);
+  }
+}
+
+/**
+ * Výstrahy.
+ *
+ * ⚠️ Karta se NESCHOVÁVÁ jen proto, že je seznam prázdný. „Žádné výstrahy
+ * neplatí" a „výstrahy se nepodařilo načíst" vypadají bez věty úplně stejně —
+ * a jedno z toho je klid, druhé je nevědomost.
+ */
+function renderWarnings(payload) {
+  const view = buildWarningsView({ payload, lang: state.lang, nowMs: Date.now() });
+
+  $('warnings-card').hidden = false;
+
+  const note = $('warnings-note');
+  note.textContent = view.zprava;
+  note.hidden = !view.zprava;
+
+  const list = $('warnings-list');
+  list.replaceChildren();
+  for (const p of view.polozky) {
+    const li = document.createElement('li');
+    li.className = `warn warn-${p.trida}`;
+
+    const badge = document.createElement('span');
+    badge.className = 'warn-badge';
+    badge.textContent = p.zavaznost;
+
+    const head = document.createElement('strong');
+    head.className = 'warn-title';
+    head.textContent = p.obdobi ? `${p.nadpis} · ${p.obdobi}` : p.nadpis;
+
+    li.append(badge, head);
+
+    if (p.popis) {
+      const kde = document.createElement('span');
+      kde.className = p.nejiste ? 'warn-where warn-uncertain' : 'warn-where';
+      kde.textContent = p.popis;
+      li.append(kde);
+    }
+    list.append(li);
   }
 }
 

@@ -68,6 +68,14 @@
     <p class="updated" id="now-updated"></p>
   </section>
 
+  <!-- Výstrahy. Nikdy se neschovává celá karta, jen proto, že je seznam prázdný:
+       „žádné výstrahy" a „výstrahy se nepodařilo načíst" musí jít rozeznat. -->
+  <section class="card warnings-card" id="warnings-card" hidden aria-labelledby="h-warnings">
+    <h2 id="h-warnings" data-i18n="warnings.title"></h2>
+    <p id="warnings-note" class="hint" hidden></p>
+    <ul class="warnings" id="warnings-list"></ul>
+  </section>
+
   <section class="card map-card" aria-labelledby="h-radar">
     <h2 id="h-radar" data-i18n="radar.title"></h2>
     <div id="map" class="map"></div>

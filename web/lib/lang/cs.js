@@ -141,6 +141,28 @@ export default {
     about: 'O aplikaci',
   },
 
+  warnings: {
+    title: 'Výstrahy',
+    none: 'Žádné výstrahy neplatí.',
+    noneFor: 'Pro {place} žádné výstrahy neplatí.',
+    outside: 'Pro tohle místo se výstrahy nevydávají.',
+    unsure: 'Nepodařilo se určit, kterých míst se týkají — ukazujeme všechny.',
+    unavailable: 'Výstrahy se nepodařilo načíst.',
+    unnamed: 'Výstraha',
+    appliesTo: 'Platí pro {place}.',
+    areaUncertain: 'Nepodařilo se přesně určit, kde platí.',
+    from: 'od {time}',
+    until: 'do {time}',
+    fromUntil: '{from}–{until}',
+    severity: {
+      extreme: 'Extrémní',
+      severe: 'Vysoká',
+      moderate: 'Střední',
+      minor: 'Nízká',
+      unknown: 'Neznámá závažnost',
+    },
+  },
+
   time: {
     min: 'min',
     hour: 'h',

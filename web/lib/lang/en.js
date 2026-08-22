@@ -140,6 +140,28 @@ export default {
     about: 'About',
   },
 
+  warnings: {
+    title: 'Warnings',
+    none: 'No warnings in force.',
+    noneFor: 'No warnings for {place}.',
+    outside: 'Warnings are not issued for this place.',
+    unsure: 'We could not tell which places these apply to, so all warnings are shown.',
+    unavailable: 'Warnings could not be loaded.',
+    unnamed: 'Warning',
+    appliesTo: 'Applies to {place}.',
+    areaUncertain: 'It was not possible to tell exactly where this applies.',
+    from: 'from {time}',
+    until: 'until {time}',
+    fromUntil: '{from}–{until}',
+    severity: {
+      extreme: 'Extreme',
+      severe: 'Severe',
+      moderate: 'Moderate',
+      minor: 'Minor',
+      unknown: 'Unknown severity',
+    },
+  },
+
   time: {
     min: 'min',
     hour: 'h',

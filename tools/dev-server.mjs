@@ -22,6 +22,8 @@ import { fileURLToPath } from 'node:url';
 
 import { serveProxy } from '../server/proxy.js';
 import { createCache } from '../web/lib/ttl-cache.js';
+import { unpackAreas } from '../web/lib/orp.js';
+import { ORP_DATA } from '../web/data/orp-boundaries.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PORT = Number(process.env.PORT) || 8099;
@@ -40,6 +42,7 @@ const MIME = {
 };
 
 const cache = createCache({ maxEntries: 300 });
+const areas = unpackAreas(ORP_DATA);
 
 /** Vyřeší URL na soubor: /test/… míří do test/, zbytek do web/. */
 function resolveFile(pathname) {
@@ -62,6 +65,7 @@ const server = createServer(async (req, res) => {
       env: process.env,
     }, {
       cache,
+      areas,
       log: (msg, detail) => console.log(`  [proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
     });
     res.writeHead(status, headers).end(JSON.stringify(body, null, 2));
