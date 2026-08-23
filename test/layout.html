@@ -105,6 +105,43 @@ function overflow(doc) {
   };
 }
 
+/**
+ * Nejhorší případy do karty pylu.
+ *
+ * ⚠️ Nejdelší slova, jaká tam můžou být: „Velmi vysoká" u druhu s dlouhým
+ * jménem. Na 320 px je to ta nejtěsnější dvojice v celé appce.
+ */
+function nasypPyl(doc) {
+  const karta = doc.getElementById('pollen-card');
+  const list = doc.getElementById('pollen');
+  if (!karta || !list) return;
+  karta.hidden = false;
+  const vzorky = [
+    ['Ambrózie peřenolistá', 'veryHigh', 'Velmi vysoká'],
+    ['Trávy', 'moderate', 'Střední'],
+    ['Bříza bělokorá', 'none', 'Žádný'],
+  ];
+  list.replaceChildren();
+  for (const [jmeno, uroven, text] of vzorky) {
+    const li = doc.createElement('li');
+    li.dataset.level = uroven;
+    const jm = doc.createElement('span');
+    jm.className = 'pollen-name';
+    const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'pollen-icon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    const txt = doc.createElement('span');
+    txt.textContent = jmeno;
+    jm.append(svg, txt);
+    const lvl = doc.createElement('span');
+    lvl.className = 'lvl';
+    lvl.dataset.level = uroven;
+    lvl.textContent = text;
+    li.append(jm, lvl);
+    list.append(li);
+  }
+}
+
 /** Nejhorší případy do karty výstrah — jinak by se měřila prázdná karta. */
 function nasypVystrahy(doc) {
   const card = doc.getElementById('warnings-card');
@@ -142,7 +179,7 @@ async function run() {
   // takže by se na ní nezměřilo nic. Před měřením se proto nasypou schválně
   // ty nejhorší případy: nejdelší štítek závažnosti („Neznámá závažnost")
   // a dlouhý název jevu vedle sebe na jednom řádku.
-  for (const { f } of frames) nasypVystrahy(f.contentDocument);
+  for (const { f } of frames) { nasypVystrahy(f.contentDocument); nasypPyl(f.contentDocument); }
 
   let failed = 0;
   const results = [];
