@@ -12,6 +12,7 @@ import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
+import { pollenIcon } from './lib/pollen-icons.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -523,7 +524,11 @@ function renderPollen(view) {
   fill($('pollen'), polozky, (p) => {
     const level = el('span', 'lvl', p.levelText);
     level.dataset.level = p.level;            // barvu odznaku řídí CSS podle stupně
-    return el('li', '', [el('span', '', p.name), level]);
+
+    const jmeno = el('span', 'pollen-name', [pollenSvg(p.species), el('span', '', p.name)]);
+    const li = el('li', '', [jmeno, level]);
+    li.dataset.level = p.level;               // stejnou barvou se obarví i lístek
+    return li;
   });
 }
 
@@ -554,6 +559,53 @@ async function showRadar(timeZone) {
   } catch (e) {
     console.warn('[MeteoTrace] mapa se nenačetla:', e.message);
   }
+}
+
+/**
+ * Lístek alergenu. Kreslí se čárou, barvu si bere z okolí (`currentColor`),
+ * takže drží semafor stejně jako odznak vedle.
+ *
+ * ⚠️ Pro odečítač obrazovky je to výzdoba — jméno druhu i stupeň jsou vedle
+ * jako text. Piktogram, který by nesl informaci sám, by byl pro nevidomého
+ * prázdné místo.
+ */
+function pollenSvg(species) {
+  const tvar = pollenIcon(species);
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'pollen-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  if (!tvar) return svg;                       // neznámý druh: prázdné místo, ne cizí tvar
+
+  if (tvar.plocha) {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', tvar.plocha);
+    p.setAttribute('fill', 'currentColor');
+    p.setAttribute('opacity', '0.9');   // silueta NESE tvar, nemůže být přišeptaná
+    svg.append(p);
+  }
+  if (tvar.cara) {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', tvar.cara);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', 'currentColor');
+    p.setAttribute('stroke-width', '1.5');
+    p.setAttribute('stroke-linecap', 'round');
+    p.setAttribute('stroke-linejoin', 'round');
+    svg.append(p);
+  }
+  if (tvar.kruh) {
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', tvar.kruh[0]);
+    c.setAttribute('cy', tvar.kruh[1]);
+    c.setAttribute('r', tvar.kruh[2]);
+    c.setAttribute('fill', 'currentColor');
+    c.setAttribute('opacity', '0.9');
+    svg.append(c);
+  }
+  return svg;
 }
 
 /* ---------- drobné pomůcky nad DOM ---------- */

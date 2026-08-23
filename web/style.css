@@ -250,11 +250,24 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   padding: 3px 10px; font-size: 13px; font-weight: 600;
   border-radius: 999px; background: var(--surface-2);
 }
-.pollen .lvl[data-level="moderate"] { background: #fdf0d5; color: #7a5a12; }
-.pollen .lvl[data-level="high"] { background: #fde3d5; color: #8a3f18; }
-.pollen .lvl[data-level="veryHigh"] { background: #fbd5d5; color: #8a1f1f; }
+/* Semafor: zelená v pohodě · oranžová vyšší riziko · červená vysoké.
+   Odstíny jsou schválně z téže rodiny jako štítky u výstrah — kdyby si
+   každá karta barvila po svém, appka by mluvila dvěma jazyky.
+
+   ⚠️ Barva NIKDY nestojí sama: vedle ní je vždycky slovo („Nízká", „Střední").
+   Barvoslepý uživatel ani telefon na přímém slunci se z odstínu nedozví nic. */
+.pollen .lvl[data-level="low"] { background: #e3f2e5; color: #2c5730; }
+.pollen .lvl[data-level="moderate"] { background: #fdeacd; color: #8a5310; }
+.pollen .lvl[data-level="high"] { background: #fbdcd3; color: #8c3a18; }
+.pollen .lvl[data-level="veryHigh"] { background: #f7cdcd; color: #7f1710; }
+
+/* Nula není „v pohodě", je to „nic". Šedá to říká líp než zelená: zelená
+   by tvrdila, že se něco naměřilo a je toho málo. */
+.pollen .lvl[data-level="none"] { background: var(--surface-2); color: var(--text-soft); font-weight: 400; }
+.pollen li:has(.lvl[data-level="none"]) { opacity: .65; }
 
 @media (prefers-color-scheme: dark) {
+  .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
   .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
   .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
   .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
@@ -442,7 +455,19 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
 .map-hint { margin: 8px 0 0; font-size: 12px; }
 
-/* Druh, který nelítá, se ztlumí. Jinak šest řádků křičí stejně nahlas
-   a alergik v nich nenajde ten jediný, který ho pálí. */
-.pollen .lvl[data-level="none"] { opacity: .5; font-weight: 400; }
-.pollen li:has(.lvl[data-level="none"]) { opacity: .65; }
+/* Lístek alergenu vedle jména. Barvu dědí po řádku, takže drží semafor. */
+.pollen-name { display: inline-flex; align-items: center; gap: 8px; }
+.pollen-icon { width: 22px; height: 22px; flex: none; }
+
+.pollen li[data-level="low"] .pollen-icon { color: #2c5730; }
+.pollen li[data-level="moderate"] .pollen-icon { color: #b57614; }
+.pollen li[data-level="high"] .pollen-icon { color: #b3491e; }
+.pollen li[data-level="veryHigh"] .pollen-icon { color: #b3261e; }
+.pollen li[data-level="none"] .pollen-icon { color: var(--text-soft); }
+
+@media (prefers-color-scheme: dark) {
+  .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
+  .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
+  .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
+  .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
+}

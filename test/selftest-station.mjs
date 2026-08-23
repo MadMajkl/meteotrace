@@ -13,6 +13,7 @@ import {
   pollenLevel, POLLEN_SPECIES, buildStationView,
 } from '../web/lib/station.js';
 import { METRIC, IMPERIAL } from '../web/lib/units.js';
+import { pollenIcon, ICON_SPECIES } from '../web/lib/pollen-icons.js';
 
 /* ============================================================
    ČAS — nejzrádnější část
@@ -246,4 +247,35 @@ test('pohled: ikona v noci je jiná než ve dne', () => {
   const nocni = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: noc });
   const denni = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
   assert.notEqual(nocni.current.icon, denni.current.icon);
+});
+
+/* ============================================================
+   PIKTOGRAMY ALERGENŮ
+   ============================================================ */
+
+test('🚨 každý měřený druh má svůj tvar', () => {
+  // Kdyby některý chyběl, řádek by měl prázdné místo místo lístku — a nikdo
+  // by si toho nevšiml, protože jméno i stupeň tam pořád jsou.
+  for (const species of POLLEN_SPECIES) {
+    assert.ok(pollenIcon(species), `chybí piktogram pro ${species}`);
+  }
+  assert.deepEqual([...ICON_SPECIES].sort(), [...POLLEN_SPECIES].sort());
+});
+
+test('neznámý druh nedostane cizí tvar, ale nic', () => {
+  // Přibude-li do zdroje sedmý alergen, appka ho vypíše bez obrázku
+  // a čeká, až se tvar dokreslí. Cizí lístek u cizího jména by lhal.
+  assert.equal(pollenIcon('kopřiva'), null);
+  assert.equal(pollenIcon(''), null);
+  assert.equal(pollenIcon(undefined), null);
+});
+
+test('tvary jsou kreslitelné — mají čáru nebo plochu', () => {
+  for (const species of ICON_SPECIES) {
+    const t = pollenIcon(species);
+    assert.ok(t.cara || t.plocha, `${species} nemá co kreslit`);
+    for (const d of [t.cara, t.plocha].filter(Boolean)) {
+      assert.match(d, /^M[\d\s.,-]/, `${species}: cesta nezačíná přesunem`);
+    }
+  }
 });
