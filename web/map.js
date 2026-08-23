@@ -52,6 +52,9 @@ const WARN_COLORS = {
 
 let map = null;
 let protokolZapsan = false;
+/** Poslední obrys výstrahy — po přebarvení mapy se musí nakreslit znovu. */
+let vystrahaGeo = null;
+let vystrahaTrida = 'unknown';
 /** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
 let styleReady = false;
 let frames = [];
@@ -122,6 +125,21 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
     // telefonu a rozložení skládacího displeje, kde se plocha mění za běhu.
     new ResizeObserver(() => map.resize()).observe($('map'));
 
+    // ⚠️ Přepnutí světlého a tmavého režimu za běhu. Bez tohohle si mapa drží
+    // barvy z okamžiku, kdy vznikla — appka kolem ní se přebarví a mapa zůstane
+    // opačná, což vypadá jako chyba vykreslování.
+    //
+    // Přebarvení znamená VÝMĚNU CELÉHO STYLU, takže s ním zmizí i radar a obrys
+    // výstrahy: obojí se musí nakreslit znovu, až bude nový styl na světě.
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (!map || !styleReady) return;
+      map.setStyle(styleFor());
+      map.once('styledata', () => {
+        drawFrame();
+        showWarningArea(vystrahaGeo, vystrahaTrida);
+      });
+    });
+
   } else {
     if (!styleReady) {
       $('radar-time').textContent = t('error.failed', lang);
@@ -143,6 +161,8 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
  * „tady výstraha platí", ne „tady se dívej".
  */
 export function showWarningArea(geometrie, trida = 'unknown') {
+  vystrahaGeo = geometrie || null;
+  vystrahaTrida = trida;
   if (!map || !styleReady) return;
 
   for (const id of [WARN_FILL, WARN_LINE]) if (map.getLayer(id)) map.removeLayer(id);

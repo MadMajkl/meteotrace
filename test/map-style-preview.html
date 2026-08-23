@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeteoTrace — náhled stylu mapy</title>
+<link rel="stylesheet" href="../vendor/maplibre-gl.css">
+<style>
+  /* Harness, ne produkt. Slouží k jedinému: podívat se na obě varianty stylu
+     vedle sebe, aniž by se kvůli tomu musel přepínat celý systém. */
+  body { margin: 0; font: 15px/1.5 "Segoe UI", system-ui, sans-serif; background: #f4f7fb; color: #16202b; }
+  header { padding: 14px 18px; border-bottom: 1px solid #dfe6ee; background: #fff; }
+  h1 { margin: 0 0 4px; font-size: 18px; }
+  p { margin: 0; color: #63717f; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  figure { margin: 0; }
+  figcaption { padding: 6px 2px; font-weight: 600; font-size: 14px; }
+  .map { height: 62vh; min-height: 340px; border: 1px solid #dfe6ee; border-radius: 12px; overflow: hidden; }
+  .ovladani { padding: 0 18px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button, select { font: inherit; padding: 6px 10px; border: 1px solid #dfe6ee; border-radius: 8px; background: #fff; cursor: pointer; }
+  .stav { font-size: 13px; color: #63717f; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Náhled stylu mapy</h1>
+  <p>Světlá a tmavá varianta vedle sebe, nad vlastními dlaždicemi. Radar se dá zapnout —
+     styl se posuzuje hlavně <strong>pod ním</strong>, protože kvůli němu ta mapa existuje.</p>
+</header>
+
+<div class="ovladani">
+  <label>Místo:
+    <select id="misto">
+      <option value="14.42,50.08,11">Praha</option>
+      <option value="16.61,49.20,11">Brno</option>
+      <option value="14.13,50.53,10">Litoměřice</option>
+      <option value="15.5,49.8,7">celá ČR</option>
+      <option value="13.3,50.7,9">Krušné hory</option>
+    </select>
+  </label>
+  <button id="radar" type="button">Zapnout radar</button>
+  <span class="stav" id="stav">načítám…</span>
+</div>
+
+<div class="grid">
+  <figure><figcaption>Světlá</figcaption><div class="map" id="map-light"></div></figure>
+  <figure><figcaption>Tmavá</figcaption><div class="map" id="map-dark"></div></figure>
+</div>
+
+<script src="../vendor/maplibre-gl.js"></script>
+<script src="../vendor/pmtiles.js"></script>
+<script type="module">
+import { buildStyle } from '../lib/map-style.js';
+import { tilesUrl } from '../lib/tiles-config.js';
+import { radarFrames, tileTemplate, frameIndexAt, TILE_SIZE, MAX_ZOOM } from '../lib/radar.js';
+
+const stav = document.getElementById('stav');
+maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
+
+// ⚠️ Stránka leží v /test/, takže relativní adresa dlaždic by mířila vedle.
+// Skládá se proti kořeni appky, ne proti téhle stránce.
+const adresa = tilesUrl(new URL('../', location.href).href);
+
+const mapy = ['light', 'dark'].map((varianta) => new maplibregl.Map({
+  container: `map-${varianta}`,
+  style: buildStyle({ tilesUrl: adresa, dark: varianta === 'dark', lang: 'cs' }),
+  center: [14.42, 50.08],
+  zoom: 11,
+  attributionControl: { compact: true },
+}));
+
+let hotovo = 0;
+for (const m of mapy) {
+  m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  m.on('load', () => {
+    hotovo += 1;
+    stav.textContent = hotovo === mapy.length ? `dlaždice: ${adresa}` : 'načítám…';
+  });
+  m.on('error', (e) => { stav.textContent = 'chyba: ' + (e?.error?.message || e); });
+}
+
+// Obě mapy se hýbou spolu — jinak se porovnávají dva různé pohledy.
+let synchronizuje = false;
+for (const m of mapy) {
+  m.on('move', () => {
+    if (synchronizuje) return;
+    synchronizuje = true;
+    for (const jina of mapy) {
+      if (jina === m) continue;
+      jina.jumpTo({ center: m.getCenter(), zoom: m.getZoom(), bearing: m.getBearing(), pitch: m.getPitch() });
+    }
+    synchronizuje = false;
+  });
+}
+
+document.getElementById('misto').addEventListener('change', (e) => {
+  const [lon, lat, zoom] = e.target.value.split(',').map(Number);
+  mapy[0].jumpTo({ center: [lon, lat], zoom });
+});
+
+document.getElementById('radar').addEventListener('click', async (e) => {
+  const zapnuto = e.target.dataset.on === '1';
+  e.target.dataset.on = zapnuto ? '0' : '1';
+  e.target.textContent = zapnuto ? 'Zapnout radar' : 'Vypnout radar';
+
+  for (const m of mapy) {
+    if (m.getLayer('radar')) m.removeLayer('radar');
+    if (m.getSource('radar')) m.removeSource('radar');
+  }
+  if (zapnuto) return;
+
+  try {
+    const feed = await (await fetch('/api/radar')).json();
+    const frames = radarFrames(feed);
+    const url = tileTemplate(frames[frameIndexAt(frames, Date.now())]);
+    for (const m of mapy) {
+      m.addSource('radar', { type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM });
+      m.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': 0.75 } }, 'mesta');
+    }
+    stav.textContent = 'radar zapnutý — takhle to uvidí uživatel';
+  } catch (chyba) {
+    stav.textContent = 'radar se nenačetl: ' + chyba.message;
+  }
+});
+</script>
+</body>
+</html>

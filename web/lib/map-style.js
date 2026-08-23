@@ -13,13 +13,15 @@
  * nimi. Barevná mapa by se s radarem prala a člověk by v autě nepoznal,
  * kde prší. Proto:
  *
- *   · zemský povrch, zástavba i lesy jsou v odstínech šedé,
+ *   · povrch, zástavba i lesy drží jeden tlumený tón — světlý motiv zelený,
+ *     tmavý modrošedý,
  *   · voda je záměrně TLUMENÁ — jinak by splývala s deštěm,
  *   · silnice jsou vidět kvůli orientaci, ale nekřičí,
  *   · popisky měst jsou to nejkontrastnější, protože podle nich se člověk
  *     na mapě hledá.
  *
- * Barvy vycházejí z týchž tokenů jako zbytek appky, jen ztlumené.
+ * ⚠️ Sytější zeleň by soupeřila se ZELENÝMI poli silných srážek na radaru.
+ * To je důvod, proč je světlý motiv světle zelený, ale ne barevný.
  * ────────────────────────────────────────────────────────────────────────
  *
  * Schéma dat je Protomaps Basemap v4 — ověřeno na skutečné dlaždici
@@ -39,18 +41,21 @@ const ZDROJ = 'meteotrace';
  * aby pod poloprůhledným radarem zůstal čitelný a zároveň se s ním nepletl.
  */
 const PALETA = {
+  // Světlý motiv drží zadání z 23. 8. 2026: klidná světlá zeleň, doplňky
+  // a linky do šedozelena a hnědozelena. Zeleň je tlumená schválně — sytější
+  // by soupeřila se zelenými poli silných srážek na radaru.
   light: {
-    zeme: '#eef1f5',
-    voda: '#d3dee9',
-    les: '#e4eae4',
-    zastavba: '#e6e9ee',
-    budova: '#dce1e8',
+    zeme: '#eef2e8',
+    voda: '#d8e3e2',
+    les: '#e0e9d6',
+    zastavba: '#e9e8e0',
+    budova: '#dedcd2',
     silniceHlavni: '#ffffff',
-    silniceVedlejsi: '#f4f6f9',
-    silniceObrys: '#d6dce4',
-    zeleznice: '#cfd6df',
-    hranice: '#a9b4c2',
-    popisek: '#37424f',
+    silniceVedlejsi: '#f7f7f1',
+    silniceObrys: '#cbd2c0',
+    zeleznice: '#bfc7b6',
+    hranice: '#a3ad96',
+    popisek: '#3a4436',
     popisekObrys: '#ffffff',
   },
   dark: {
