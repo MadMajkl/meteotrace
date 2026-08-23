@@ -86,8 +86,34 @@ test('pyl: chybějící hodnota není nulová koncentrace', () => {
   assert.equal(pollenLevel('neznamy', 10), null);
 });
 
-test('pyl: nula je platná hodnota a znamená nízkou zátěž', () => {
-  assert.equal(pollenLevel('birch', 0), 'low');
+test('🚨 pyl: nula NENÍ nízká zátěž, je to žádná', () => {
+  // Změněno 23. 8. 2026, když se Michal ptal, proč pylové zpravodajství
+  // nefunguje. Fungovalo — jenže v srpnu hlásilo „nízkou" olši, břízu
+  // i olivu, tedy druhy, které tou dobou nekvetou a v Česku (oliva) ani
+  // nerostou. Šest řádků se stejným slovem vypadá jako vymyšlená data.
+  assert.equal(pollenLevel('birch', 0), 'none');
+  assert.equal(pollenLevel('birch', 0.1), 'low', 'kousek nad nulou už něco je');
+  assert.equal(pollenLevel('birch', null), null, 'chybějící údaj není nula');
+});
+
+test('pyl: nulové druhy se řadí naspod, ne nahoru', () => {
+  const view = buildStationView({
+    forecast: FORECAST, air: { current: { birch_pollen: 0, grass_pollen: 25 } },
+    lang: 'cs', units: METRIC, nowMs: NOW,
+  });
+  assert.equal(view.pollen[0].species, 'grass', 'co lítá, patří nahoru');
+  assert.equal(view.pollen.at(-1).level, 'none');
+});
+
+test('🚨 pyl: tři stavy se nesmí splést — lítá / nelítá / nevíme', () => {
+  const stav = (air) => buildStationView({
+    forecast: FORECAST, air, lang: 'cs', units: METRIC, nowMs: NOW,
+  }).pollenStatus;
+
+  assert.equal(stav({ current: { grass_pollen: 12 } }), 'data');
+  assert.equal(stav({ current: { grass_pollen: 0, birch_pollen: 0 } }), 'zadny');
+  assert.equal(stav(null), 'nedostupne', 'výpadek se nesmí tvářit jako klid');
+  assert.equal(stav({ current: {} }), 'nedostupne');
 });
 
 /* ============================================================

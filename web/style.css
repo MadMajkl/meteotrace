@@ -441,3 +441,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 /* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
 .map-hint { margin: 8px 0 0; font-size: 12px; }
+
+/* Druh, který nelítá, se ztlumí. Jinak šest řádků křičí stejně nahlas
+   a alergik v nich nenajde ten jediný, který ho pálí. */
+.pollen .lvl[data-level="none"] { opacity: .5; font-weight: 400; }
+.pollen li:has(.lvl[data-level="none"]) { opacity: .65; }

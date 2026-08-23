@@ -121,12 +121,15 @@ export default {
     olive: 'Olive',
     ragweed: 'Ragweed',
     level: {
+      none: 'None',
       low: 'Low',
       moderate: 'Moderate',
       high: 'High',
       veryHigh: 'Very high',
     },
     none: 'No pollen data for this place.',
+    allClear: 'No pollen in measurable amounts today.',
+    measured: 'Measured now, in the air.',
   },
 
   radar: {

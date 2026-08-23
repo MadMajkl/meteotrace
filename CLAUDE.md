@@ -78,7 +78,7 @@ tohle je jen shrnutí.**
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**323 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
+**325 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 

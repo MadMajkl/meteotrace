@@ -119,8 +119,11 @@
     <ul class="days" id="days"></ul>
   </section>
 
+  <!-- Karta se NESCHOVÁVÁ, když pyl nelítá nebo data nejsou. „Klid" a „nevíme"
+       se od sebe musí dát rozeznat — schovaná karta neřekne ani jedno. -->
   <section class="card" id="pollen-card" hidden aria-labelledby="h-pollen">
     <h2 id="h-pollen" data-i18n="pollen.title"></h2>
+    <p id="pollen-note" class="hint" hidden></p>
     <ul class="pollen" id="pollen"></ul>
   </section>
 

@@ -122,12 +122,15 @@ export default {
     olive: 'Oliva',
     ragweed: 'Ambrózie',
     level: {
+      none: 'Žádný',
       low: 'Nízká',
       moderate: 'Střední',
       high: 'Vysoká',
       veryHigh: 'Velmi vysoká',
     },
     none: 'Pro tohle místo nejsou data o pylu.',
+    allClear: 'Dnes nelítá žádný pyl v měřitelném množství.',
+    measured: 'Naměřeno teď, ve vzduchu.',
   },
 
   radar: {

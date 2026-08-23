@@ -495,8 +495,32 @@ function render(forecast, air) {
 
   showRadar(view.timeZone);
 
-  $('pollen-card').hidden = view.pollen.length === 0;
-  fill($('pollen'), view.pollen, (p) => {
+  renderPollen(view);
+}
+
+/**
+ * Pyl.
+ *
+ * ⚠️ Karta se neschovává jen proto, že seznam je prázdný. „Dnes nic nelítá"
+ * a „o tomhle místě data nemáme" jsou dvě různé zprávy a obě se musí říct —
+ * schovaná karta neřekne ani jednu.
+ */
+function renderPollen(view) {
+  const karta = $('pollen-card');
+  const note = $('pollen-note');
+  karta.hidden = false;
+
+  const zprava = {
+    nedostupne: t('pollen.none', state.lang),
+    zadny: t('pollen.allClear', state.lang),
+    data: t('pollen.measured', state.lang),
+  }[view.pollenStatus] || '';
+  note.textContent = zprava;
+  note.hidden = !zprava;
+
+  // Když data nejsou, nemá smysl vypisovat šest prázdných řádků.
+  const polozky = view.pollenStatus === 'nedostupne' ? [] : view.pollen;
+  fill($('pollen'), polozky, (p) => {
     const level = el('span', 'lvl', p.levelText);
     level.dataset.level = p.level;            // barvu odznaku řídí CSS podle stupně
     return el('li', '', [el('span', '', p.name), level]);

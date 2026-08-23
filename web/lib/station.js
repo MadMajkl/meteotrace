@@ -84,11 +84,20 @@ const POLLEN_THRESHOLDS = {
 
 export const POLLEN_SPECIES = Object.keys(POLLEN_THRESHOLDS);
 
-/** Koncentrace → klíč stupně, nebo null když data chybí. */
+/**
+ * Koncentrace → klíč stupně, nebo null když data chybí.
+ *
+ * 🚨 NULA NENÍ „nízká", je to „žádný". Dřív dostaly všechny druhy stupeň
+ * „nízká" bez ohledu na hodnotu, takže v srpnu hlásila appka nízkou olši,
+ * břízu i olivu — druhy, které tou dobou nekvetou a v Česku (oliva) ani
+ * nerostou. Šest řádků se stejným slovem vypadá jako vymyšlená data
+ * a alergik z toho nepozná to jediné, co ho zajímá: co dnes lítá.
+ */
 export function pollenLevel(species, value) {
   if (value == null || !Number.isFinite(value)) return null;
   const th = POLLEN_THRESHOLDS[species];
   if (!th) return null;
+  if (value <= 0) return 'none';
   if (value < th[0]) return 'low';
   if (value < th[1]) return 'moderate';
   if (value < th[2]) return 'high';
@@ -181,7 +190,24 @@ export function buildStationView(a) {
     }),
 
     pollen: buildPollen(air, lang),
+    // Tři různé stavy, které se nesmí splést: něco lítá · nelítá nic ·
+    // data nemáme. Bez toho by se karta v posledních dvou případech prostě
+    // schovala a uživatel by nepoznal klid od výpadku.
+    pollenStatus: pollenStatus(air),
   };
+}
+
+/**
+ * @returns {'data'|'zadny'|'nedostupne'}
+ */
+function pollenStatus(air) {
+  const cur = air?.current;
+  if (!cur) return 'nedostupne';
+  const hodnoty = POLLEN_SPECIES
+    .map((s) => cur[`${s}_pollen`])
+    .filter((v) => Number.isFinite(v));
+  if (!hodnoty.length) return 'nedostupne';
+  return hodnoty.some((v) => v > 0) ? 'data' : 'zadny';
 }
 
 function buildPollen(air, lang) {
@@ -199,8 +225,10 @@ function buildPollen(air, lang) {
       value,
     });
   }
-  // Nejsilnější nahoru — kdo má alergii, chce to vidět hned.
-  const order = { veryHigh: 0, high: 1, moderate: 2, low: 3 };
+  // Nejsilnější nahoru — kdo má alergii, chce to vidět hned. Nulové druhy
+  // spadnou naspod: patří do výpisu (mlčet o nich by znamenalo, že uživatel
+  // neví, jestli se neměří, nebo nelítají), ale nemají co překážet nahoře.
+  const order = { veryHigh: 0, high: 1, moderate: 2, low: 3, none: 4 };
   return out.sort((x, y) => order[x.level] - order[y.level]);
 }
 
