@@ -75,9 +75,10 @@ tohle je jen shrnutí.**
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `web/lib/map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
+| Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**310 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
+**323 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 

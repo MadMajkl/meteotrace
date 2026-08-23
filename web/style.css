@@ -438,3 +438,6 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 @media (prefers-color-scheme: dark) {
   .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
 }
+
+/* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
+.map-hint { margin: 8px 0 0; font-size: 12px; }

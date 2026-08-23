@@ -26,6 +26,7 @@ import {
 import { apiGet } from './lib/api.js';
 import { buildStyle } from './lib/map-style.js';
 import { tilesUrl } from './lib/tiles-config.js';
+import { placeFromMap } from './lib/map-pick.js';
 
 /** Jak dlouho se čeká, než se mapa vzdá a řekne to nahlas. */
 const MAP_LOAD_TIMEOUT_MS = 12000;
@@ -52,6 +53,10 @@ const WARN_COLORS = {
 
 let map = null;
 let protokolZapsan = false;
+/** Špendlík vybraného místa. Vzniká jednou a pak se PŘESOUVÁ, viz níže. */
+let znacka = null;
+/** Co se má stát, když si uživatel vybere místo klepnutím do mapy. */
+let priVyberu = null;
 /** Poslední obrys výstrahy — po přebarvení mapy se musí nakreslit znovu. */
 let vystrahaGeo = null;
 let vystrahaTrida = 'unknown';
@@ -77,9 +82,10 @@ const styleFor = () => buildStyle({
  * Založí mapu. Volá se až při prvním zobrazení — MapLibre je skoro megabajt
  * a stránka, která radar neotevře, ho nemá proč platit.
  */
-export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
+export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, keepView = false }) {
   lang = language;
   timeZone = tz || 'UTC';
+  if (onPick) priVyberu = onPick;
 
   if (!map) {
     // Protokol `pmtiles://` se musí zaregistrovat DŘÍV, než mapa vznikne —
@@ -117,8 +123,33 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
       return;
     }
 
-    new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
+    znacka = new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
     $('radar-play').addEventListener('click', togglePlay);
+
+    // Klepnutí do mapy = výběr místa. Jméno se bere z NAŠICH popisků, ne
+    // z cizí služby — dlaždice je nesou včetně české podoby (R3).
+    map.on('click', (e) => {
+      const bod = [e.lngLat.lat, e.lngLat.lng];
+      const okoli = 30;   // px — prst není přesný, popisek bývá vedle bodu
+      const ramecek = [
+        [e.point.x - okoli, e.point.y - okoli],
+        [e.point.x + okoli, e.point.y + okoli],
+      ];
+      let popisky = [];
+      try {
+        popisky = map.queryRenderedFeatures(ramecek, { layers: ['mesta', 'ctvrti'] })
+          .map((f) => ({
+            name: typeof f.properties?.name === 'string' ? f.properties.name : '',
+            lat: f.geometry?.coordinates?.[1],
+            lon: f.geometry?.coordinates?.[0],
+          }));
+      } catch {
+        // Vrstvy nemusí existovat (styl se právě mění) — pak se prostě
+        // použijí souřadnice. Není důvod kvůli tomu spadnout.
+      }
+      const misto = placeFromMap(bod, popisky);
+      if (misto && priVyberu) priVyberu(misto);
+    });
 
     // Mapa se zakládá dřív, než má karta konečnou velikost, a MapLibre si
     // rozměr sám nehlídá. Pozorovatel to srovná — a zároveň pokryje otočení
@@ -145,8 +176,16 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz }) {
       $('radar-time').textContent = t('error.failed', lang);
       return;
     }
-    map.easeTo({ center: [lon, lat], zoom: 7 });
+    // ⚠️ Po výběru klepnutím se s mapou NEHÝBE. Uživatel si ji sám přiblížil
+    // a ukázal do ní prstem — přeskočit mu ji zpátky na výchozí přiblížení
+    // by znamenalo, že o svůj pohled přijde právě tím, že ho použil.
+    if (!keepView) map.easeTo({ center: [lon, lat], zoom: 7 });
   }
+
+  // 🚨 Špendlík se PŘESOUVÁ, nezakládá znovu. Dřív vznikal jen při prvním
+  // otevření mapy, takže po vyhledání dalšího místa zůstal viset tam, kde
+  // byl — mapa ukazovala Brno a špendlík trčel v Praze.
+  if (znacka) znacka.setLngLat([lon, lat]);
 
   await loadFrames();
 }

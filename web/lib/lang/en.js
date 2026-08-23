@@ -135,6 +135,7 @@ export default {
     pause: 'Pause',
     observed: 'Measured',
     nowcast: 'Forecast',
+    pickHint: 'Tap the map to pick a place.',
   },
 
   settings: {

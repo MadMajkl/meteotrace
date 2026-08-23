@@ -519,6 +519,10 @@ async function showRadar(timeZone) {
     mapModule ??= await import('./map.js');
     await mapModule.showMap({
       lat: state.place.lat, lon: state.place.lon, lang: state.lang, timeZone,
+      // Klepnutí do mapy vybere místo. Projde touž cestou jako výsledek
+      // hledání, takže se o něj postará i hvězdička a uložená místa.
+      onPick: (misto) => selectPlace(misto),
+      keepView: state.place.fromMap === true,
     });
     // I když výstraha není, musí se zavolat — jinak by po přepnutí místa
     // zůstal na mapě viset obrys toho předchozího.

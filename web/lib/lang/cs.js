@@ -136,6 +136,7 @@ export default {
     pause: 'Zastavit',
     observed: 'Naměřeno',
     nowcast: 'Dopočet',
+    pickHint: 'Klepnutím do mapy vybereš místo.',
   },
 
   settings: {
