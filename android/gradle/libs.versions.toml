@@ -1,0 +1,17 @@
+# Verze nástrojů a knihoven. Držet blízko Gulpce — je to týž stroj i týž vývojář.
+[versions]
+agp = "9.2.1"
+coreKtx = "1.15.0"
+appcompat = "1.7.0"
+activityKtx = "1.10.1"
+webkit = "1.12.1"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
+# Kvůli WebViewAssetLoader: dává webu ve WebView stabilní https původ místo file://
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }

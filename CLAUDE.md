@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R12 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R13 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -75,8 +75,9 @@ tohle je jen shrnutí.**
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `web/lib/map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
+| Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**306 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
+**310 kontrol, všechny zelené.** **1 commit NENÍ pushnutý.** Push jen na výslovné svolení.
 
 ### ⛔ Co blokuje pokračování
 
@@ -93,6 +94,7 @@ npm run dev                 # appka + testy + proxy na jednom portu (8099)
 npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
 npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, ne za běhu)
 npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
+npm run android             # nasype web do obalu a sestaví APK (JDK z Android Studia)
 npm run docx                # dokumentace do Wordu
 ```
 
@@ -123,6 +125,9 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **⚠️ Podklad mapy je vlastní `.pmtiles` a čte se po kouskách** — server MUSÍ umět
   `Range`. Pozor: `bytes=-500` znamená POSLEDNÍCH 500 bajtů, a rejstřík archivu je
   právě na konci.
+- **🚨 `WebViewAssetLoader` ZAHAZUJE dotazovací část adresy.** Z `/api/forecast?latitude=…`
+  by zbylo `/api/forecast` — nespadne to, jen přijde předpověď pro jiné místo. Proto se
+  `/api/` obsluhuje v `shouldInterceptRequest`, ne přes AssetLoader. Viz R13.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**

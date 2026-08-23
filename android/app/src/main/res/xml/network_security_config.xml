@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ⚠️ Nešifrované spojení je povolené JEN na místní síť, kde běží vývojový
+  server. Ostrý provoz jede přes https na naši doménu; kdyby se sem někdy
+  dopsala veřejná adresa, znamenalo by to posílat dotazy uživatelů otevřeně.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>      <!-- emulátor -->
+        <domain includeSubdomains="false">192.168.1.150</domain>  <!-- vývojový stroj -->
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

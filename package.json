@@ -10,6 +10,8 @@
     "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs test/selftest-i18n.mjs test/selftest-station.mjs test/selftest-radar.mjs test/selftest-route.mjs test/selftest-places.mjs test/selftest-orp.mjs test/selftest-warnings.mjs test/selftest-map-style.mjs",
     "orp": "node tools/orp-build.mjs",
     "tiles": "node tools/tiles-build.mjs",
+    "android:sync": "node tools/android-sync.mjs",
+    "android": "node tools/android-build.mjs",
     "docx": "node tools/docx.mjs",
     "selftest:layout": "node tools/layout-check.mjs"
   },

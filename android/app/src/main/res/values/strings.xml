@@ -1,0 +1,4 @@
+<resources>
+    <!-- ⚠️ Značka „MeteoTrace" se NESKLOŇUJE a nepřekládá (R9). -->
+    <string name="app_name">MeteoTrace</string>
+</resources>

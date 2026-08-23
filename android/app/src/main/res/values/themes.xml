@@ -1,0 +1,8 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Obal nemá vlastní vzhled: barvy i motiv řeší web uvnitř WebView.
+         Systémový pruh se drží zařízení, ať appka nevypadá cize. -->
+    <style name="Theme.MeteoTrace" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/background_light</item>
+        <item name="android:statusBarColor" tools:targetApi="21">@android:color/transparent</item>
+    </style>
+</resources>

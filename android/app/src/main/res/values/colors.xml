@@ -1,0 +1,4 @@
+<resources>
+    <!-- Pozadí ikony drží modrou z appky (token accent ve světlém motivu). -->
+    <color name="ic_launcher_background">#1A7FD4</color>
+</resources>

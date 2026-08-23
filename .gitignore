@@ -8,15 +8,19 @@
 
 # Android — generované výstupy a lokální konfigurace
 android/.gradle/
+android/.idea/
+android/local.properties
 android/.kotlin/
 android/build/
 android/app/build/
-android/local.properties
 
 # ⚠️ Podpisový klíč a hesla NIKDY do gitu (vzor: Gulpka)
 android/keystore.properties
 *.jks
 *.keystore
+
+# Kopie webu v obalu — generuje ji `npm run android:sync`, zdroj pravdy je web/
+android/app/src/main/assets/www/
 
 # Node (jen nástroje, samotná appka běží bez build kroku)
 node_modules/
