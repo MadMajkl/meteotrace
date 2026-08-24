@@ -586,3 +586,14 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   background: var(--warn-bg);
   border-radius: 8px;
 }
+
+/* Pole s rychlostí. Ukazuje se jen u vzdušné čáry — u silnice ji zná router. */
+.route-speed { display: block; margin-top: 12px; }
+.route-speed > span { display: block; margin-bottom: 4px; font-size: 13px; color: var(--text-soft); }
+.route-speed input {
+  width: 120px; padding: 8px 10px;
+  font: inherit; font-size: 15px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.route-speed .hint { display: block; margin: 4px 0 0; }

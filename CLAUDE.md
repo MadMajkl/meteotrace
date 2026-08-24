@@ -72,6 +72,7 @@ tohle je jen shrnutí.**
 | i18n, jednotky, kódy počasí | `web/lib/`, referenční jazyk **en** |
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
+| Trasa vzdušnou čarou | `web/lib/great-circle.js` — bez routeru, bez kvóty (lety, lodě, záchranná brzda) |
 | Počasí na trase — **obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`, ověřeno naživo |
 | Ukládání míst | `web/lib/places.js` + správa v dialogu (přejmenování, mazání), ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |

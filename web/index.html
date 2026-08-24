@@ -168,6 +168,14 @@
       <button id="route-go" class="primary" type="button" data-i18n="route.compute"></button>
     </div>
 
+    <!-- Ukazuje se jen u vzdušné čáry: u silnice rychlost zná router,
+         u letu ji nemá kdo odhadnout. -->
+    <label class="route-speed" id="route-speed-row" hidden>
+      <span data-i18n="route.speed"></span>
+      <input id="route-speed" type="number" min="1" max="1200" step="10" value="90" inputmode="numeric">
+      <small class="hint" data-i18n="route.speedHint"></small>
+    </label>
+
     <p id="route-note" class="hint" hidden></p>
   </section>
 

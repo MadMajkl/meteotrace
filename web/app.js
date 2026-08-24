@@ -19,6 +19,7 @@ import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
 } from './lib/route-adapter.js';
 import { buildRouteView, compareDepartures, ROUTE_FORECAST_PARAMS } from './lib/route-view.js';
+import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -51,7 +52,7 @@ const state = {
   screen: 'station',    // 'station' | 'route'
   // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
   // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
-  route: { from: null, to: null, profil: 'driving-car' },
+  route: { from: null, to: null, profil: 'driving-car', rychlostKmh: 90 },
 };
 
 /* ============================================================
@@ -634,6 +635,10 @@ const ZPUSOBY = [
   { profil: 'driving-car', klic: 'route.car' },
   { profil: 'cycling-regular', klic: 'route.bike' },
   { profil: 'foot-walking', klic: 'route.walk' },
+  // ⚠️ Vzdušná čára NENÍ profil ORS. Trasa se počítá u nás a ven nejde ani
+  // jeden dotaz na routing — proto `bezRouteru`. Jádro to nepozná: dostane
+  // tentýž tvar dat jako od routeru (R4).
+  { profil: 'straight', klic: 'route.straight', bezRouteru: true },
 ];
 
 /**
@@ -730,10 +735,20 @@ function vykresliZpusoby() {
       // výsledek, ne ho nechat viset pod novým tlačítkem.
       state.route.profil = z.profil;
       vykresliZpusoby();
+      vykresliRychlost();
+      // U vzdušné čáry se rovnou řekne, co umí a co ne — že se nevyhýbá
+      // pevnině, se nesmí zjistit až podle divné trasy přes Dánsko.
+      poznamkaTrasy(z.bezRouteru ? t('route.straightNote', state.lang) : null);
       skryjVysledekTrasy();
     });
     return b;
   });
+}
+
+/** Rychlost se ptá jen tam, kde ji nemá kdo spočítat. */
+function vykresliRychlost() {
+  const zpusob = ZPUSOBY.find((z) => z.profil === state.route.profil);
+  $('route-speed-row').hidden = !zpusob?.bezRouteru;
 }
 
 function skryjVysledekTrasy() {
@@ -764,11 +779,19 @@ async function loadRoute() {
   skryjVysledekTrasy();
 
   try {
-    const geo = await requests.run('route', (signal) =>
-      apiGet('route', { start: toOrsCoord([from.lat, from.lon]), end: toOrsCoord([to.lat, to.lon]) },
-        { signal, subPath: profil }));
+    const zpusob = ZPUSOBY.find((z) => z.profil === profil);
+    let trasa;
 
-    const trasa = fromOpenRouteService(geo.data);
+    if (zpusob?.bezRouteru) {
+      // Ani jeden dotaz ven: ortodroma se spočítá u nás ze dvou bodů
+      // a rychlosti, kterou zadal uživatel. Jádru je jedno, odkud trasa je.
+      trasa = straightRoute([from.lat, from.lon], [to.lat, to.lon], state.route.rychlostKmh);
+    } else {
+      const geo = await requests.run('route', (signal) =>
+        apiGet('route', { start: toOrsCoord([from.lat, from.lon]), end: toOrsCoord([to.lat, to.lon]) },
+          { signal, subPath: profil }));
+      trasa = fromOpenRouteService(geo.data);
+    }
     if (!trasa) { poznamkaTrasy(t('route.failed', state.lang)); return; }
 
     const vzorky = sampleRoute(trasa.points, KROK_M);
@@ -954,6 +977,14 @@ function init() {
     [a1.value, b1.value] = [b1.value, a1.value];
     skryjVysledekTrasy();
   });
+  $('route-speed').addEventListener('input', (e) => {
+    const v = Number(e.target.value);
+    // Nesmyslná rychlost se nedosazuje mlčky: pole si drží, co uživatel napsal,
+    // a výpočet se prostě nespustí (straightRoute vrátí null → hláška).
+    state.route.rychlostKmh = Number.isFinite(v) && v > 0 ? v : 0;
+    skryjVysledekTrasy();
+  });
+  vykresliRychlost();
   pripojVyber('route-from', 'route-from-results', 'from');
   pripojVyber('route-to', 'route-to-results', 'to');
   vykresliZpusoby();
