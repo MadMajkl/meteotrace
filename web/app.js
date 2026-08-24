@@ -13,6 +13,7 @@ import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
+import { searchQuery } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
 import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
 import {
@@ -315,7 +316,9 @@ function onSearchInput(text) {
 async function search(q) {
   try {
     const { data } = await requests.run('search', (signal) =>
-      apiGet('geocode', { name: q, count: 6, language: state.lang }, { signal }));
+      // 🚨 Diakritika se sundá: služba města zná, ale podle jejich vlastního
+      // jména je nenajde („Plzeň" → 0 nálezů, „Plzen" → Plzeň). Viz geo-query.js.
+      apiGet('geocode', { name: searchQuery(q), count: 6, language: state.lang }, { signal }));
     showResults(data?.results || []);
   } catch (e) {
     if (!requests.isAbort(e)) showResults([]);
@@ -692,7 +695,7 @@ function pripojVyber(inputId, resultsId, kam) {
     timer = setTimeout(async () => {
       try {
         const { data } = await requests.run(`search-${kam}`, (signal) =>
-          apiGet('geocode', { name: q, count: 6, language: state.lang }, { signal }));
+          apiGet('geocode', { name: searchQuery(q), count: 6, language: state.lang }, { signal }));
         ukazVysledky(data?.results || []);
       } catch (e) {
         if (!requests.isAbort(e)) ukazVysledky([]);

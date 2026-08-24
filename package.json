@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env tools/dev-server.mjs",
     "selftest": "npm run selftest:logic",
-    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs test/selftest-i18n.mjs test/selftest-station.mjs test/selftest-radar.mjs test/selftest-route.mjs test/selftest-places.mjs test/selftest-orp.mjs test/selftest-warnings.mjs test/selftest-map-style.mjs test/selftest-map-pick.mjs test/selftest-great-circle.mjs",
+    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs test/selftest-i18n.mjs test/selftest-station.mjs test/selftest-radar.mjs test/selftest-route.mjs test/selftest-places.mjs test/selftest-orp.mjs test/selftest-warnings.mjs test/selftest-map-style.mjs test/selftest-map-pick.mjs test/selftest-great-circle.mjs test/selftest-geo-query.mjs",
     "orp": "node tools/orp-build.mjs",
     "tiles": "node tools/tiles-build.mjs",
     "tiles:upload": "node --env-file-if-exists=.env tools/tiles-upload.mjs",
