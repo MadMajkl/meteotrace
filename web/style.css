@@ -486,3 +486,103 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 }
 
 
+
+/* ── Přepínač obrazovek ────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 6px; margin-top: 10px; }
+
+.tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 12px;
+  font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--text-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+/* Vybraná záložka se pozná i bez barvy — plnou výplní a tučností.
+   Samotný odstín by na slunci ani barvoslepému nic neřekl. */
+.tab[aria-selected="true"] {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Obrazovka trasy ───────────────────────────────────────────────────── */
+.route-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+.route-field { display: block; position: relative; }
+.route-field > span { display: block; margin-bottom: 4px; font-size: 13px; color: var(--text-soft); }
+.route-field input {
+  width: 100%; box-sizing: border-box;
+  padding: 10px 12px;
+  font: inherit; font-size: 15px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+/* Prohazovací tlačítko sedí mezi oběma poli a přes obě řádky mřížky. */
+.route-form > .icon-btn { grid-row: span 2; align-self: center; height: 44px; }
+.route-field:nth-of-type(2) { grid-column: 1; }
+
+/* Výsledky hledání uvnitř karty, ne přes celou stránku. */
+.results.inline { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 4px; }
+
+.route-controls { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.modes { display: flex; gap: 6px; flex: 1; min-width: 0; }
+
+.mode {
+  flex: 1;
+  padding: 8px 10px;
+  font: inherit; font-size: 13px;
+  color: var(--text-soft); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
+}
+.mode[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+.primary {
+  flex: none;
+  min-height: 44px; padding: 0 18px;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: #fff; background: var(--accent);
+  border: 0; border-radius: 10px; cursor: pointer;
+}
+
+.route-summary { margin: 0; font-size: 17px; font-weight: 600; }
+.route-extra { display: block; margin-top: 6px; font-size: 13px; font-weight: 400; color: var(--text-soft); }
+
+/* Rada o posunu odjezdu. Ukazuje se jen když má cenu, takže si smí říct
+   o pozornost — kdyby svítila pořád, přestala by být zpráva. */
+.route-advice {
+  margin: 12px 0 0; padding: 10px 12px;
+  font-size: 14px;
+  color: var(--warn-text); background: var(--warn-bg);
+  border: 1px solid var(--warn-line); border-radius: 10px;
+}
+
+.route-points { list-style: none; margin: 0; padding: 0; }
+
+.route-point {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.route-point:first-child { border-top: 0; }
+
+.rp-time { font-variant-numeric: tabular-nums; font-weight: 600; }
+.rp-icon { font-size: 22px; }
+.rp-text { display: flex; flex-direction: column; min-width: 0; }
+.rp-cond { font-size: 14px; }
+.rp-km { font-size: 12px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.rp-temp { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* Nebezpečný úsek se pozná i bez barvy — pruhem u kraje a tučným časem. */
+.route-point[data-hazard="1"] {
+  margin: 0 -8px; padding: 10px 8px;
+  border-left: 3px solid var(--warn-line);
+  background: var(--warn-bg);
+  border-radius: 8px;
+}

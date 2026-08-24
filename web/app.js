@@ -13,7 +13,13 @@ import { defaultUnits } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
-import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
+import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
+import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
+import {
+  fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
+} from './lib/route-adapter.js';
+import { buildRouteView, compareDepartures, ROUTE_FORECAST_PARAMS } from './lib/route-view.js';
+import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
   findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME,
@@ -42,6 +48,10 @@ const state = {
   place: null,          // {name, country, lat, lon}
   places: emptyStore(), // uložená místa a trasy
   banner: null,         // trvalé sdělení o stavu appky, viz notice()
+  screen: 'station',    // 'station' | 'route'
+  // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
+  // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
+  route: { from: null, to: null, profil: 'driving-car' },
 };
 
 /* ============================================================
@@ -611,6 +621,238 @@ function pollenSvg(species) {
   return svg;
 }
 
+/* ============================================================
+   TRASA — DRUHÁ OBRAZOVKA
+
+   Odlišovač celé appky (R8): počasí v bodech cesty V ČASE PŘÍJEZDU.
+   Veškerý výpočet leží v otestovaných modulech (`eta.js`, `route-adapter.js`,
+   `route-view.js`); tady se jen skládá obrazovka.
+   ============================================================ */
+
+/** Způsoby dopravy. Klíč je profil ORS, ten se posílá jako dovětek cesty. */
+const ZPUSOBY = [
+  { profil: 'driving-car', klic: 'route.car' },
+  { profil: 'cycling-regular', klic: 'route.bike' },
+  { profil: 'foot-walking', klic: 'route.walk' },
+];
+
+/**
+ * Po kolika metrech se trasa vzorkuje.
+ *
+ * ⚠️ Kompromis, ne libovolné číslo: hustší vzorkování znamená víc bodů
+ * v jednom dotazu na předpověď (delší odpověď na mobilní data) a jemnější
+ * obrázek. 25 km je na autě zhruba čtvrthodina jízdy — kratší úsek by se
+ * v hodinové předpovědi stejně neprojevil.
+ */
+const KROK_M = 25000;
+
+/** Posuny odjezdu, které se srovnávají. Víc než tři hodiny dopředu nikdo neplánuje. */
+const POSUNY_MIN = [0, 60, 120, 180];
+
+function prepniObrazovku(kam) {
+  state.screen = kam;
+  $('station').hidden = kam !== 'station' || !state.place;
+  $('route').hidden = kam !== 'route';
+  $('splash').hidden = kam !== 'station' || !!state.place;
+  for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route']]) {
+    $(id).setAttribute('aria-selected', String(kam === jmeno));
+  }
+}
+
+/**
+ * Výběr místa do pole na obrazovce trasy.
+ *
+ * Používá totéž hledání jako hlavní pole nahoře — jen si drží vlastní výsledky
+ * a vlastní zrušení. Kdyby sdílelo `requests.run('search')` s hlavním polem,
+ * psaní do jednoho pole by rušilo dotaz druhého.
+ */
+function pripojVyber(inputId, resultsId, kam) {
+  const input = $(inputId);
+  const results = $(resultsId);
+  let timer = 0;
+
+  const skryj = () => { results.hidden = true; results.innerHTML = ''; };
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    // Vybrané místo přestává platit ve chvíli, kdy uživatel začne psát něco
+    // jiného. Jinak by tlačítko počítalo trasu do místa, které už není v poli.
+    state.route[kam] = null;
+    if (q.length < 2) { skryj(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const { data } = await requests.run(`search-${kam}`, (signal) =>
+          apiGet('geocode', { name: q, count: 6, language: state.lang }, { signal }));
+        ukazVysledky(data?.results || []);
+      } catch (e) {
+        if (!requests.isAbort(e)) ukazVysledky([]);
+      }
+    }, 280);
+  });
+
+  input.addEventListener('blur', () => setTimeout(skryj, 150));
+
+  function ukazVysledky(list) {
+    results.hidden = false;
+    fill(results, list.length ? list : [null], (r) => {
+      const li = document.createElement('li');
+      if (!r) {
+        li.className = 'empty';
+        li.textContent = t('search.noResults', state.lang);
+        return li;
+      }
+      const btn = el('button', '', [
+        el('span', 'r-name', r.name),
+        el('span', 'r-meta', [r.admin1, r.country].filter(Boolean).join(', ')),
+      ]);
+      btn.type = 'button';
+      btn.addEventListener('click', () => {
+        state.route[kam] = { name: r.name, country: r.country, lat: r.latitude, lon: r.longitude };
+        input.value = r.name;
+        skryj();
+      });
+      li.append(btn);
+      return li;
+    });
+  }
+}
+
+function vykresliZpusoby() {
+  fill($('route-modes'), ZPUSOBY, (z) => {
+    const b = el('button', 'mode', t(z.klic, state.lang));
+    b.type = 'button';
+    b.dataset.profil = z.profil;
+    b.setAttribute('aria-pressed', String(state.route.profil === z.profil));
+    b.addEventListener('click', () => {
+      // ⚠️ Způsob dopravy je součást identity trasy (R8) — autem a na kole
+      // je to jiná cesta i jiný čas. Přepnutí proto musí zahodit starý
+      // výsledek, ne ho nechat viset pod novým tlačítkem.
+      state.route.profil = z.profil;
+      vykresliZpusoby();
+      skryjVysledekTrasy();
+    });
+    return b;
+  });
+}
+
+function skryjVysledekTrasy() {
+  $('route-summary-card').hidden = true;
+  $('route-points-card').hidden = true;
+}
+
+function poznamkaTrasy(text) {
+  const p = $('route-note');
+  p.textContent = text || '';
+  p.hidden = !text;
+}
+
+/**
+ * Spočítá trasu a počasí na ní.
+ *
+ * Tři dotazy ven, v tomhle pořadí a ne jinak:
+ *   1. trasa (ORS) — bez ní není kudy,
+ *   2. předpověď pro VŠECHNY body jedním dotazem,
+ *   3. …a to je všechno. Srovnání časů odjezdu je zadarmo, počítá se
+ *      z týchž dat, jen z jiných hodin (R8).
+ */
+async function loadRoute() {
+  const { from, to, profil } = state.route;
+  if (!from || !to) { poznamkaTrasy(t('route.needBoth', state.lang)); return; }
+
+  poznamkaTrasy(t('route.computing', state.lang));
+  skryjVysledekTrasy();
+
+  try {
+    const geo = await requests.run('route', (signal) =>
+      apiGet('route', { start: toOrsCoord([from.lat, from.lon]), end: toOrsCoord([to.lat, to.lon]) },
+        { signal, subPath: profil }));
+
+    const trasa = fromOpenRouteService(geo.data);
+    if (!trasa) { poznamkaTrasy(t('route.failed', state.lang)); return; }
+
+    const vzorky = sampleRoute(trasa.points, KROK_M);
+    const fc = await requests.run('route-forecast', (signal) =>
+      apiGet('forecast', { ...toForecastParams(vzorky), ...ROUTE_FORECAST_PARAMS }, { signal }));
+
+    const mista = asLocationList(fc.data);
+    if (!mista.length) { poznamkaTrasy(t('route.noWeather', state.lang)); return; }
+
+    const hourMs = hoursToMs(mista[0]);
+    const odjezd = Date.now();
+    const plan = planRoute({ ...trasa, departureMs: odjezd, hourMs, stepM: KROK_M });
+    const view = buildRouteView({ plan, forecast: fc.data, lang: state.lang, units: state.units });
+    if (!view) { poznamkaTrasy(t('route.noWeather', state.lang)); return; }
+
+    // Srovnání odjezdů — bez jediného dotazu navíc.
+    const varianty = departureOptions({
+      ...trasa, baseDepartureMs: odjezd, offsetsMin: POSUNY_MIN, hourMs, stepM: KROK_M,
+    });
+    const srovnani = compareDepartures({
+      options: varianty, forecast: fc.data, lang: state.lang, units: state.units,
+    });
+
+    poznamkaTrasy(null);
+    vykresliTrasu({ view, plan, trasa, srovnani, mista });
+  } catch (e) {
+    if (requests.isAbort(e)) return;
+    poznamkaTrasy(`${t('route.failed', state.lang)} ${e.message}`);
+  }
+}
+
+function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
+  const pasmo = mista[0]?.timezone || 'UTC';
+
+  $('route-summary-card').hidden = false;
+  $('route-summary').textContent = tf('route.result', {
+    distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
+    arrival: formatClock(plan.arrivalMs, pasmo, state.lang),
+  }, state.lang);
+
+  // ⚠️ Věty o nejistotě se PŘIDÁVAJÍ, nenahrazují souhrn. Odhadnutý čas
+  // a část trasy za obzorem předpovědi jsou dvě různé věci a obojí musí být
+  // vidět — mlčky vydávat odhad za jistotu je horší než ho neukázat.
+  const dovetky = [];
+  if (plan.estimated) dovetky.push(t('route.estimated', state.lang));
+  if (plan.beyondForecast) dovetky.push(t('route.beyond', state.lang));
+  if (view.summary.hazardCount) {
+    dovetky.push(tf('route.hazards', { count: view.summary.hazardCount }, state.lang));
+  } else if (view.summary.rainCount) {
+    dovetky.push(tf('route.rain', { count: view.summary.rainCount }, state.lang));
+  } else {
+    dovetky.push(t('route.clear', state.lang));
+  }
+  $('route-summary').append(el('span', 'route-extra', dovetky.join(' ')));
+
+  // Rada o posunu odjezdu se ukáže, JEN když má cenu (R8: `worthMoving`).
+  // Rada bez užitku podkopává důvěru ve všechny ostatní.
+  const rada = $('route-advice');
+  const lepsi = srovnani.worthMoving && srovnani.best && srovnani.best.offsetMin > 0;
+  rada.hidden = !lepsi;
+  if (lepsi) {
+    rada.textContent = tf('route.adviceLater', {
+      minutes: srovnani.best.offsetMin,
+      reason: srovnani.best.summary.worst || t('route.clear', state.lang),
+    }, state.lang);
+  }
+
+  $('route-points-card').hidden = false;
+  fill($('route-points'), view.points, (p) => {
+    const li = document.createElement('li');
+    li.className = 'route-point';
+    if (p.hazard) li.dataset.hazard = '1';
+
+    const cas = el('span', 'rp-time', formatClock(p.etaMs, pasmo, state.lang));
+    const km = el('span', 'rp-km', formatDistance(p.distanceM, state.units, state.lang));
+    const ikona = el('span', 'rp-icon', p.icon);
+    const popis = el('span', 'rp-cond', p.condition || '');
+    const teplota = el('span', 'rp-temp', p.temp ?? '');
+
+    li.append(cas, ikona, el('span', 'rp-text', [popis, km]), teplota);
+    return li;
+  });
+}
+
 /* ---------- drobné pomůcky nad DOM ---------- */
 
 function el(tag, cls, content) {
@@ -698,6 +940,23 @@ function init() {
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
   $('btn-manage').addEventListener('click', openPlaces);
+  $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
+  $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
+  $('route-go').addEventListener('click', loadRoute);
+  $('route-swap').addEventListener('click', () => {
+    // Prohození musí přehodit i text v polích, ne jen data — jinak by pole
+    // ukazovala něco jiného, než co se spočítá.
+    const { from, to } = state.route;
+    state.route.from = to;
+    state.route.to = from;
+    const a1 = $('route-from');
+    const b1 = $('route-to');
+    [a1.value, b1.value] = [b1.value, a1.value];
+    skryjVysledekTrasy();
+  });
+  pripojVyber('route-from', 'route-from-results', 'from');
+  pripojVyber('route-to', 'route-to-results', 'to');
+  vykresliZpusoby();
   $('places-close').addEventListener('click', () => $('places-dialog').close());
   // Rozepsané jméno se má uložit i tehdy, když se dialog zavře klávesou Esc
   // nebo klepnutím vedle — jinak by práce zmizela bez varování.

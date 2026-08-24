@@ -47,6 +47,9 @@ a vyměnitelná konfigurací**, ne přepisem.
   rozbíjí to diakritiku.
 - **Git: NIKDY nepushovat bez výslovného svolení.** Commit lokálně ano, push až na „jeď".
   U každé git operace vypiš přesné příkazy, které se pustí.
+- **🕠 Push jen po 16:30 a jen ve všední dny** (Michalovo pravidlo z 24. 8. 2026).
+  Nikdy jindy, pokud výslovně neřekne jinak. Commitovat průběžně ano — odesílat ven
+  jen v tom okně.
 - **Verzi bumpovat až úplně nakonec**, na všech místech najednou.
 - **Paritní test i18n je povinná brána** po každém zásahu do lokalizace.
 - **Headless prohlížeč ani emulátor neodhalí chyby specifické pro WebView** ani skutečný
@@ -69,7 +72,7 @@ tohle je jen shrnutí.**
 | i18n, jednotky, kódy počasí | `web/lib/`, referenční jazyk **en** |
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
-| Počasí na trase — **logika** | `web/lib/route-adapter.js` + `route-view.js` |
+| Počasí na trase — **obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`, ověřeno naživo |
 | Ukládání míst | `web/lib/places.js` + správa v dialogu (přejmenování, mazání), ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `web/lib/map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |

@@ -21,6 +21,8 @@
 
 'use strict';
 
+import { parseLocalTime } from './station.js';
+
 /**
  * Odpověď openrouteservice (GeoJSON) → vstup pro `planRoute()`.
  *
@@ -100,6 +102,28 @@ const round4 = (n) => Math.round(n * 1e4) / 1e4;
  * ⚠️ Past: trasa navzorkovaná na jediný bod (start = cíl) dostane objekt,
  * ne pole — a kód, který slepě volá `.map()`, spadne.
  */
+/**
+ * Časy hodin z předpovědi jako skutečné okamžiky (epoch ms).
+ *
+ * 🚨 Open-Meteo vrací čas **bez pásma** — `"2026-08-24T13:00"` je místní čas
+ * daného bodu, ne UTC. Kdo ho nechá vyložit prohlížeči, dostane pásmo
+ * ZAŘÍZENÍ: pro trasu do Španělska by se pak počasí přiřadilo o hodinu vedle
+ * a nikde by to nebylo vidět, protože čísla by pořád vypadala rozumně.
+ *
+ * Posun je v odpovědi jako `utc_offset_seconds`.
+ *
+ * @param {object} location  jedno místo z odpovědi Open-Meteo
+ * @returns {number[]} časy hodin, epoch ms
+ */
+export function hoursToMs(location) {
+  const casy = location?.hourly?.time;
+  if (!Array.isArray(casy)) return [];
+  const posun = Number.isFinite(location.utc_offset_seconds) ? location.utc_offset_seconds : 0;
+  return casy
+    .map((t) => parseLocalTime(t, posun))
+    .filter((ms) => Number.isFinite(ms));
+}
+
 export function asLocationList(forecast) {
   if (Array.isArray(forecast)) return forecast;
   if (forecast && typeof forecast === 'object') return [forecast];

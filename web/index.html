@@ -29,6 +29,13 @@
   </form>
   <ul id="search-results" class="results" hidden></ul>
 
+  <!-- Přepínač obrazovek. Dvě záložky, ne schované menu: appka umí dvě věci
+       a obě mají být na dosah palce. -->
+  <nav class="tabs" aria-label="Sections">
+    <button id="tab-station" class="tab" type="button" aria-selected="true" data-i18n="nav.station"></button>
+    <button id="tab-route" class="tab" type="button" aria-selected="false" data-i18n="nav.route"></button>
+  </nav>
+
   <!-- Uložená místa. Jedno klepnutí = přepnutí, proto jsou v hlavičce
        a ne schovaná v nastavení. -->
   <nav id="saved" class="saved" hidden aria-labelledby="saved-title">
@@ -128,6 +135,51 @@
     <h2 id="h-pollen" data-i18n="pollen.title"></h2>
     <p id="pollen-note" class="hint" hidden></p>
     <ul class="pollen" id="pollen"></ul>
+  </section>
+
+</main>
+
+<main id="route" hidden>
+
+  <section class="card" aria-labelledby="h-route-form">
+    <h2 id="h-route-form" data-i18n="route.title"></h2>
+
+    <div class="route-form">
+      <label class="route-field">
+        <span data-i18n="route.from"></span>
+        <input id="route-from" type="search" autocomplete="off"
+               data-i18n-attr="placeholder:route.fromPlaceholder">
+        <ul id="route-from-results" class="results inline" hidden></ul>
+      </label>
+
+      <!-- Prohození je tam schválně: cesta zpátky je nejčastější druhý dotaz. -->
+      <button id="route-swap" class="icon-btn" type="button" data-i18n-attr="title:route.swap">⇅</button>
+
+      <label class="route-field">
+        <span data-i18n="route.to"></span>
+        <input id="route-to" type="search" autocomplete="off"
+               data-i18n-attr="placeholder:route.toPlaceholder">
+        <ul id="route-to-results" class="results inline" hidden></ul>
+      </label>
+    </div>
+
+    <div class="route-controls">
+      <div class="modes" id="route-modes" role="group" data-i18n-attr="aria-label:route.mode"></div>
+      <button id="route-go" class="primary" type="button" data-i18n="route.compute"></button>
+    </div>
+
+    <p id="route-note" class="hint" hidden></p>
+  </section>
+
+  <section class="card" id="route-summary-card" hidden aria-labelledby="h-route-summary">
+    <h2 id="h-route-summary" class="sr-only" data-i18n="route.summary"></h2>
+    <p id="route-summary" class="route-summary"></p>
+    <p id="route-advice" class="route-advice" hidden></p>
+  </section>
+
+  <section class="card" id="route-points-card" hidden aria-labelledby="h-route-points">
+    <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>
+    <ol class="route-points" id="route-points"></ol>
   </section>
 
 </main>

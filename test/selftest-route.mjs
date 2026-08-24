@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { planRoute, departureOptions } from '../web/lib/eta.js';
 import {
-  fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList,
+  fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList,
 } from '../web/lib/route-adapter.js';
 import {
   buildRouteView, compareDepartures, RAIN_PROBABILITY, STRONG_WIND_KMH,
@@ -303,4 +303,31 @@ test('🚨 odjezdy: posun nemění geometrii, jen indexy — funkce je zadarmo',
     assert.deepEqual(a.points[i].point, b.points[i].point, 'bod se nesmí hnout');
     assert.equal(b.points[i].etaMs - a.points[i].etaMs, 120 * 60000);
   }
+});
+
+/* ============================================================
+   ČASY HODIN JAKO SKUTEČNÉ OKAMŽIKY
+   ============================================================ */
+
+test('🚨 čas z předpovědi je MÍSTNÍ, ne UTC ani pásmo zařízení', () => {
+  // Kdyby se nechal vyložit prohlížeči, trasa do Španělska by měla počasí
+  // o hodinu vedle — a čísla by pořád vypadala rozumně, takže by si toho
+  // nikdo nevšiml.
+  const misto = { utc_offset_seconds: 7200, hourly: { time: ['2026-08-24T13:00', '2026-08-24T14:00'] } };
+  const ms = hoursToMs(misto);
+  assert.equal(ms.length, 2);
+  assert.equal(new Date(ms[0]).toISOString(), '2026-08-24T11:00:00.000Z', '13:00 v pásmu +02 je 11:00 UTC');
+  assert.equal(ms[1] - ms[0], 3600_000);
+});
+
+test('čas bez posunu se bere jako UTC', () => {
+  const ms = hoursToMs({ hourly: { time: ['2026-08-24T13:00'] } });
+  assert.equal(new Date(ms[0]).toISOString(), '2026-08-24T13:00:00.000Z');
+});
+
+test('chybějící nebo poškozené časy vrátí prázdno, ne nesmysl', () => {
+  assert.deepEqual(hoursToMs(null), []);
+  assert.deepEqual(hoursToMs({}), []);
+  assert.deepEqual(hoursToMs({ hourly: { time: 'nesmysl' } }), []);
+  assert.deepEqual(hoursToMs({ hourly: { time: ['úplný nesmysl'] } }), []);
 });
