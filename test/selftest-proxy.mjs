@@ -312,3 +312,17 @@ test('🚨 hlavičky: trasa si říká o GeoJSON, jinak dostane 406', () => {
   assert.equal(upstreamHeaders('route', { ORS_API_KEY: 'x' }).Accept, 'application/geo+json');
   assert.equal(upstreamHeaders('forecast').Accept, 'application/json', 'ostatní zůstávají');
 });
+
+test('🚨 profil dopravy musí být ze seznamu, jinak to odmítne NAŠE proxy', () => {
+  // Když appka omylem poslala `straight` (vzdušnou čáru počítáme sami),
+  // vracela cizí služba matoucí chybu a vypadalo to jako její výpadek.
+  assert.throws(() => buildUrl('route', {}, 'straight'), /Neznámý profil/);
+  assert.throws(() => buildUrl('route', {}, 'teleport'), /Neznámý profil/);
+  assert.ok(buildUrl('route', {}, 'driving-car').includes('/driving-car'));
+  assert.ok(buildUrl('route', {}, 'cycling-regular').includes('/cycling-regular'));
+});
+
+test('služba bez seznamu dovětků propustí běžné slovo dál', () => {
+  // Omezení platí jen tam, kde dává smysl — ne plošně.
+  assert.ok(buildUrl('forecast', {}, 'cokoli').includes('/cokoli'));
+});

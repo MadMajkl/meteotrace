@@ -82,6 +82,13 @@ export const UPSTREAMS = {
     // který přes curl bez hlavičky projde. Chyba se pak tváří jako výpadek
     // cizí služby, ne jako naše hlavička.
     accept: 'application/geo+json',
+    // 🚨 Dovětek cesty je u trasy PROFIL DOPRAVY a smí být jen z tohohle
+    // seznamu. Bez něj propustila proxy cokoli — a když appka omylem poslala
+    // `straight` (vzdušná čára, kterou počítáme sami), vrátila cizí služba
+    // matoucí 404 „zdroj neodpověděl". Chyba na naší straně se tvářila jako
+    // výpadek cizí. Co není na seznamu, neexistuje — stejně jako u služeb.
+    subPaths: ['driving-car', 'driving-hgv', 'cycling-regular', 'cycling-road',
+      'cycling-mountain', 'cycling-electric', 'foot-walking', 'foot-hiking', 'wheelchair'],
   },
 
   /** Seznam radarových snímků. Krátká platnost — radar se obnovuje po 5 minutách. */
@@ -170,6 +177,10 @@ export function buildUrl(service, params, subPath = '') {
   // vylézt z domény služby jinam.
   if (subPath && !/^[a-z0-9-]+$/i.test(subPath)) {
     throw new Error(`Nepřípustný dovětek cesty: ${subPath}`);
+  }
+  // A když si služba drží seznam povolených dovětků, musí sedět i ten.
+  if (subPath && spec.subPaths && !spec.subPaths.includes(subPath)) {
+    throw new Error(`Neznámý profil dopravy: ${subPath}`);
   }
 
   const { allowed } = filterParams(service, params);

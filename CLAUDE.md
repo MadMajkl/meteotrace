@@ -91,6 +91,20 @@ prostředí `ORS_API_KEY`. Bez něj vrací `/api/route` chybu 500 a **nejde dod�
 trasy** — logika je hotová a otestovaná proti přibaleným odpovědím, ale UI psané naslepo,
 které nikdy nevidělo skutečnou odpověď, bývá vedle.
 
+### 🟢 Vývojový server — JEN JEDNA INSTANCE
+
+**Pravidlo (Michal, 24. 8. 2026): běží právě jedna instance, spouští ji Claude
+a nechává ji běžet.** Michal si do ní vleze, kdy chce.
+
+- **Nikdy nespouštět druhou** na jiném portu.
+- **Nikdy ji nevypínat** bez řečí — když se musí restartovat, hned to říct.
+- **Když se změní port, oznámit to.** Michal jednou mluvil se starou instancí, která
+  neměla klíč k ORS, a chyba vypadala jako vada appky.
+
+Výchozí port je **8099** (`package.json`). Při psaní tohohle běží na **8100**, protože
+8099 drží zaseknutý proces z 23. 8. — `taskkill /F` na něj z Claudova prostředí nestačí,
+chce to Michalovo okno nebo restart počítače.
+
 ### Příkazy
 
 ```bash
