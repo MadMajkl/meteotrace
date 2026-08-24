@@ -118,7 +118,7 @@ test('🚨 adresa: dovětkem cesty nejde vylézt na cizí adresu', () => {
 
 test('adresa: běžný dovětek cesty projde', () => {
   const url = buildUrl('route', {}, 'cycling-regular');
-  assert.equal(url, 'https://api.openrouteservice.org/v2/directions/cycling-regular');
+  assert.equal(url, 'https://api.heigit.org/openrouteservice/v2/directions/cycling-regular');
 });
 
 test('adresa: hodnoty se kódují, ne vkládají syrově', () => {
@@ -303,4 +303,12 @@ test('místní parametry: jazyk se taky zpracuje u nás, ne ven', () => {
   const { allowed, dropped } = filterParams('warnings', { lang: 'cs' });
   assert.deepEqual(allowed, {});
   assert.deepEqual(dropped, []);
+});
+
+test('🚨 hlavičky: trasa si říká o GeoJSON, jinak dostane 406', () => {
+  // Ověřeno naživo 24. 8. 2026: ORS na `Accept: application/json` odmítne
+  // odpovědět (406), přestože je to týž dotaz. Chyba se pak tváří jako
+  // výpadek cizí služby, ne jako naše hlavička.
+  assert.equal(upstreamHeaders('route', { ORS_API_KEY: 'x' }).Accept, 'application/geo+json');
+  assert.equal(upstreamHeaders('forecast').Accept, 'application/json', 'ostatní zůstávají');
 });

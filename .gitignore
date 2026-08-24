@@ -14,6 +14,13 @@ android/.kotlin/
 android/build/
 android/app/build/
 
+# 🚨 KLÍČE A TAJEMSTVÍ NIKDY DO GITU.
+# .env drží ORS_API_KEY. Chybělo to tu do 24. 8. 2026 — klíč byl jeden commit
+# od zveřejnění na GitHubu. Zveřejněný klíč se nedá vzít zpět, jen zneplatnit.
+.env
+.env.*
+!.env.example
+
 # ⚠️ Podpisový klíč a hesla NIKDY do gitu (vzor: Gulpka)
 android/keystore.properties
 *.jks

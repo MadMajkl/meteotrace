@@ -69,10 +69,19 @@ export const UPSTREAMS = {
    * denní. Shodná trasa se proto nesmí ptát dvakrát. (Viz R4.)
    */
   route: {
-    base: 'https://api.openrouteservice.org/v2/directions',
+    // ⚠️ Přepnuto 24. 8. 2026: HeiGIT ruší `api.openrouteservice.org` ve prospěch
+    // `api.heigit.org`. Stará adresa ještě odpovídá, ale nemá smysl čekat, až
+    // přestane. Cesta se změnila taky — ověřeno dotazem, ne z dokumentace:
+    // `/openrouteservice/v2/directions`, ne `/ors/v2/…` ani `/v2/…` (obojí 404).
+    base: 'https://api.heigit.org/openrouteservice/v2/directions',
     params: ['start', 'end', 'profile'],
     ttl: 6 * HOUR,           // silnice se přes den nemění
     needsKey: true,
+    // 🚨 Bez tohohle vrací ORS 406. Trasa chodí jako GeoJSON a služba na
+    // `Accept: application/json` odmítne odpovědět — přitom je to týž dotaz,
+    // který přes curl bez hlavičky projde. Chyba se pak tváří jako výpadek
+    // cizí služby, ne jako naše hlavička.
+    accept: 'application/geo+json',
   },
 
   /** Seznam radarových snímků. Krátká platnost — radar se obnovuje po 5 minutách. */
@@ -178,7 +187,7 @@ export function upstreamHeaders(service, env = {}) {
   const spec = UPSTREAMS[service];
   if (!spec) throw new Error(`Neznámá služba: ${service}`);
 
-  const headers = { 'Accept': 'application/json' };
+  const headers = { 'Accept': spec.accept || 'application/json' };
   if (spec.needsKey) {
     const key = env.ORS_API_KEY;
     if (!key) throw new Error(`Službě ${service} chybí klíč (ORS_API_KEY)`);
