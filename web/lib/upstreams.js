@@ -24,6 +24,8 @@
 
 'use strict';
 
+import { stripDiacritics } from './geo-query.js';
+
 const MINUTE = 60;
 const HOUR = 3600;
 
@@ -55,10 +57,44 @@ export const UPSTREAMS = {
   },
 
   /** Hledání místa podle jména. */
+  /**
+   * Hledání místa — HLAVNÍ zdroj (Pelias u HeiGIT, tentýž klíč jako routing).
+   *
+   * ⚠️ Vyměněno 24. 8. 2026. Původní Open-Meteo **neumí adresy** a **rozbíjí se
+   * na diakritice** („Plzeň" → 0 nálezů, „Plzen" → Plzeň). Pro českého
+   * uživatele to znamenalo appku, která skoro nic nenajde. Ověřeno, že tenhle
+   * zdroj najde „náměstí Republiky 1, Horšovský Týn" i „Karlovo náměstí 10".
+   *
+   * ⚠️ Za to platíme kvótou (3 000/den, 100/min) a tím, že routing i hledání
+   * visí na jednom poskytovateli. Proto `fallback` — viz níže.
+   */
   geocode: {
+    base: 'https://api.openrouteservice.org/geocode/search',
+    params: ['text', 'size'],
+    // Klient posílá pořád `name`/`count`; překlad na řeč služby patří sem,
+    // ne do appky — jinak by výměna zdroje znamenala zásah do obrazovky.
+    mapParams: ({ name, count }) => ({ text: String(name ?? ''), size: String(count || 6) }),
+    normalize: 'pelias',
+    ttl: 24 * HOUR,          // města se nestěhují
+    needsKey: true,
+    // 🚨 Když tenhle zdroj selže NEBO nic nenajde, zkusí se záloha. Hledání,
+    // které přestane fungovat v půlce měsíce (vyčerpaná kvóta), je horší
+    // než hledání s horšími výsledky.
+    fallback: 'geocodeBasic',
+  },
+
+  /**
+   * Hledání místa — ZÁLOHA (Open-Meteo, bez klíče a bez kvóty).
+   *
+   * Umí jen sídla, ne adresy. Zato se nemá jak vyčerpat.
+   */
+  geocodeBasic: {
     base: 'https://geocoding-api.open-meteo.com/v1/search',
     params: ['name', 'count', 'language', 'format'],
-    ttl: 24 * HOUR,          // města se nestěhují
+    // 🚨 Diakritika se sundá až TADY. Hlavní zdroj ji zvládá a sundávat ji
+    // předem by mu zhoršilo výsledky; záloha ji naopak nezvládá vůbec.
+    mapParams: (p) => ({ ...p, name: stripDiacritics(String(p.name ?? '')) }),
+    ttl: 24 * HOUR,
   },
 
   /**
@@ -120,6 +156,40 @@ export const UPSTREAMS = {
   },
 };
 
+/**
+ * Odpověď Pelias na tvar, jaký appka zná z Open-Meteo.
+ *
+ * ⚠️ Díky tomu **obrazovka o výměně zdroje vůbec neví**. Kdyby se tvar
+ * propsal až do UI, byla by výměna geokodéru přepis appky — přesně to,
+ * čemu se `R0` brání.
+ *
+ * 🚨 GeoJSON má souřadnice v pořadí [délka, šířka] — opačně, než používá
+ * zbytek appky. Prohození se dělá tady, na jednom místě.
+ */
+export function fromPelias(body) {
+  const features = Array.isArray(body?.features) ? body.features : [];
+  const results = [];
+  for (const f of features) {
+    const c = f?.geometry?.coordinates;
+    const p = f?.properties || {};
+    if (!Array.isArray(c) || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) continue;
+    results.push({
+      // U adresy je `name` jen „náměstí Republiky 1"; `label` nese i obec,
+      // což je to, co uživatel potřebuje k rozlišení dvou stejných ulic.
+      name: p.name || p.label || '',
+      label: p.label || '',
+      country: p.country || null,
+      admin1: p.region || p.macroregion || null,
+      // Vrstva říká, jestli je to adresa, ulice nebo sídlo — UI podle toho
+      // může řadit nebo popisovat.
+      layer: p.layer || null,
+      latitude: c[1],
+      longitude: c[0],
+    });
+  }
+  return { results };
+}
+
 /** Je jméno služby v seznamu? */
 export function isKnownService(name) {
   return Object.prototype.hasOwnProperty.call(UPSTREAMS, name);
@@ -136,6 +206,20 @@ export function isKnownService(name) {
  * @param {Record<string, string>|URLSearchParams} input
  * @returns {{allowed: Record<string, string>, dropped: string[]}}
  */
+/**
+ * Přeloží parametry klienta do řeči služby.
+ *
+ * Klient mluví pořád stejně (`name`, `count`) — překlad na to, čemu rozumí
+ * konkrétní zdroj, patří do katalogu. Výměna zdroje je pak změna tady,
+ * ne v obrazovce (`R0`).
+ */
+export function mapParams(service, input) {
+  const spec = UPSTREAMS[service];
+  if (!spec) throw new Error(`Neznámá služba: ${service}`);
+  const obj = input instanceof URLSearchParams ? Object.fromEntries(input.entries()) : (input || {});
+  return spec.mapParams ? spec.mapParams(obj) : obj;
+}
+
 export function filterParams(service, input) {
   const spec = UPSTREAMS[service];
   if (!spec) throw new Error(`Neznámá služba: ${service}`);

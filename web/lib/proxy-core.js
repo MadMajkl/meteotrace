@@ -12,7 +12,10 @@
 
 'use strict';
 
-import { isKnownService, buildUrl, upstreamHeaders, cacheKey, ttlFor, trimWarnings } from './upstreams.js';
+import {
+  isKnownService, buildUrl, upstreamHeaders, cacheKey, ttlFor, trimWarnings,
+  mapParams, fromPelias, UPSTREAMS,
+} from './upstreams.js';
 import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
@@ -69,14 +72,21 @@ export function planRequest(req) {
   }
 
   try {
+    // ⚠️ Parametry se PŘELOŽÍ do řeči služby dřív, než se z nich skládá adresa
+    // i klíč cache. Klient mluví pořád stejně (`name`, `count`) — co z toho je
+    // `text` a co `size`, ví jen katalog. Výměna zdroje je pak změna v katalogu,
+    // ne v obrazovce (`R0`).
+    const prelozene = mapParams(service, params);
     return {
       ok: true,
       service,
-      url: buildUrl(service, params, subPath),
+      url: buildUrl(service, prelozene, subPath),
       headers: upstreamHeaders(service, env),
-      cacheKey: cacheKey(service, params, subPath),
+      cacheKey: cacheKey(service, prelozene, subPath),
       ttlS: ttlFor(service),
-      dropped: droppedOf(service, params),
+      dropped: droppedOf(service, prelozene),
+      // Kam sáhnout, když tenhle zdroj selže nebo nic nenajde.
+      fallback: UPSTREAMS[service].fallback || null,
     };
   } catch (e) {
     // Chybějící klíč je chyba NAŠEHO nasazení, ne uživatelova dotazu → 500.
@@ -105,6 +115,10 @@ function droppedOf(service, params) {
  * @param {Record<string,string>} [params]
  */
 export function transformBody(service, body, params = {}) {
+  // Odpověď geokodéru se srovná na tvar, který appka zná z původního zdroje.
+  // Díky tomu obrazovka o výměně vůbec neví.
+  if (UPSTREAMS[service]?.normalize === 'pelias') return fromPelias(body);
+
   if (service === 'warnings') {
     const lang = (params.lang || params.language || 'cs').slice(0, 2);
     return { warnings: trimWarnings(body, lang) };

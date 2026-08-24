@@ -205,7 +205,9 @@ test('🚨 obsluha: zásah v cache NEJDE ven', async () => {
   // (40/min) by se prorážel zbytečně.
   const f = fakeFetch({ body: { ok: 1 } });
   const cache = createCache();
-  const req = { pathname: '/api/geocode', params: { name: 'Brno' } };
+  // ⚠️ Schválně na předpovědi, ne na hledání: hledání má od 24. 8. zálohu,
+  // takže by při prázdné odpovědi šlo ven podruhé a počty by nic neříkaly.
+  const req = { pathname: '/api/forecast', params: { latitude: '50', longitude: '14' } };
   await serveProxy(req, { cache, fetchImpl: f });
   await serveProxy(req, { cache, fetchImpl: f });
   await serveProxy(req, { cache, fetchImpl: f });
@@ -215,8 +217,8 @@ test('🚨 obsluha: zásah v cache NEJDE ven', async () => {
 test('obsluha: jiný dotaz cache mine', async () => {
   const f = fakeFetch({ body: { ok: 1 } });
   const cache = createCache();
-  await serveProxy({ pathname: '/api/geocode', params: { name: 'Brno' } }, { cache, fetchImpl: f });
-  await serveProxy({ pathname: '/api/geocode', params: { name: 'Praha' } }, { cache, fetchImpl: f });
+  await serveProxy({ pathname: '/api/forecast', params: { latitude: '50' } }, { cache, fetchImpl: f });
+  await serveProxy({ pathname: '/api/forecast', params: { latitude: '49' } }, { cache, fetchImpl: f });
   assert.equal(f.calls.length, 2);
 });
 
@@ -498,4 +500,90 @@ test('výstrahy: hranice nezvětší klíč cache ani nejde ven', async () => {
   const { res, fetchImpl } = await vystrahy({ ...LITOMERICE, geo: '1' });
   assert.equal(res.status, 200);
   assert.ok(!fetchImpl.calls[0].url.includes('geo='), 'feed o naší mapě nic vědět nemá');
+});
+
+/* ============================================================
+   HLEDÁNÍ MÍSTA A JEHO ZÁLOHA
+
+   Hlavní zdroj (Pelias) umí adresy a diakritiku, ale má kvótu. Když selže
+   nebo nic nenajde, musí nastoupit záloha — hledání, které přestane
+   fungovat v půlce měsíce, je horší než hledání s horšími výsledky.
+   ============================================================ */
+
+const PELIAS = {
+  features: [{
+    geometry: { coordinates: [13.24, 49.53] },
+    properties: { name: 'náměstí Republiky 1', label: 'náměstí Republiky 1, Horšovský Týn, PK, Czechia', country: 'Czechia', region: 'PK', layer: 'address' },
+  }],
+};
+const OPEN_METEO = { results: [{ name: 'Horšovský Týn', country: 'Czechia', admin1: 'PK', latitude: 49.53, longitude: 13.24 }] };
+
+test('hledání: hlavní zdroj se srovná na tvar, který appka zná', async () => {
+  const f = fakeFetch({ body: PELIAS });
+  const res = await serveProxy(
+    { pathname: '/api/geocode', params: { name: 'náměstí Republiky 1, Horšovský Týn' }, env: ENV },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.body.results.length, 1);
+  assert.equal(res.body.results[0].name, 'náměstí Republiky 1');
+  assert.equal(res.body.results[0].latitude, 49.53, 'GeoJSON má [délka, šířka] — prohodit!');
+  assert.equal(res.body.results[0].longitude, 13.24);
+  assert.equal(f.calls.length, 1, 'záloha se nevolá zbytečně');
+});
+
+test('🚨 hledání: když hlavní zdroj SELŽE, nastoupí záloha', async () => {
+  // Vyčerpaná kvóta nesmí znamenat appku, ve které nejde nic najít.
+  let volani = 0;
+  const f = fakeFetch((url) => {
+    volani += 1;
+    if (url.includes('openrouteservice')) return new Error('HTTP 429');
+    return { body: OPEN_METEO };
+  });
+  const res = await serveProxy(
+    { pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results[0].name, 'Horšovský Týn');
+  assert.equal(volani, 2, 'nejdřív hlavní, pak záloha');
+});
+
+test('🚨 hledání: když hlavní zdroj NIC NENAJDE, zkusí se záloha', async () => {
+  const f = fakeFetch((url) => (url.includes('openrouteservice')
+    ? { body: { features: [] } }
+    : { body: OPEN_METEO }));
+  const res = await serveProxy(
+    { pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.body.results[0].name, 'Horšovský Týn');
+});
+
+test('hledání: když nenajde nic ani záloha, vrátí se prázdno, ne chyba', async () => {
+  // „Nic jsme nenašli" je platná odpověď. Chyba by uživatele poslala hledat
+  // problém v appce, přestože jen napsal nesmysl.
+  const f = fakeFetch((url) => (url.includes('openrouteservice')
+    ? { body: { features: [] } }
+    : { body: { results: [] } }));
+  const res = await serveProxy(
+    { pathname: '/api/geocode', params: { name: 'qwertzuiop' }, env: ENV },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.results, []);
+});
+
+test('🚨 hledání: záloha dostane text BEZ diakritiky', async () => {
+  // Open-Meteo se na diakritice rozbíjí („Plzeň" → 0 nálezů), hlavní zdroj ji
+  // naopak zvládá. Proto se sundává až u zálohy, ne v appce.
+  const f = fakeFetch((url) => (url.includes('openrouteservice')
+    ? new Error('HTTP 500')
+    : { body: OPEN_METEO }));
+  await serveProxy(
+    { pathname: '/api/geocode', params: { name: 'Plzeň' }, env: ENV },
+    { cache: createCache(), fetchImpl: f },
+  );
+  const zaloha = f.calls.find((c) => c.url.includes('open-meteo'));
+  assert.ok(zaloha.url.includes('Plzen'), zaloha.url);
+  assert.ok(!zaloha.url.includes('%C4%9B'), 'žádné háčky ani v zakódované podobě');
 });

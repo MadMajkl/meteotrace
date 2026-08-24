@@ -49,3 +49,28 @@ export function stripDiacritics(text) {
 export function searchQuery(text) {
   return stripDiacritics(String(text ?? '').trim());
 }
+
+/**
+ * Kde to místo je — text pod jménem v nabídce hledání.
+ *
+ * 🚨 U adres nestačí kraj. Geokodér vrací u „náměstí Republiky 1" jako kraj
+ * „Plzeň", takže nabídka tvrdila, že adresa je v Plzni — přitom je
+ * v Horšovském Týně. **Obec je to jediné, co dvě stejně pojmenované ulice
+ * rozliší**, a ta je jen v úplném popisu (`label`).
+ *
+ * Ze štítku se proto ustřihne jméno, které už je vidět nad ním, a zbytek
+ * se použije. Když štítek chybí (starší zdroj), padá se zpátky na kraj a zemi.
+ *
+ * @param {{name?: string, label?: string, admin1?: string, country?: string}} r
+ */
+export function placeMeta(r) {
+  const jmeno = (r?.name || '').trim();
+  const stitek = (r?.label || '').trim();
+
+  if (stitek) {
+    const zbytek = stitek.startsWith(jmeno) ? stitek.slice(jmeno.length) : stitek;
+    const cisty = zbytek.replace(/^[\s,]+/, '').trim();
+    if (cisty) return cisty;
+  }
+  return [r?.admin1, r?.country].filter(Boolean).join(', ');
+}

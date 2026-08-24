@@ -13,7 +13,19 @@
 
 'use strict';
 
-import { planRequest, transformBody, filterByPlace, responseHeaders, errorBody } from '../web/lib/proxy-core.js';
+import {
+  planRequest, transformBody, filterByPlace, responseHeaders, errorBody, API_PREFIX,
+} from '../web/lib/proxy-core.js';
+
+/**
+ * Vypadá odpověď hledání jako „nic jsme nenašli"?
+ *
+ * Prázdný výsledek není chyba — ale u hledání je k ničemu, takže když má
+ * zdroj náhradu, stojí za to zeptat se i jí.
+ */
+function jeToPrazdneHledani(out) {
+  return !!out && Array.isArray(out.results) && out.results.length === 0;
+}
 
 /** Kolik sekund se čeká na cizí službu, než to vzdáme. */
 export const UPSTREAM_TIMEOUT_S = 12;
@@ -64,8 +76,46 @@ export async function serveProxy(req, deps) {
 
   // 2) Ven.
   try {
-    const body = await fetchUpstream(fetchImpl, plan);
-    const out = transformBody(plan.service, body, params);
+    let body;
+    let pouzity = plan;
+
+    try {
+      body = await fetchUpstream(fetchImpl, plan);
+    } catch (e) {
+      // 🚨 Hlavní zdroj selhal — vyčerpaná kvóta, výpadek, chybějící klíč.
+      // Když má náhradu, zkusí se. Hledání, které přestane fungovat v půlce
+      // měsíce, je horší než hledání s horšími výsledky.
+      if (!plan.fallback) throw e;
+      log('hlavní zdroj selhal, beru zálohu', {
+        service: plan.service, zaloha: plan.fallback, chyba: e.message,
+      });
+      const zaloha = planRequest({ ...req, pathname: API_PREFIX + plan.fallback });
+      if (!zaloha.ok) throw e;
+      pouzity = zaloha;
+      body = await fetchUpstream(fetchImpl, zaloha);
+    }
+
+    let out = transformBody(pouzity.service, body, params);
+
+    // ⚠️ Zkusit zálohu i tehdy, když hlavní zdroj odpověděl, ale nic nenašel.
+    // Podmínka `pouzity === plan` je tu proto, aby se to nezacyklilo — ze
+    // zálohy se na zálohu nechodí.
+    if (pouzity === plan && plan.fallback && jeToPrazdneHledani(out)) {
+      const zaloha = planRequest({ ...req, pathname: API_PREFIX + plan.fallback });
+      if (zaloha.ok) {
+        try {
+          const jine = transformBody(zaloha.service, await fetchUpstream(fetchImpl, zaloha), params);
+          if (!jeToPrazdneHledani(jine)) {
+            log('hlavní zdroj nic nenašel, pomohla záloha', { service: plan.service });
+            out = jine;
+          }
+        } catch (e) {
+          // Záloha taky nevyšla. Vrací se prázdno z hlavního zdroje — to je
+          // pořád lepší než chyba, protože „nic jsme nenašli" je platná odpověď.
+          log('záloha taky selhala', { chyba: e.message });
+        }
+      }
+    }
     cache.set(plan.cacheKey, out, plan.ttlS);
     log('staženo', { service: plan.service, key: plan.cacheKey });
     return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(out) };

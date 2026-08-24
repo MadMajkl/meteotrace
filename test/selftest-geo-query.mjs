@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { stripDiacritics, searchQuery } from '../web/lib/geo-query.js';
+import { stripDiacritics, searchQuery, placeMeta } from '../web/lib/geo-query.js';
 
 test('🚨 česká města se posílají bez diakritiky', () => {
   // Změřeno na skutečné službě: „Plzeň" vrátí 0 nálezů, „Plzen" najde Plzeň.
@@ -44,4 +44,40 @@ test('nesmyslný vstup nespadne', () => {
   assert.equal(searchQuery(null), '');
   assert.equal(searchQuery(undefined), '');
   assert.equal(stripDiacritics(42), '');
+});
+
+/* ============================================================
+   KDE TO MÍSTO JE
+   ============================================================ */
+
+test('🚨 u adresy se ukáže OBEC, ne kraj', () => {
+  // Geokodér vrací u „náměstí Republiky 1" jako kraj „Plzeň", takže nabídka
+  // tvrdila, že adresa je v Plzni — přitom je v Horšovském Týně. Obec je
+  // jediné, co dvě stejně pojmenované ulice rozliší.
+  const r = {
+    name: 'náměstí Republiky 1',
+    label: 'náměstí Republiky 1, Horšovský Týn, PK, Czechia',
+    admin1: 'Plzeň', country: 'Czechia',
+  };
+  assert.equal(placeMeta(r), 'Horšovský Týn, PK, Czechia');
+});
+
+test('bez štítku se použije kraj a země', () => {
+  assert.equal(placeMeta({ name: 'Brno', admin1: 'JM', country: 'Czechia' }), 'JM, Czechia');
+});
+
+test('štítek, který se rovná jménu, nedá prázdno', () => {
+  assert.equal(placeMeta({ name: 'Praha', label: 'Praha', admin1: 'PR', country: 'Czechia' }), 'PR, Czechia');
+});
+
+test('nesmyslný vstup nespadne', () => {
+  assert.equal(placeMeta(null), '');
+  assert.equal(placeMeta({}), '');
+});
+
+test('🚨 z popisu se ustřihnou jen mezery a čárky, ne písmena', () => {
+  // Ošklivá past: když se ve výrazu ztratí zpětné lomítko, „\s" se změní
+  // v písmeno „s" a z popisu „Statenice" se stane „tatenice".
+  assert.equal(placeMeta({ name: 'X', label: 'Statenice, Czechia' }), 'Statenice, Czechia');
+  assert.equal(placeMeta({ name: 'X', label: 'Sokolov' }), 'Sokolov');
 });

@@ -75,8 +75,8 @@ test('parametry: zahozené se hlásí, nezamlčují', () => {
 });
 
 test('parametry: zvládne URLSearchParams i obyčejný objekt', () => {
-  const fromObj = filterParams('geocode', { name: 'Brno', count: '5' });
-  const fromUsp = filterParams('geocode', new URLSearchParams('name=Brno&count=5'));
+  const fromObj = filterParams('geocodeBasic', { name: 'Brno', count: '5' });
+  const fromUsp = filterParams('geocodeBasic', new URLSearchParams('name=Brno&count=5'));
   assert.deepEqual(fromObj.allowed, fromUsp.allowed);
 });
 
@@ -90,7 +90,7 @@ test('parametry: prázdný vstup nespadne', () => {
    ============================================================ */
 
 test('adresa: sestaví se z povolených parametrů', () => {
-  const url = buildUrl('geocode', { name: 'Brno', count: '3' });
+  const url = buildUrl('geocodeBasic', { name: 'Brno', count: '3' });
   assert.ok(url.startsWith('https://geocoding-api.open-meteo.com/v1/search?'));
   assert.ok(url.includes('name=Brno'));
   assert.ok(url.includes('count=3'));
@@ -122,7 +122,7 @@ test('adresa: běžný dovětek cesty projde', () => {
 });
 
 test('adresa: hodnoty se kódují, ne vkládají syrově', () => {
-  const url = buildUrl('geocode', { name: 'Ústí nad Labem' });
+  const url = buildUrl('geocodeBasic', { name: 'Ústí nad Labem' });
   assert.ok(!url.includes(' '), 'mezera se musí zakódovat');
   assert.ok(url.includes('%C3%9Ast%C3%AD'));
 });
@@ -154,15 +154,15 @@ test('🚨 hlavičky: chybějící klíč je hlasitá chyba, ne dotaz bez klíč
 test('cache: na pořadí parametrů nezáleží', () => {
   // Kdyby záleželo, každé jiné pořadí by minulo cache a zbytečně
   // ukusovalo z minutového limitu ORS.
-  const a = cacheKey('geocode', { name: 'Brno', count: '3' });
-  const b = cacheKey('geocode', { count: '3', name: 'Brno' });
+  const a = cacheKey('geocodeBasic', { name: 'Brno', count: '3' });
+  const b = cacheKey('geocodeBasic', { count: '3', name: 'Brno' });
   assert.equal(a, b);
 });
 
 test('cache: různý dotaz dá různý klíč', () => {
   assert.notEqual(
-    cacheKey('geocode', { name: 'Brno' }),
-    cacheKey('geocode', { name: 'Praha' }),
+    cacheKey('geocodeBasic', { name: 'Brno' }),
+    cacheKey('geocodeBasic', { name: 'Praha' }),
   );
 });
 
@@ -170,8 +170,8 @@ test('cache: nepovolené parametry klíč neovlivní', () => {
   // Jinak by šlo cache obejít přidáním nesmyslného parametru
   // a prorazit tak limit ORS.
   assert.equal(
-    cacheKey('geocode', { name: 'Brno' }),
-    cacheKey('geocode', { name: 'Brno', nesmysl: 'x' }),
+    cacheKey('geocodeBasic', { name: 'Brno' }),
+    cacheKey('geocodeBasic', { name: 'Brno', nesmysl: 'x' }),
   );
 });
 
