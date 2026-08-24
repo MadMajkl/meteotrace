@@ -331,3 +331,18 @@ test('chybějící nebo poškozené časy vrátí prázdno, ne nesmysl', () => {
   assert.deepEqual(hoursToMs({ hourly: { time: 'nesmysl' } }), []);
   assert.deepEqual(hoursToMs({ hourly: { time: ['úplný nesmysl'] } }), []);
 });
+
+test('🚨 nadmořská výška se bere z odpovědi a NULA JE PLATNÁ', () => {
+  // Výška chodí u každého bodu zadarmo. Nula je hladina moře, ne chybějící
+  // údaj — kdyby se testovala pravdivost, pobřežní bod by vypadal neznámě.
+  const plan = planAt(T0);
+  const sVyskou = [
+    { ...FORECAST[0], elevation: 0 },
+    { ...FORECAST[1], elevation: 594 },
+    { ...FORECAST[2] },
+  ];
+  const view = buildRouteView({ plan, forecast: sVyskou, lang: 'cs', units: METRIC });
+  assert.equal(view.points[0].elevationM, 0, 'hladina moře je údaj, ne prázdno');
+  assert.equal(view.points[1].elevationM, 594);
+  assert.equal(view.points[2].elevationM, null, 'chybějící výška NENÍ nula');
+});

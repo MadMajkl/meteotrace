@@ -55,10 +55,18 @@ function describePoint(planPoint, location, lang, units) {
   const H = location?.hourly || {};
   const i = planPoint.hourIndex;
 
+  // Nadmořská výška chodí v odpovědi u každého bodu, takže je zadarmo.
+  // Není to jen pro letadla: na kole a pěšky je stoupání to, co člověk
+  // na trase cítí nejvíc, a u počasí vysvětluje, proč je nahoře chladno.
+  // ⚠️ Nula je platná výška (hladina moře), takže se testuje na konečnost,
+  // ne na pravdivost.
+  const elevationM = Number.isFinite(location?.elevation) ? location.elevation : null;
+
   // Bod za obzorem předpovědi není chyba — jen se o něm nic neví (viz eta.js).
   if (i == null) {
     return {
       ...planPoint,
+      elevationM,
       known: false,
       icon: '❓',
       condition: t('error.beyondForecast', lang),
@@ -73,6 +81,7 @@ function describePoint(planPoint, location, lang, units) {
 
   return {
     ...planPoint,
+    elevationM,
     known: true,
     code,
     key: weatherKey(code),

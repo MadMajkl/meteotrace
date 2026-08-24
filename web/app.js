@@ -476,8 +476,12 @@ function render(forecast, air) {
   });
   if (!view) { notice(t('error.failed', state.lang)); return; }
 
+  // 🚨 Odkrýt meteostanici smí jen tehdy, když na ní uživatel opravdu je.
+  // Data se načítají i na pozadí (návrat do appky, přepnutí místa), a bez
+  // téhle podmínky vyskočila stanice přes obrazovku trasy — záložka svítila
+  // „Trasa", ale koukal jsi na počasí jednoho místa.
   $('splash').hidden = true;
-  $('station').hidden = false;
+  if (state.screen === 'station') $('station').hidden = false;
 
   const c = view.current;
   $('now-icon').textContent = c.icon;
@@ -866,7 +870,13 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
     if (p.hazard) li.dataset.hazard = '1';
 
     const cas = el('span', 'rp-time', formatClock(p.etaMs, pasmo, state.lang));
-    const km = el('span', 'rp-km', formatDistance(p.distanceM, state.units, state.lang));
+    // ⚠️ Nula je platná nadmořská výška (hladina moře), takže se testuje
+    // konečnost, ne pravdivost. Jinak by pobřežní bod vypadal, jako by se
+    // výška neznala.
+    const kmText = formatDistance(p.distanceM, state.units, state.lang);
+    const km = el('span', 'rp-km', Number.isFinite(p.elevationM)
+      ? `${kmText} · ${Math.round(p.elevationM)} m n. m.`
+      : kmText);
     const ikona = el('span', 'rp-icon', p.icon);
     const popis = el('span', 'rp-cond', p.condition || '');
     const teplota = el('span', 'rp-temp', p.temp ?? '');
