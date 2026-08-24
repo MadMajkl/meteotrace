@@ -129,7 +129,10 @@ function renderSaved() {
   // Hvězdička dává smysl, jen když je co uložit.
   const btn = $('btn-save');
   btn.disabled = !state.place || state.places.readOnly;
-  btn.textContent = current ? '★' : '☆';
+  btn.querySelector('.star-icon').textContent = current ? '★' : '☆';
+  btn.querySelector('.star-text').textContent = current
+    ? t('places.savedShort', state.lang)
+    : t('places.saveShort', state.lang);
   btn.setAttribute('aria-pressed', String(!!current));
 
   // 🚨 Když hvězdička odebírá NĚCO JINÉHO, než co je na obrazovce, musí to

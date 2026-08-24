@@ -59,7 +59,10 @@
   <section class="now card" aria-labelledby="place-name">
     <div class="place-row">
       <h1 class="place" id="place-name"></h1>
-      <button id="btn-save" class="icon-btn star" type="button" aria-pressed="false">☆</button>
+      <button id="btn-save" class="star" type="button" aria-pressed="false">
+        <span class="star-icon" aria-hidden="true">☆</span>
+        <span class="star-text"></span>
+      </button>
     </div>
     <!-- Vysvětlí rozsvícenou hvězdičku u místa, které uživatel neukládal —
          viz `savedAs()`. Jindy je prázdný. -->

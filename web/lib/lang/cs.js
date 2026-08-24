@@ -32,6 +32,8 @@ export default {
   places: {
     saved: 'Uložená místa',
     save: 'Uložit tohle místo',
+    saveShort: 'Uložit',
+    savedShort: 'Uloženo',
     remove: 'Odebrat z uložených',
     removeNamed: 'Odebrat „{name}“ z uložených',
     empty: 'Hvězdičkou si sem místo uložíš.',

@@ -29,6 +29,8 @@ export default {
   places: {
     saved: 'Saved places',
     save: 'Save this place',
+    saveShort: 'Save',
+    savedShort: 'Saved',
     remove: 'Remove from saved',
     removeNamed: 'Remove “{name}” from saved',
     empty: 'Tap the star to keep a place here.',
