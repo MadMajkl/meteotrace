@@ -85,20 +85,25 @@ function main() {
   // relativní — soubor tam prostě není. Tohle je celý důvod, proč je adresa
   // konfigurace, a ne konstanta v kódu (R0, R3).
   const indexCesta = join(CIL, 'index.html');
-  let index = readFileSync(indexCesta, 'utf8');
-  const znacka = /<meta name="meteotrace:tiles" content="[^"]*">/;
-  if (!znacka.test(index)) {
+  const index = readFileSync(indexCesta, 'utf8');
+  const znacka = /<meta name="meteotrace:tiles" content="([^"]*)">/;
+  const nalez = index.match(znacka);
+  if (!nalez) {
     throw new Error('V index.html chybí značka meteotrace:tiles — beze změny by mapa v appce nefungovala.');
   }
-  index = index.replace(znacka, `<meta name="meteotrace:tiles" content="${tiles}">`);
-  writeFileSync(indexCesta, index);
+
+  // ⚠️ Bez `--tiles` se adresa NEPŘEPISUJE, jen převezme z webu.
+  // Dřív se přepsala na prázdno, takže balíček sestavený „bez parametrů"
+  // tiše přišel o mapu — a poznalo se to až v telefonu.
+  const pouzita = tiles || nalez[1];
+  if (tiles) writeFileSync(indexCesta, index.replace(znacka, `<meta name="meteotrace:tiles" content="${tiles}">`));
 
   const [bajtu, souboru] = velikost(CIL);
   console.log(`Web nasypán do obalu: ${souboru} souborů, ${(bajtu / 1024 / 1024).toFixed(1)} MB`);
   console.log(`Vynecháno: ${vynechane.length ? vynechane.join(', ') : '(nic)'}`);
 
-  if (tiles) {
-    console.log(`Podkladová mapa: ${tiles}`);
+  if (pouzita) {
+    console.log(`Podkladová mapa: ${pouzita}${tiles ? '' : '  (převzato z webu)'}`);
   } else {
     console.log('\n⚠️  Podkladová mapa NENÍ nastavena (--tiles=…).');
     console.log('    Appka se spustí, ale karta s radarem zůstane bez mapy.');
