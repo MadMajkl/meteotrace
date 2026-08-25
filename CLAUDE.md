@@ -77,7 +77,7 @@ tohle je jen shrnutí.**
 | **Počasí na trase — obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`; **klíč k ORS je v `.env`**, Praha → Brno vrací 205 km / 129 min |
 | Trasa vzdušnou čarou | `web/lib/great-circle.js` — bez routeru, bez kvóty (lety, lodě, záchranná brzda) |
 | Nadmořská výška bodů trasy | z odpovědi Open-Meteo, bez volání navíc |
-| Hledání míst a **adres** (R14) | Pelias u HeiGIT + Open-Meteo jako záloha; nabídka řadí od nejbližšího |
+| Hledání míst a **adres** (R14) | Pelias u HeiGIT + Open-Meteo jako záloha; řadí od nejbližšího podle vybraného místa nebo (je-li povolená) polohy ze zařízení |
 | Ukládání míst | `web/lib/places.js` + správa v dialogu, ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
@@ -88,7 +88,7 @@ tohle je jen shrnutí.**
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**373 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**377 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -165,6 +165,11 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
   Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **🚨 NULOVÝ OSTROV: `0, 0` není poloha, ale „nevím".** Vrací ho prohlížeč bez
+  lokalizační služby, rozbitý přijímač i prázdný formulář — a `Number.isFinite(0)`
+  je `true`, takže projde jako platný bod. Hledání se pak řadilo podle vzdálenosti
+  od rovníku a nabízelo jižní Čechy komukoli. Kontrola je v `isUsablePoint()`
+  a zahazuje i okolí nuly (GPS nevrací přesnou nulu).
 - **🚨 Platná výchozí hodnota umí udělat z odhadu mrtvou větev.** `state.lang = 'en'`
   znamenalo, že podmínka `if (!state.lang || !LANG_NAMES[state.lang])` nikdy neplatila
   a appka **nikdy nespustila odhad jazyka** — s hotovým a paritně otestovaným

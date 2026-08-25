@@ -13,7 +13,7 @@ import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
-import { placeMeta, placeLabel, placeTitle } from './lib/geo-query.js';
+import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
 import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
@@ -53,6 +53,7 @@ const state = {
   langManual: '',      // co si uživatel vybral ručně; prázdné = podle zařízení
   units: null,
   place: null,          // {name, country, lat, lon}
+  fix: null,            // poloha ze zařízení; JEN pro řazení nabídky, viz odkudSeDivam()
   places: emptyStore(), // uložená místa a trasy
   banner: null,         // trvalé sdělení o stavu appky, viz notice()
   screen: 'station',    // 'station' | 'route'
@@ -419,9 +420,63 @@ let searchTimer = 0;
  * ⚠️ Když se ještě nikam nedíval, nic se neposílá — vymýšlet si střed
  * republiky by znamenalo tvrdit něco, co nevíme.
  */
+/**
+ * „Odkud se dívám" — bod, podle kterého se řadí nabídka hledání.
+ *
+ * 🚨 PROČ NA TOM ZÁLEŽÍ VÍC, NEŽ SE ZDÁ. Změřeno 25. 8. 2026 na dotazu
+ * „Polní" (jedno z nejčastějších jmen ulic u nás):
+ *
+ *   bez polohy          → JM, Dolní Dunajovice, CK, EK, Hradec Králové…
+ *                         **Horšovský Týn v prvních osmi vůbec není**
+ *   z Horšovského Týna  → **Horšovský Týn**, Holýšov, Stod, Stříbro…
+ *
+ * Bez polohy tedy appka na běžné jméno ulice nenabídne to, co má člověk
+ * pod nosem — a vypadá to, že tu ulici nezná. Michal na to narazil přesně
+ * takhle.
+ *
+ * Pořadí zdrojů polohy:
+ *  1. **vybrané místo** — nejsilnější signál, uživatel ho sám zvolil,
+ *  2. **poloha ze zařízení**, ale JEN když už je povolená (viz `tichaPoloha`),
+ *  3. nic — a to se musí říct nahlas, viz `showResults`.
+ */
 function odkudSeDivam() {
-  const p = state.place;
-  return p && Number.isFinite(p.lat) && Number.isFinite(p.lon) ? { lat: p.lat, lon: p.lon } : {};
+  for (const p of [state.place, state.fix]) {
+    if (isUsablePoint(p)) return { lat: p.lat, lon: p.lon };
+  }
+  return {};
+}
+
+/** Ví appka, odkud se uživatel dívá? */
+function znamePolohu() {
+  return Number.isFinite(odkudSeDivam().lat);
+}
+
+/**
+ * Poloha ze zařízení — POTICHU a jen když je povolená.
+ *
+ * ⚠️ Vyskočit s žádostí o polohu kvůli řazení nabídky by bylo drzé: uživatel
+ * chtěl hledat, ne řešit oprávnění. Když už ale povolení jednou dal (tlačítko
+ * ⌖), nemá důvod se ptát znovu — a hledání může být od té chvíle chytřejší.
+ *
+ * ⚠️ Neukládá se to jako vybrané místo. „Kde jsem" a „co si prohlížím" jsou
+ * dvě různé věci; přepsat kvůli řazení obrazovku by bylo horší než neseřadit.
+ */
+async function tichaPoloha() {
+  if (!navigator.geolocation || !navigator.permissions?.query) return;
+  try {
+    const stav = await navigator.permissions.query({ name: 'geolocation' });
+    if (stav.state !== 'granted') return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        // 🚨 Prohlížeč bez lokalizační služby vrací 0, 0 — a to není poloha,
+        // to je „nevím". Viz `isUsablePoint()`.
+        if (isUsablePoint(bod)) state.fix = bod;
+      },
+      () => { /* nevyšlo to — hledání jen nebude řadit podle okolí */ },
+      { maximumAge: 10 * 60 * 1000, timeout: 5000 },
+    );
+  } catch { /* prohlížeč Permissions API nemá; bez polohy se to jen neseřadí */ }
 }
 
 function onSearchInput(text) {
@@ -471,6 +526,16 @@ function showResults(list) {
       li.addEventListener('keydown', (e) => { if (e.key === 'Enter') choose(); });
       ul.append(li);
     }
+
+    // 🚨 Nabídka bez polohy vypadá úplně stejně jako nabídka s polohou — jen
+    // v ní chybí to, co má člověk pod nosem. Bez tohohle řádku si to nemá jak
+    // spojit s tím, že appka neví, kde je.
+    if (!znamePolohu()) {
+      const li = document.createElement('li');
+      li.className = 'empty hint-row';
+      li.textContent = t('search.noFocus', state.lang);
+      ul.append(li);
+    }
   }
   ul.hidden = false;
 }
@@ -502,10 +567,20 @@ function locate() {
   if (!navigator.geolocation) return;
   notice(t('search.searching', state.lang));
   navigator.geolocation.getCurrentPosition(
-    (pos) => selectPlace({
-      name: t('search.myLocation', state.lang),
-      lat: pos.coords.latitude, lon: pos.coords.longitude,
-    }),
+    (pos) => {
+      // Poloha se pamatuje i pro řazení nabídky hledání. I když si uživatel
+      // potom prohlédne něco jiného, pořád platí, KDE JE — a hledání ulice
+      // pak nabídne to, co má pod nosem.
+      const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      // 🚨 „0, 0" není poloha, ale „nevím" — a mlčky ukázat počasí
+      // v Guinejském zálivu je horší než přiznat, že to nevyšlo.
+      if (!isUsablePoint(bod)) { notice(t('error.failed', state.lang)); return; }
+      state.fix = bod;
+      selectPlace({
+        name: t('search.myLocation', state.lang),
+        lat: pos.coords.latitude, lon: pos.coords.longitude,
+      });
+    },
     () => notice(t('error.failed', state.lang)),
     { timeout: 10000, maximumAge: 300000 },
   );
@@ -832,11 +907,17 @@ function pripojVyber(inputId, resultsId, kam) {
 
   function ukazVysledky(list) {
     results.hidden = false;
-    fill(results, list.length ? list : [null], (r) => {
+    // Poslední řádek je sdělení, ne místo: buď „nic jsme nenašli", nebo
+    // „nevím, kde jsi, tak to neumím seřadit". Obojí je stav, který by jinak
+    // vypadal jako obyčejná nabídka. Viz `odkudSeDivam()`.
+    const radky = list.length ? [...list] : [{ zprava: t('search.noResults', state.lang) }];
+    if (list.length && !znamePolohu()) radky.push({ zprava: t('search.noFocus', state.lang) });
+
+    fill(results, radky, (r) => {
       const li = document.createElement('li');
-      if (!r) {
+      if (r.zprava) {
         li.className = 'empty';
-        li.textContent = t('search.noResults', state.lang);
+        li.textContent = r.zprava;
         return li;
       }
       const btn = el('button', '', [
@@ -1070,8 +1151,8 @@ function placeFromUrl() {
   const q = new URLSearchParams(location.search);
   const lat = Number(q.get('lat'));
   const lon = Number(q.get('lon'));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;   // nesmysl neukládat
+  // Nesmysl se neukládá — mimo rozsah i nulový ostrov, viz `isUsablePoint()`.
+  if (!isUsablePoint({ lat, lon })) return null;
   return { name: q.get('name') || `${lat.toFixed(2)}, ${lon.toFixed(2)}`, lat, lon };
 }
 
@@ -1091,6 +1172,10 @@ function init() {
 
   applyI18n();
   renderSaved();
+
+  // Poloha na pozadí — jen když už je povolená. Nikdo se kvůli řazení
+  // nabídky neptá; viz `tichaPoloha()`.
+  tichaPoloha();
 
   // 🚨 Řekni to hned, ne až při pokusu o zápis. Hvězdička je v tomhle režimu
   // vypnutá, takže žádné klepnutí nepřijde a hláška vázaná na zápis by se

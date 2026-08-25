@@ -76,6 +76,31 @@ export function placeMeta(r) {
 }
 
 /**
+ * Dá se tenhle bod použít jako „odkud se dívám"?
+ *
+ * 🚨 NULOVÝ OSTROV. `0, 0` je bod v Guinejském zálivu a zároveň nejčastější
+ * podoba věty „polohu neznám": vrací ho prohlížeč bez lokalizační služby
+ * (změřeno 25. 8. 2026 na headless Chromu), rozbitý přijímač i nevyplněný
+ * formulář. `Number.isFinite(0)` je přitom `true`, takže se to bez téhle
+ * kontroly tváří jako platná poloha.
+ *
+ * Důsledek nebyl pád, ale **tichý nesmysl**: hledání „Polní" se řadilo podle
+ * vzdálenosti od rovníku, takže nabízelo jižní Čechy komukoli. Vypadalo to
+ * jako rozmar služby, ne jako vada.
+ *
+ * ⚠️ Zahazuje se okolí nulového ostrova, ne přesná nula — souřadnice z GPS
+ * nikdy nejsou přesně `0.000000`, ale `0.000031` je pořád tentýž nesmysl.
+ * Cena omylu je zanedbatelná: skutečné místo v Guinejském zálivu je voda.
+ */
+export function isUsablePoint(p) {
+  const lat = Number(p?.lat);
+  const lon = Number(p?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
+  return Math.abs(lat) > 0.01 || Math.abs(lon) > 0.01;
+}
+
+/**
  * ÚPLNÁ adresa — to, co se po výběru dopíše do vyhledávacího pole.
  *
  * 🚨 Pole, ve kterém po výběru zůstane jen „náměstí Republiky", **mate**:

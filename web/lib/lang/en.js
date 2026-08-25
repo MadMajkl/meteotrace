@@ -25,6 +25,7 @@ export default {
     myLocation: 'My location',
     noResults: 'No place found.',
     searching: 'Searching…',
+    noFocus: 'Not sorted by location — tap ⌖ to see places near you.',
   },
 
   places: {

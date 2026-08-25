@@ -28,6 +28,7 @@ export default {
     myLocation: 'Moje poloha',
     noResults: 'Žádné místo se nenašlo.',
     searching: 'Hledám…',
+    noFocus: 'Neřadí se podle polohy — ⌖ nabídne okolí.',
   },
 
   places: {

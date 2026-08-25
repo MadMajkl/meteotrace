@@ -644,3 +644,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 }
 
 .sheet h3 { margin: 18px 0 6px; font-size: 15px; }
+
+/* Sdělení v nabídce hledání („nic jsme nenašli", „neřadí se podle polohy").
+   Není to místo, tak se ani nesmí tvářit jako klikací řádek. */
+.results .empty { padding: 10px 14px; font-size: 13px; color: var(--text-soft); cursor: default; }
+.results .empty:hover { background: none; }

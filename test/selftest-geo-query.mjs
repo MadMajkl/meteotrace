@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { stripDiacritics, searchQuery, placeMeta, placeLabel, placeTitle } from '../web/lib/geo-query.js';
+import { stripDiacritics, searchQuery, placeMeta, placeLabel, placeTitle, isUsablePoint } from '../web/lib/geo-query.js';
 
 test('🚨 česká města se posílají bez diakritiky', () => {
   // Změřeno na skutečné službě: „Plzeň" vrátí 0 nálezů, „Plzen" najde Plzeň.
@@ -123,4 +123,37 @@ test('u města se obec nepřidává dvakrát', () => {
 test('když obec chybí, zůstane samotné jméno', () => {
   assert.equal(placeTitle({ name: 'Brno' }), 'Brno');
   assert.equal(placeTitle({}), '');
+});
+
+/* ============================================================
+   🚨 NULOVÝ OSTROV
+
+   Změřeno 25. 8. 2026: prohlížeč bez lokalizační služby vrátí `0, 0`.
+   Není to poloha, je to „nevím" — jenže `Number.isFinite(0)` je `true`,
+   takže to projde jako platný bod. Hledání „Polní" se pak řadilo podle
+   vzdálenosti od rovníku a nabízelo jižní Čechy komukoli. Vypadalo to
+   jako rozmar služby, ne jako vada.
+   ============================================================ */
+
+test('🚨 nula, nula není poloha, ale „nevím"', () => {
+  assert.equal(isUsablePoint({ lat: 0, lon: 0 }), false);
+});
+
+test('okolí nulového ostrova taky ne — GPS nevrací přesnou nulu', () => {
+  assert.equal(isUsablePoint({ lat: 0.000031, lon: -0.0004 }), false);
+});
+
+test('skutečná místa projdou', () => {
+  assert.equal(isUsablePoint({ lat: 49.53, lon: 12.94 }), true, 'Horšovský Týn');
+  assert.equal(isUsablePoint({ lat: -33.86, lon: 151.2 }), true, 'Sydney');
+  assert.equal(isUsablePoint({ lat: 0, lon: 12.94 }), true, 'rovník ano, nulový ostrov ne');
+});
+
+test('nesmysly a chybějící hodnoty neprojdou', () => {
+  assert.equal(isUsablePoint(null), false);
+  assert.equal(isUsablePoint({}), false);
+  assert.equal(isUsablePoint({ lat: 'x', lon: 12 }), false);
+  assert.equal(isUsablePoint({ lat: 91, lon: 12 }), false);
+  assert.equal(isUsablePoint({ lat: 49, lon: 181 }), false);
+  assert.equal(isUsablePoint({ lat: NaN, lon: NaN }), false);
 });
