@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R13 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R14 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -59,7 +59,7 @@ a vyměnitelná konfigurací**, ne přepisem.
 Vzorem procesu i architektury je Gulpka — `C:\develop\napij_se-pracovni\`, zejména
 `napijse-poznamky\DOKUMENTACE-appka_b.md` a `skilly-claude-gulpka.md`.
 
-## Aktuální stav (k 22. 8. 2026)
+## Aktuální stav (k 25. 8. 2026)
 
 **Podrobný a průběžně vedený stav je v `..\dokumentace\03-vyvoj-progress.md` — čti ho,
 tohle je jen shrnutí.**
@@ -68,28 +68,41 @@ tohle je jen shrnutí.**
 |---|---|
 | Architektura (R1) | ověřená měřením: 60 FPS na Samsungu A53 |
 | ETA jádro | `web/lib/eta.js` |
-| Proxy vrstva | `server/proxy.js`, Netlify Function, ověřená naživo |
+| Proxy vrstva | `server/proxy.js`, katalog zdrojů `web/lib/upstreams.js`, ověřená naživo |
 | i18n, jednotky, kódy počasí | `web/lib/`, referenční jazyk **en** |
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
+| **Počasí na trase — obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`; **klíč k ORS je v `.env`**, Praha → Brno vrací 205 km / 129 min |
 | Trasa vzdušnou čarou | `web/lib/great-circle.js` — bez routeru, bez kvóty (lety, lodě, záchranná brzda) |
-| Počasí na trase — **obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`, ověřeno naživo |
-| Ukládání míst | `web/lib/places.js` + správa v dialogu (přejmenování, mazání), ověřené naživo |
+| Nadmořská výška bodů trasy | z odpovědi Open-Meteo, bez volání navíc |
+| Hledání míst a **adres** (R14) | Pelias u HeiGIT + Open-Meteo jako záloha; nabídka řadí od nejbližšího |
+| Ukládání míst | `web/lib/places.js` + správa v dialogu, ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
-| Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `web/lib/map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
+| Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
+| **Hosting mapy** | Cloudflare R2, bucket `meteotrace-maps`, nahrává `npm run tiles:upload`; adresa je konfigurace (`meta[name=meteotrace:tiles]`) |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**328 kontrol, všechny zelené.** **Vše pushnuto** (24. 8. 2026, `c8e3933`). Push jen na výslovné svolení.
+**364 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
-### ⛔ Co blokuje pokračování
+### 🔑 Klíče
 
-**Chybí klíč k openrouteservice.** Zdarma na `account.heigit.org`, vloží se do proměnné
-prostředí `ORS_API_KEY`. Bez něj vrací `/api/route` chybu 500 a **nejde dodělat obrazovku
-trasy** — logika je hotová a otestovaná proti přibaleným odpovědím, ale UI psané naslepo,
-které nikdy nevidělo skutečnou odpověď, bývá vedle.
+`.env` v `meteotrace/` (**mimo git**, ověřeno): `ORS_API_KEY` (routing i hledání),
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`.
+**Klíč nikdy nepatří do klienta ani do chatu** — server si ho bere z prostředí
+(`needsKey` v katalogu zdrojů).
+
+### Co zbývá do v1
+
+- **Trasa se nekreslí do mapy** — obrazovka ji vypisuje, mapa o ní neví.
+- **Uložené trasy** (`saveRoute` v `places.js`) nejsou napojené na UI.
+- **Start a cíl trasy klepnutím do mapy** — `map-pick.js` to umí, trasa to nevyužívá.
+- 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
+  nasazením přepnout na vlastní doménu a zúžit.
+- 🟡 Záloha hledání nemá krátkodobou paměť selhání a odpověď ze zálohy se drží 24 h
+  pod klíčem hlavního zdroje — viz R14, sekce „Co záloha NEŘEŠÍ".
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -101,9 +114,7 @@ a nechává ji běžet.** Michal si do ní vleze, kdy chce.
 - **Když se změní port, oznámit to.** Michal jednou mluvil se starou instancí, která
   neměla klíč k ORS, a chyba vypadala jako vada appky.
 
-Výchozí port je **8099** (`package.json`). Při psaní tohohle běží na **8100**, protože
-8099 drží zaseknutý proces z 23. 8. — `taskkill /F` na něj z Claudova prostředí nestačí,
-chce to Michalovo okno nebo restart počítače.
+Běží na výchozím portu **8099** (`package.json`).
 
 ### Příkazy
 
@@ -113,6 +124,7 @@ npm run dev                 # appka + testy + proxy na jednom portu (8099)
 npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
 npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, ne za běhu)
 npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
+npm run tiles:upload        # nahraje podklad do Cloudflare R2 (klíče z .env)
 npm run android             # nasype web do obalu a sestaví APK (JDK z Android Studia)
 npm run docx                # dokumentace do Wordu
 ```
@@ -151,4 +163,17 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
   Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **🚨 Heredoc v Bashi žere zpětná lomítka.** Třikrát za dva dny — naposledy při psaní
+  téhle odrážky: `com\.android` se zapsalo jako `com.android` a regulární výraz
+  `/^[\s,]+/` jako `/^[s,]+/` — ten by
+  z „Statenice" udělal „tatenice". **Soubory s lomítky edituj přes Edit, ne přes heredoc**,
+  a po zápisu si to přečti zpátky.
+- **🚨 `curl` v tomhle prostředí mrší diakritiku.** Hledání kvůli tomu dvakrát vypadalo
+  rozbitě, přestože bylo v pořádku. **Měř z Node**, ne z shellu.
+- **Cizí služba si může vynutit typ odpovědi.** ORS vrací na naši hlavičku
+  `Accept: application/json` rovnou **406** — a chyba se tváří jako výpadek cizí služby,
+  ne jako naše hlavička. Proto je `accept` položkou katalogu zdrojů.
+- **Co proxy propustí, to se vrátí jako cizí chyba.** Neplatný profil dopravy prošel ven
+  a ORS odpověděl 404 „zdroj neodpověděl" — naše vada vypadala jako jejich výpadek.
+  Katalog má proto `subPaths` jako allowlist.
 - **Layoutový test běží s `?nomap=1`** — pět rámů s vlastním MapLibre by stránku přetížilo.
