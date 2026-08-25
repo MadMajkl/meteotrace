@@ -85,13 +85,14 @@ tohle je jen shrnutí.**
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
+| Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
 | Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**384 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**385 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -165,6 +166,10 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **🚨 `WebViewAssetLoader` ZAHAZUJE dotazovací část adresy.** Z `/api/forecast?latitude=…`
   by zbylo `/api/forecast` — nespadne to, jen přijde předpověď pro jiné místo. Proto se
   `/api/` obsluhuje v `shouldInterceptRequest`, ne přes AssetLoader. Viz R13.
+- **🚨 Headless Chrome po sobě neuklidí sám.** `kill()` na Windows sundá jen rodiče
+  a Chrome se rozpadá na desítky procesů — po dni ladění jich běželo 172. Úklid je
+  v `zabijStrom()`: `taskkill /T /F` **synchronně** a doklid podle dočasného profilu.
+  **Nikdy podle jména procesu** — Michal má v Chromu své věci.
 - **Mapu netestuj na emulátoru** — na tomhle stroji spadne při vykreslování (dva pokusy,
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**

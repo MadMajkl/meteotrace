@@ -154,7 +154,10 @@ export function compareDepartures({ options, forecast, lang, units }) {
   const scored = options
     .map((o) => {
       const view = buildRouteView({ plan: o.plan, forecast, lang, units });
-      return view && { offsetMin: o.offsetMin, departureMs: o.departureMs, ...view };
+      // ⚠️ Plán jde s sebou. Každý odjezd má JINÝ čas příjezdu a jinou
+      // odpověď na to, jestli část trasy sahá za obzor předpovědi — kdyby
+      // se držel jen ten první, ukazoval by souhrn cizí čas.
+      return view && { offsetMin: o.offsetMin, departureMs: o.departureMs, plan: o.plan, ...view };
     })
     .filter(Boolean);
 

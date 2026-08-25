@@ -31,7 +31,7 @@
  * ────────────────────────────────────────────────────────────────────────
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -110,9 +110,50 @@ export async function withPage(url, work, opts = {}) {
     return await work(session);
   } finally {
     try { ws?.close(); } catch { /* už zavřené */ }
-    chrome.kill();
+    zabijStrom(chrome, profile);
     try { rmSync(profile, { recursive: true, force: true }); } catch { /* uklidí se příště */ }
   }
+}
+
+/**
+ * 🚨 UKONČIT CELÝ STROM PROCESŮ, NE JEN RODIČE.
+ *
+ * Chrome se rozpadá na desítky procesů (renderer, GPU, síť) a `kill()` na
+ * Windows sundá jen toho, kterého jsme spustili — děti zůstanou viset.
+ * Změřeno 25. 8. 2026: po dni ladění běželo na Michalově počítači **172
+ * procesů Chromu**, z toho 156 mých. Nepadá kvůli tomu nic, jen se počítač
+ * plní pamětí a další spuštění pak neotevře ladicí port včas — což vypadá
+ * jako vada appky nebo vývojového serveru.
+ *
+ * ⚠️ `taskkill /T` bere celý strom podle PID. Nikdy nesmí sáhnout na Chrome,
+ * ve kterém si Michal prohlíží web — proto jen podle PID toho našeho, ne
+ * podle jména procesu.
+ */
+function zabijStrom(child, profile) {
+  try {
+    if (process.platform !== 'win32' || !child.pid) {
+      child.kill();
+      return;
+    }
+    // ⚠️ SYNCHRONNĚ. Když se kill jen odpálí a nepočká, skončí Node dřív
+    // a část stromu přežije.
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+
+    // 🚨 A ještě jednou podle PROFILU. Chrome si drží procesy, které v našem
+    // stromu nejsou (síťová a GPU služba), takže po každém běhu zůstávaly
+    // dva. Profil je pro každý běh jiný (`mt-chrome-…`), takže tenhle úklid
+    // NIKDY nesáhne na prohlížeč, ve kterém si Michal prohlíží web.
+    if (profile) {
+      spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | `
+        // ⚠️ Zpětná lomítka se tu NEZDVOJUJÍ. PowerShellový `-like` je nebere
+        // jako únikový znak, takže zdvojená se hledají doslova — vzor se pak
+        // netrefí a úklid tiše neudělá nic. (Spadl jsem do toho 25. 8. 2026.)
+        + `Where-Object { $_.CommandLine -like '*${profile.replace(/'/g, "''")}*' } | `
+        + 'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
+      ], { stdio: 'ignore' });
+    }
+  } catch { /* už není co zabíjet */ }
 }
 
 async function waitForBlankTarget(port, timeoutMs) {

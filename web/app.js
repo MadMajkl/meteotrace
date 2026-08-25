@@ -1253,8 +1253,84 @@ async function loadRoute() {
   }
 }
 
+/* ============================================================
+   SROVNÁNÍ ČASŮ ODJEZDU (`R8`, bod 3)
+
+   🚨 TAHLE FUNKCE JE ZADARMO — a je dost možná tím, co appku prodá líp než
+   samotné trasy. Open-Meteo nevrací pro bod jedno číslo, ale CELÉ HODINOVÉ
+   POLE. Po jednom volání máme v paměti počasí ve všech bodech ve všech
+   hodinách, takže otázka „a co když vyjedu o dvě hodiny později?" je jen
+   čtení jiného indexu v datech, která už jsou stažená.
+
+   **Ani jeden dotaz navíc, žádné čekání.** Proto se varianty počítají rovnou
+   při výpočtu trasy a přepínač je jen ukazuje.
+   ============================================================ */
+
+/** Krátký odznak k variantě: co na té cestě čeká. */
+function odznakVarianty(summary) {
+  if (summary.hazardCount) return tf('route.badgeHazard', { count: summary.hazardCount }, state.lang);
+  if (summary.rainCount) return tf('route.badgeRain', { count: summary.rainCount }, state.lang);
+  return t('route.badgeClear', state.lang);
+}
+
+function vykresliOdjezdy() {
+  const r = state.routeResult;
+  const varianty = r?.srovnani?.options || [];
+
+  // Jedna varianta není srovnání. Přepínač o jednom tlačítku by jen zabíral
+  // místo a předstíral volbu, která neexistuje.
+  $('route-departures').hidden = varianty.length < 2;
+  if (varianty.length < 2) return;
+
+  fill($('route-departures'), varianty, (v) => {
+    const b = el('button', 'departure', [
+      el('span', 'dep-time', v.offsetMin === 0
+        ? t('route.now', state.lang)
+        : tf('route.later', { hours: Math.round(v.offsetMin / 60) }, state.lang)),
+      el('span', 'dep-badge', odznakVarianty(v.summary)),
+    ]);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(v.offsetMin === r.posun));
+    // Nejlepší varianta je označená i tehdy, když zrovna není vybraná —
+    // jinak by rada nad přepínačem ukazovala někam, kde nic není vidět.
+    if (r.srovnani.worthMoving && v.offsetMin === r.srovnani.best.offsetMin) {
+      b.dataset.best = '1';
+    }
+    if (v.summary.hazardCount) b.dataset.hazard = '1';
+    b.addEventListener('click', () => prepniOdjezd(v.offsetMin));
+    return b;
+  });
+}
+
+/**
+ * Přepnutí odjezdu.
+ *
+ * ⚠️ Přepíná se CELÝ výsledek — souhrn, body i mapa. Kdyby se přepsal jen
+ * seznam, ukazoval by souhrn nad ním čas příjezdu jiné varianty a nikdo by
+ * si toho nevšiml.
+ */
+function prepniOdjezd(posun) {
+  const r = state.routeResult;
+  const varianta = r?.srovnani?.options.find((o) => o.offsetMin === posun);
+  if (!varianta) return;
+
+  vykresliTrasu({
+    view: varianta,
+    plan: varianta.plan || r.plan,
+    trasa: r.trasa,
+    srovnani: r.srovnani,
+    mista: [{ timezone: r.pasmo }],
+  });
+}
+
+
 function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
   const pasmo = mista[0]?.timezone || 'UTC';
+
+  // Výsledek se drží celý, ať jde přepnout odjezd bez jediného dotazu ven.
+  // Varianty jsou spočítané už teď — viz `vykresliOdjezdy()`.
+  state.routeResult = { view, plan, trasa, srovnani, pasmo, posun: view.offsetMin || 0 };
+  vykresliOdjezdy();
 
   $('route-summary-card').hidden = false;
   renderRoutes();

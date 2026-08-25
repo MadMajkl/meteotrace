@@ -319,6 +319,24 @@ export function showRoute(data, { fit = false } = {}) {
     },
   });
 
+  // Bublina s časem a počasím. ⚠️ Bez ní jsou barevné tečky hezké, ale němé:
+  // „červená někde uprostřed" neřekne v kolik tam budeš ani co tam je.
+  if (!bublinaZapojena) {
+    map.on('click', ROUTE_POINTS, (e) => {
+      const f = e.features?.[0];
+      const popis = f?.properties?.popis;
+      if (!popis) return;
+      new maplibregl.Popup({ closeButton: false, offset: 10 })
+        .setLngLat(f.geometry.coordinates)
+        .setText(popis)
+        .addTo(map);
+    });
+    // Nad bodem se ukazuje ručička — jinak nic nenapoví, že se dá klepnout.
+    map.on('mouseenter', ROUTE_POINTS, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', ROUTE_POINTS, () => { map.getCanvas().style.cursor = ''; });
+    bublinaZapojena = true;
+  }
+
   if (fit) {
     // Okraje jsou nesymetrické schválně: dole sedí ovládání radaru.
     const b = cara.reduce((acc, c) => acc.extend(c),

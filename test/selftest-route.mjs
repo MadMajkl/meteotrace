@@ -402,3 +402,22 @@ test('nesmyslné souřadnice se do mapy neposílají', () => {
   assert.equal(out.line.length, 2, 'bod bez souřadnic se z čáry vyhodí');
   assert.equal(out.points.length, 1);
 });
+
+test('🚨 každá varianta odjezdu si nese SVŮJ plán, ne ten první', async () => {
+  // Souhrn nad seznamem ukazuje čas příjezdu. Kdyby varianty sdílely plán
+  // prvního odjezdu, tvrdil by po přepnutí čas, který k té cestě nepatří —
+  // a nikdo by si toho nevšiml, protože samotné číslo vypadá rozumně.
+  const varianty = departureOptions({
+    ...ROUTE, baseDepartureMs: T0, offsetsMin: [0, 60, 120], hourMs: HOUR_MS, stepM: 120000,
+  });
+  const out = compareDepartures({
+    options: varianty, forecast: FORECAST, lang: 'cs', units: METRIC,
+  });
+
+  assert.equal(out.options.length, 3);
+  for (const o of out.options) assert.ok(o.plan, `varianta +${o.offsetMin} min nemá plán`);
+
+  const prijezdy = out.options.map((o) => o.plan.arrivalMs);
+  assert.equal(new Set(prijezdy).size, 3, 'tři odjezdy = tři různé příjezdy');
+  assert.equal(prijezdy[1] - prijezdy[0], 3600 * 1000, 'odjezd o hodinu později = příjezd o hodinu později');
+});

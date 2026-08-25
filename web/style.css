@@ -652,3 +652,29 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 /* Jméno uložené trasy se needituje — appka si ho drží sama („Praha → Brno"). */
 .manage-name-static { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Srovnání časů odjezdu. Vodorovné rolování schválně: variant může přibýt
+   a zabalit je do dvou řad by rozbilo čtení „zleva doprava = později". */
+.departures {
+  display: flex; gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.departures::-webkit-scrollbar { display: none; }
+
+.departure {
+  flex: none;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px;
+  font: inherit; text-align: left;
+  color: var(--text-soft); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px;
+  cursor: pointer;
+}
+.departure[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+/* Nejlepší varianta je poznat i nevybraná — rada nad přepínačem na ni ukazuje. */
+.departure[data-best="1"] { box-shadow: inset 0 -2px 0 var(--accent); }
+.dep-time { font-size: 14px; font-weight: 600; color: var(--text); }
+.dep-badge { font-size: 12px; white-space: nowrap; }
+.departure[data-hazard="1"] .dep-badge { color: var(--warn, #b3261e); }
