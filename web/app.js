@@ -58,6 +58,10 @@ const state = {
   lang: null,
   langManual: '',      // co si uživatel vybral ručně; prázdné = podle zařízení
   theme: '',           // '' = podle zařízení · 'light' · 'dark'
+  // Co je vlevo — a tím pádem i to, čím appka začíná. Výchozí je TRASA:
+  // meteostanici pro jedno místo umí kdekdo, odlišovač je počasí po cestě
+  // (`R8`). Komu to nesedí, přehodí si to v nastavení (Michal, 25. 8. 2026).
+  primary: 'route',     // 'route' | 'station'
   units: null,
   place: null,          // {name, country, lat, lon}
   fix: null,            // poloha ze zařízení; JEN pro řazení nabídky, viz odkudSeDivam()
@@ -86,6 +90,7 @@ function load() {
     // přesně těm lidem, kteří si toho už všimli. Takový zápis se zahazuje
     // a jazyk se odhadne znovu.
     if (typeof saved.theme === 'string') state.theme = saved.theme;
+    if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
     if (typeof saved.langManual === 'string') {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
@@ -99,7 +104,8 @@ function save() {
       place: state.place, units: state.units,
       // Ruční volba se ukládá zvlášť od výsledku: prázdná znamená „ptej se
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
-      lang: state.langManual || null, langManual: state.langManual, theme: state.theme,
+      lang: state.langManual || null, langManual: state.langManual,
+      theme: state.theme, primary: state.primary,
     }));
   } catch { /* nevadí */ }
 }
@@ -362,6 +368,11 @@ function openSettings() {
     { value: '', text: t('settings.languageAuto', state.lang) },
     ...Object.entries(LANG_NAMES).map(([kod, jmeno]) => ({ value: kod, text: jmeno })),
   ], state.langManual || '');
+
+  fillOptions($('set-primary'), [
+    { value: 'route', text: t('nav.route', state.lang) },
+    { value: 'station', text: t('nav.station', state.lang) },
+  ], state.primary);
 
   fillOptions($('set-theme'), [
     { value: '', text: t('settings.themeAuto', state.lang) },
@@ -922,6 +933,17 @@ function pouzijVzhled() {
 
   // Mapa má vlastní styl a musí se přebarvit s appkou, ne až po znovunačtení.
   mapModule?.refreshTheme?.();
+}
+
+/**
+ * Pořadí záložek. Pořadí v DOM se NEMĚNÍ — mění se jen `order` v CSS.
+ *
+ * ⚠️ Přehazovat prvky v DOM by znamenalo, že se čtečce obrazovky a klávesnici
+ * změní pořadí procházení jinak než očima. Takhle je vizuální pořadí volba
+ * vzhledu a strom zůstává stabilní.
+ */
+function pouzijPoradi() {
+  document.querySelector('.tabs')?.setAttribute('data-primary', state.primary);
 }
 
 /** Je mapa vypnutá parametrem v adrese? Používá to layoutový test. */
@@ -1533,6 +1555,7 @@ function init() {
   if (!state.units) state.units = defaultUnits(navigator.language || '');
 
   pouzijVzhled();
+  pouzijPoradi();
   applyI18n();
   renderSaved();
   renderRoutes();
@@ -1558,6 +1581,7 @@ function init() {
   $('settings-close').addEventListener('click', () => $('settings-dialog').close());
   $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));
   $('set-theme').addEventListener('change', (e) => { state.theme = e.target.value; save(); pouzijVzhled(); });
+  $('set-primary').addEventListener('change', (e) => { state.primary = e.target.value; save(); pouzijPoradi(); });
   for (const osa of Object.keys(JEDNOTKY)) {
     $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
   }
@@ -1605,6 +1629,17 @@ function init() {
   });
 
   if (state.place) loadStation();
+
+  // Levá záložka je zároveň ta, kterou appka začíná — jinak by nastavení
+  // slibovalo něco jiného, než dělá.
+  //
+  // ⚠️ Výjimka: když se otevírá trasa a není z čeho ji počítat, ale uložené
+  // místo existuje, ukáže se rovnou počasí. Prázdný formulář místo dat by
+  // byl krok zpátky pro toho, kdo appku otevírá kvůli jedné rychlé věci.
+  const zacniNa = state.primary === 'route' && (state.route.from || !state.place)
+    ? 'route'
+    : 'station';
+  prepniObrazovku(zacniNa);
 }
 
 if (document.readyState === 'loading') {

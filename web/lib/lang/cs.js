@@ -216,6 +216,8 @@ export default {
     title: 'Nastavení',
     language: 'Jazyk',
     languageAuto: 'Podle zařízení',
+    primary: 'Co je vlevo',
+    primaryHint: 'Levá záložka je zároveň ta, kterou appka otevře.',
     theme: 'Vzhled',
     themeAuto: 'Podle zařízení',
     themeLight: 'Světlý',

@@ -205,6 +205,8 @@ export default {
     title: 'Settings',
     language: 'Language',
     languageAuto: 'Match my device',
+    primary: 'What comes first',
+    primaryHint: 'The left tab is what the app opens with.',
     theme: 'Appearance',
     themeAuto: 'Match my device',
     themeLight: 'Light',

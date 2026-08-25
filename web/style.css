@@ -537,6 +537,14 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* ── Přepínač obrazovek ────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 6px; margin-top: 10px; }
 
+/* Pořadí záložek je volba uživatele (nastavení). Vlevo patří to hlavní —
+   u téhle appky trasa, protože meteostanice pro jedno místo umí kdekdo
+   a odlišovač je počasí po cestě (`R8`). Kdo to má naopak, přehodí si to. */
+.tabs[data-primary="station"] #tab-station { order: 1; }
+.tabs[data-primary="station"] #tab-route { order: 2; }
+.tabs[data-primary="route"] #tab-route { order: 1; }
+.tabs[data-primary="route"] #tab-station { order: 2; }
+
 .tab {
   flex: 1;
   min-height: 40px;
