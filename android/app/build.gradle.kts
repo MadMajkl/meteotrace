@@ -35,8 +35,8 @@ android {
         applicationId = "com.meteotrace"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1"    // držet synchronně s verzí webu
+        versionCode = 2
+        versionName = "0.1.0"    // držet synchronně s verzí webu
 
         buildConfigField("String", "API_BASE", "\"$apiBase\"")
     }

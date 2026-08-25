@@ -113,8 +113,9 @@ tohle je jen shrnutí.**
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
   nasazením přepnout na vlastní doménu a zúžit. **Chce Michalovu ruku v Cloudflare.**
 - 🟡 Ostrá doména v `BuildConfig.API_BASE` — vydané APK teď míří na vývojový počítač.
-- 🟡 Verze je pořád `0.0.1` (`VERZE` v `app.js`, `package.json`, Gradle) — bumpnout
-  až úplně nakonec, na všech místech najednou.
+- 🟡 Verze je `0.1.0` na třech místech (`VERZE` v `app.js`, `package.json`, Gradle
+  `versionName`). Na `1.0.0` až s vydáním na Play. `versionCode` roste při každém
+  nahrání zvlášť — teď je na 2.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
