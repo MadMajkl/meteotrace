@@ -305,6 +305,18 @@ function applyI18n() {
 
 let searchTimer = 0;
 
+/**
+ * Odkud se uživatel dívá. Posílá se k hledání, aby se tatáž ulice z desítky
+ * měst seřadila od nejbližší.
+ *
+ * ⚠️ Když se ještě nikam nedíval, nic se neposílá — vymýšlet si střed
+ * republiky by znamenalo tvrdit něco, co nevíme.
+ */
+function odkudSeDivam() {
+  const p = state.place;
+  return p && Number.isFinite(p.lat) && Number.isFinite(p.lon) ? { lat: p.lat, lon: p.lon } : {};
+}
+
 function onSearchInput(text) {
   clearTimeout(searchTimer);
   const q = text.trim();
@@ -317,7 +329,7 @@ function onSearchInput(text) {
 async function search(q) {
   try {
     const { data } = await requests.run('search', (signal) =>
-      apiGet('geocode', { name: q, count: 6, language: state.lang }, { signal }));
+      apiGet('geocode', { name: q, count: 8, language: state.lang, ...odkudSeDivam() }, { signal }));
     showResults(data?.results || []);
   } catch (e) {
     if (!requests.isAbort(e)) showResults([]);
@@ -694,7 +706,7 @@ function pripojVyber(inputId, resultsId, kam) {
     timer = setTimeout(async () => {
       try {
         const { data } = await requests.run(`search-${kam}`, (signal) =>
-          apiGet('geocode', { name: q, count: 6, language: state.lang }, { signal }));
+          apiGet('geocode', { name: q, count: 8, language: state.lang, ...odkudSeDivam() }, { signal }));
         ukazVysledky(data?.results || []);
       } catch (e) {
         if (!requests.isAbort(e)) ukazVysledky([]);

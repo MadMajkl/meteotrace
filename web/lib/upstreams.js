@@ -70,10 +70,21 @@ export const UPSTREAMS = {
    */
   geocode: {
     base: 'https://api.openrouteservice.org/geocode/search',
-    params: ['text', 'size'],
+    params: ['text', 'size', 'focus.point.lat', 'focus.point.lon'],
     // Klient posílá pořád `name`/`count`; překlad na řeč služby patří sem,
     // ne do appky — jinak by výměna zdroje znamenala zásah do obrazovky.
-    mapParams: ({ name, count }) => ({ text: String(name ?? ''), size: String(count || 6) }),
+    //
+    // ⚠️ `lat`/`lon` jsou nepovinné a znamenají „odkud se uživatel dívá".
+    // Tatáž ulice je v desítce měst; bez tohohle je pořadí náhodné a člověk
+    // musí číst všechny řádky. S tím se nejbližší nabídne první.
+    mapParams: ({ name, count, lat, lon }) => {
+      const out = { text: String(name ?? ''), size: String(count || 8) };
+      if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
+        out['focus.point.lat'] = String(lat);
+        out['focus.point.lon'] = String(lon);
+      }
+      return out;
+    },
     normalize: 'pelias',
     ttl: 24 * HOUR,          // města se nestěhují
     needsKey: true,
@@ -169,10 +180,19 @@ export const UPSTREAMS = {
 export function fromPelias(body) {
   const features = Array.isArray(body?.features) ? body.features : [];
   const results = [];
+  // 🚨 Služba vrací tutéž ulici i dvakrát (různé záznamy v OSM). Dva shodné
+  // řádky v nabídce vypadají jako chyba a nutí člověka přemýšlet, v čem se
+  // liší — přitom se neliší v ničem.
+  const videne = new Set();
   for (const f of features) {
     const c = f?.geometry?.coordinates;
     const p = f?.properties || {};
     if (!Array.isArray(c) || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) continue;
+
+    const otisk = (p.label || p.name || '').toLowerCase();
+    if (otisk && videne.has(otisk)) continue;
+    videne.add(otisk);
+
     results.push({
       // U adresy je `name` jen „náměstí Republiky 1"; `label` nese i obec,
       // což je to, co uživatel potřebuje k rozlišení dvou stejných ulic.

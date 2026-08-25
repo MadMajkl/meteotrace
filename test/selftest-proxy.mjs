@@ -20,6 +20,7 @@ import {
   cacheKey,
   ttlFor,
   trimWarnings,
+  fromPelias, mapParams,
 } from '../web/lib/upstreams.js';
 
 /* ============================================================
@@ -325,4 +326,28 @@ test('🚨 profil dopravy musí být ze seznamu, jinak to odmítne NAŠE proxy',
 test('služba bez seznamu dovětků propustí běžné slovo dál', () => {
   // Omezení platí jen tam, kde dává smysl — ne plošně.
   assert.ok(buildUrl('forecast', {}, 'cokoli').includes('/cokoli'));
+});
+
+test('🚨 hledání: tatáž ulice se nesmí opakovat dvakrát', () => {
+  // Služba vrací týž záznam vícekrát (různé zápisy v OSM). Dva shodné řádky
+  // v nabídce vypadají jako chyba a nutí přemýšlet, v čem se liší.
+  const out = fromPelias({ features: [
+    { geometry: { coordinates: [14.4, 50.0] }, properties: { name: 'náměstí Republiky', label: 'náměstí Republiky, Prague, Czechia' } },
+    { geometry: { coordinates: [14.5, 50.1] }, properties: { name: 'Náměstí Republiky', label: 'Náměstí Republiky, Prague, Czechia' } },
+    { geometry: { coordinates: [16.6, 49.2] }, properties: { name: 'náměstí Republiky', label: 'náměstí Republiky, Brno, JM, Czechia' } },
+  ] });
+  assert.equal(out.results.length, 2, 'Praha jednou, Brno jednou');
+  assert.ok(out.results[1].label.includes('Brno'));
+});
+
+test('hledání: poloha se propíše do dotazu, bez ní se nic nevymýšlí', () => {
+  // „Odkud se dívám" řadí tutéž ulici od nejbližšího města. Když polohu
+  // neznáme, neposílá se — vymyslet střed republiky by bylo tvrzení bez opory.
+  const s = mapParams('geocode', { name: 'Sokolovská', count: 8, lat: 50.08, lon: 14.42 });
+  assert.equal(s['focus.point.lat'], '50.08');
+  assert.equal(s['focus.point.lon'], '14.42');
+
+  const bez = mapParams('geocode', { name: 'Sokolovská', count: 8 });
+  assert.equal(bez['focus.point.lat'], undefined);
+  assert.equal(bez.size, '8');
 });

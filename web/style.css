@@ -597,3 +597,20 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   border: 1px solid var(--line); border-radius: 10px;
 }
 .route-speed .hint { display: block; margin: 4px 0 0; }
+
+/* Nabídka v polích trasy. Tlačítko na celou šířku, jméno nad obcí —
+   ⚠️ tatáž ulice je v desítce měst, takže OBEC je to jediné, co je rozliší.
+   Bez zalomení se obojí slepilo do „náměstí RepublikyHoršovský Týn". */
+.results.inline li { padding: 0; }
+
+.results.inline button {
+  display: block; width: 100%;
+  padding: 10px 14px;
+  font: inherit; text-align: left;
+  color: var(--text); background: none; border: 0; cursor: pointer;
+}
+.results.inline button:hover,
+.results.inline button:focus-visible { background: var(--accent-soft); }
+
+.r-name { display: block; font-size: 15px; }
+.r-meta { display: block; margin-top: 2px; font-size: 13px; color: var(--text-soft); }
