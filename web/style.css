@@ -22,7 +22,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f151c;
     --bg-grad: linear-gradient(180deg, #16212e 0%, #0f151c 42%);
     --surface: #17202b;
@@ -38,6 +38,24 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
   }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] {
+  --bg: #0f151c;
+  --bg-grad: linear-gradient(180deg, #16212e 0%, #0f151c 42%);
+  --surface: #17202b;
+  --surface-2: #1d2836;
+  --line: #26323f;
+  --text: #e8eef5;
+  --text-soft: #93a2b2;
+  --accent: #55b0f5;
+  --accent-soft: #14293c;
+  --warn-bg: #2e2413;
+  --warn-line: #8a6a2a;
+  --warn-text: #f0d9a8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
+}
+
 
 * { box-sizing: border-box; }
 
@@ -280,11 +298,18 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .pollen li:has(.lvl[data-level="none"]) { opacity: .65; }
 
 @media (prefers-color-scheme: dark) {
-  .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
-  .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
-  .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
-  .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
+  :root:not([data-theme="light"]) .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
+  :root:not([data-theme="light"]) .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
+  :root:not([data-theme="light"]) .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
+  :root:not([data-theme="light"]) .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
+:root[data-theme="dark"] .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
+:root[data-theme="dark"] .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
+:root[data-theme="dark"] .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
+
 
 /* ---------- úvodní obrazovka ---------- */
 
@@ -378,18 +403,28 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .warn-unknown { --warn-line: #6b7a8c; --warn-bg: #eef2f6; --warn-text: #37424f; }
 
 @media (prefers-color-scheme: dark) {
-  .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
-  .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
-  .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
+  :root:not([data-theme="light"]) .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
+  :root:not([data-theme="light"]) .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
+  :root:not([data-theme="light"]) .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
+:root[data-theme="dark"] .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
+:root[data-theme="dark"] .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
+
 
 /* Nízká závažnost se ztlumí — vedle střední byla k nerozeznání a čtyři stejně
    výrazné řádky se čtou stejně špatně jako žádný. */
 .warn-minor { --warn-line: #b0b8c2; --warn-bg: #f6f8fa; --warn-text: #4a5561; }
 
 @media (prefers-color-scheme: dark) {
-  .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
+  :root:not([data-theme="light"]) .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
+
 
 /* ── Správa uložených míst ─────────────────────────────────────────────── */
 .saved { display: flex; align-items: center; gap: 8px; }
@@ -463,8 +498,12 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   font-weight: 600;
 }
 @media (prefers-color-scheme: dark) {
-  .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+  :root:not([data-theme="light"]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+
 
 /* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
 .map-hint { margin: 8px 0 0; font-size: 12px; }
@@ -480,11 +519,18 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .pollen li[data-level="none"] .pollen-icon { color: var(--text-soft); }
 
 @media (prefers-color-scheme: dark) {
-  .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
-  .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
-  .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
-  .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
+  :root:not([data-theme="light"]) .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
+  :root:not([data-theme="light"]) .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
+  :root:not([data-theme="light"]) .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
+  :root:not([data-theme="light"]) .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
 }
+
+/* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
+:root[data-theme="dark"] .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
+:root[data-theme="dark"] .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
+:root[data-theme="dark"] .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
+:root[data-theme="dark"] .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
+
 
 
 

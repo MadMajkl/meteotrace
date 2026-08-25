@@ -98,11 +98,32 @@ let timeZone = 'UTC';
 const $ = (id) => document.getElementById(id);
 
 /** Podklad podle motivu zařízení — vlastní styl, vlastní data (R3). */
-const styleFor = () => buildStyle({
-  tilesUrl: tilesUrl(),
-  dark: matchMedia('(prefers-color-scheme: dark)').matches,
-  lang,
-});
+/**
+ * Je teď tmavý režim?
+ *
+ * ⚠️ Ruční volba z nastavení přebíjí zařízení. Kdyby se mapa ptala jen
+ * systému, zůstala by po přepnutí opačná než appka kolem ní — a vypadalo by
+ * to jako chyba vykreslování.
+ */
+function jeTma() {
+  const volba = document.documentElement.dataset.theme;
+  if (volba === 'dark') return true;
+  if (volba === 'light') return false;
+  return matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+const styleFor = () => buildStyle({ tilesUrl: tilesUrl(), dark: jeTma(), lang });
+
+/** Přebarví mapu po ruční změně vzhledu. Volá obrazovka, viz `zmenVzhled()`. */
+export function refreshTheme() {
+  if (!map || !styleReady) return;
+  map.setStyle(styleFor());
+  map.once('styledata', () => {
+    drawFrame();
+    showWarningArea(vystrahaGeo, vystrahaTrida);
+    showRoute(trasaData, { fit: false });
+  });
+}
 
 /**
  * Založí mapu. Volá se až při prvním zobrazení — MapLibre je skoro megabajt

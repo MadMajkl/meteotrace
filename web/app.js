@@ -57,6 +57,7 @@ const state = {
   // telefonu — s hotovým a otestovaným překladem v zádech.
   lang: null,
   langManual: '',      // co si uživatel vybral ručně; prázdné = podle zařízení
+  theme: '',           // '' = podle zařízení · 'light' · 'dark'
   units: null,
   place: null,          // {name, country, lat, lon}
   fix: null,            // poloha ze zařízení; JEN pro řazení nabídky, viz odkudSeDivam()
@@ -84,6 +85,7 @@ function load() {
     // nespustil. Kdyby se přečetla, opravená appka by dál mluvila anglicky
     // přesně těm lidem, kteří si toho už všimli. Takový zápis se zahazuje
     // a jazyk se odhadne znovu.
+    if (typeof saved.theme === 'string') state.theme = saved.theme;
     if (typeof saved.langManual === 'string') {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
@@ -97,7 +99,7 @@ function save() {
       place: state.place, units: state.units,
       // Ruční volba se ukládá zvlášť od výsledku: prázdná znamená „ptej se
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
-      lang: state.langManual || null, langManual: state.langManual,
+      lang: state.langManual || null, langManual: state.langManual, theme: state.theme,
     }));
   } catch { /* nevadí */ }
 }
@@ -360,6 +362,12 @@ function openSettings() {
     { value: '', text: t('settings.languageAuto', state.lang) },
     ...Object.entries(LANG_NAMES).map(([kod, jmeno]) => ({ value: kod, text: jmeno })),
   ], state.langManual || '');
+
+  fillOptions($('set-theme'), [
+    { value: '', text: t('settings.themeAuto', state.lang) },
+    { value: 'light', text: t('settings.themeLight', state.lang) },
+    { value: 'dark', text: t('settings.themeDark', state.lang) },
+  ], state.theme || '');
 
   for (const [osa, hodnoty] of Object.entries(JEDNOTKY)) {
     fillOptions($(`set-${osa}`), hodnoty.map((h) => ({ value: h, text: SYMBOL[h] })),
@@ -891,6 +899,30 @@ function renderPollen(view) {
    Vedlejší zisk: na trase je tím pádem i radar. Vidět čáru trasy přes pole
    srážek je přesně to, kvůli čemu tahle appka vznikla.
    ============================================================ */
+
+/**
+ * Vzhled: světlý, tmavý, nebo podle zařízení.
+ *
+ * ⚠️ Zapisuje se JEDNA značka na kořenový prvek a zbytek dělá CSS. Kdyby se
+ * barvy přepínaly v JS, musela by se každá nová barva pamatovat na dvou
+ * místech — a jednou by se to zapomnělo.
+ *
+ * Prázdná hodnota značku smaže, takže platí `prefers-color-scheme` a appka
+ * se přepne sama, když si telefon v noci přepne motiv.
+ */
+function pouzijVzhled() {
+  const k = document.documentElement;
+  if (state.theme === 'light' || state.theme === 'dark') k.dataset.theme = state.theme;
+  else delete k.dataset.theme;
+
+  // ⚠️ Prohlížeč musí vědět taky — jinak zůstanou posuvníky a políčka
+  // formulářů v opačném režimu než appka kolem nich.
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if (meta) meta.content = state.theme || 'light dark';
+
+  // Mapa má vlastní styl a musí se přebarvit s appkou, ne až po znovunačtení.
+  mapModule?.refreshTheme?.();
+}
 
 /** Je mapa vypnutá parametrem v adrese? Používá to layoutový test. */
 function mapaVypnuta() {
@@ -1500,6 +1532,7 @@ function init() {
   if (!state.lang || !LANG_NAMES[state.lang]) state.lang = detectLang(navigator.languages || []);
   if (!state.units) state.units = defaultUnits(navigator.language || '');
 
+  pouzijVzhled();
   applyI18n();
   renderSaved();
   renderRoutes();
@@ -1524,6 +1557,7 @@ function init() {
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', () => $('settings-dialog').close());
   $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));
+  $('set-theme').addEventListener('change', (e) => { state.theme = e.target.value; save(); pouzijVzhled(); });
   for (const osa of Object.keys(JEDNOTKY)) {
     $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
   }

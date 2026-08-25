@@ -90,6 +90,7 @@ tohle je jen shrnutí.**
 | Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
+| Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
