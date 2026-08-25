@@ -36,6 +36,15 @@ export const SCHEMA_VERSION = 1;
 export const MAX_PLACES = 50;
 export const MAX_ROUTES = 30;
 
+/**
+ * Kolik mezibodů se uloží.
+ *
+ * ⚠️ Není to jen kosmetika: každý mezibod je jeden dotaz na router navíc
+ * (`spojUseky()` v `route-adapter.js`), takže cesta o osmi zastávkách
+ * spotřebuje devět volání z denní kvóty.
+ */
+export const MAX_VIA = 8;
+
 /** Delší jméno se do řádku stejně nevejde a jen by ho rozbilo. */
 export const MAX_NAME = 60;
 
@@ -97,7 +106,17 @@ export function routeKey(route) {
   const from = placeKey(route?.from);
   const to = placeKey(route?.to);
   if (!from || !to) return null;
-  return `${from}>${to}@${route?.profile || 'car'}`;
+
+  // 🚨 MEZIBODY JSOU SOUČÁST IDENTITY. Cesta z Plzně do Klatov měří 44 km,
+  // přes Domažlice 97 — je to jiná cesta, jiný čas i jiné počasí. Bez nich
+  // v klíči by si obě uložené trasy sedly na týž záznam a ta druhá by tiše
+  // přepsala první.
+  const pres = (route?.via || [])
+    .map(placeKey)
+    .filter(Boolean)
+    .join('|');
+
+  return `${from}>${pres ? `${pres}>` : ''}${to}@${route?.profile || 'car'}`;
 }
 
 /* ============================================================
@@ -258,9 +277,17 @@ function readRoute(item) {
   const to = normalizePlace(item?.to);
   if (!from || !to) return null;
   const profile = typeof item?.profile === 'string' ? item.profile : 'car';
-  const key = routeKey({ from, to, profile });
+
+  // ⚠️ Rozdělaný (prázdný) mezibod se do uložené trasy nepřenáší — uložit
+  // „zastávku nikde" nedává smysl a při obnovení by z ní byla mezera.
+  const via = (Array.isArray(item?.via) ? item.via : [])
+    .map(normalizePlace)
+    .filter(Boolean)
+    .slice(0, MAX_VIA);
+
+  const key = routeKey({ from, to, via, profile });
   return {
-    key, from, to, profile,
+    key, from, to, via, profile,
     name: cleanName(item?.name) || `${from.name} → ${to.name}`,
     savedAt: time(item?.savedAt),
     usedAt: time(item?.usedAt),
@@ -318,16 +345,33 @@ export function savePlace(store, raw, nowMs = 0) {
   };
 }
 
+/**
+ * Jsou to dvě podoby téže cesty?
+ *
+ * ⚠️ Tatáž shoda vzdáleností jako u míst — start o dvě ulice jinam je pořád
+ * tatáž cesta do práce (rozhodnuto 22. 8. 2026).
+ *
+ * 🚨 Mezibody se porovnávají taky, a to V POŘADÍ. Plzeň → Domažlice → Klatovy
+ * měří 97 km, přímo 44 — je to jiná cesta. Kdyby se ignorovaly, uložila by se
+ * druhá trasa do první a ta první by tiše zmizela.
+ */
+function stejnaTrasa(a, b) {
+  const blizko = (x, y) => distanceM([x.lat, x.lon], [y.lat, y.lon]) <= SAME_PLACE_M;
+  if (a.profile !== b.profile) return false;
+  if (!blizko(a.from, b.from) || !blizko(a.to, b.to)) return false;
+
+  const va = a.via || [];
+  const vb = b.via || [];
+  if (va.length !== vb.length) return false;
+  return va.every((m, i) => blizko(m, vb[i]));
+}
+
 /** Uložení trasy. Tatáž pravidla jako u míst. */
 export function saveRoute(store, raw, nowMs = 0) {
   const parsed = readRoute({ ...raw, savedAt: nowMs, usedAt: nowMs });
   if (!parsed || store.readOnly) return { store, route: null, changed: false, full: false };
 
-  // Tatáž shoda vzdáleností jako u míst — start o dvě ulice jinam je pořád
-  // tatáž cesta do práce.
-  const near = (a, b) => distanceM([a.lat, a.lon], [b.lat, b.lon]) <= SAME_PLACE_M;
-  const existing = store.routes.find((r) =>
-    r.profile === parsed.profile && near(r.from, parsed.from) && near(r.to, parsed.to));
+  const existing = store.routes.find((r) => stejnaTrasa(r, parsed));
 
   if (existing) {
     const merged = { ...existing, usedAt: nowMs };

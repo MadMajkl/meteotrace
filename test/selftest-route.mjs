@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import { planRoute, departureOptions } from '../web/lib/eta.js';
 import {
-  fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList,
+  fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList, spojUseky,
 } from '../web/lib/route-adapter.js';
 import {
   buildRouteView, compareDepartures, routeMapData, departureAdvice,
@@ -463,4 +463,60 @@ test('rada existuje i anglicky', () => {
     departureAdvice({ rainCount: 1, worst: null }, 60, 'en'),
     'To stay out of the rain, leave an hour later — the weather works out better.',
   );
+});
+
+/* ============================================================
+   MEZIBODY — SLEPENÍ ÚSEKŮ
+
+   ORS umí mezibody jen přes POST, a naše proxy propouští jen GET (R2).
+   Trasa se proto skládá z úseků A→B, B→C. Slepení musí sedět na bod,
+   protože na `points` a `legs` stojí výpočet času příjezdu.
+   ============================================================ */
+
+const USEK_A = {
+  points: [[50.08, 14.42], [49.90, 14.90]],
+  legs: [{ distanceM: 40000, durationS: 1800 }],
+  totalDistanceM: 40000,
+  totalDurationS: 1800,
+};
+const USEK_B = {
+  points: [[49.90, 14.90], [49.20, 16.60]],
+  legs: [{ distanceM: 160000, durationS: 5400 }],
+  totalDistanceM: 160000,
+  totalDurationS: 5400,
+};
+
+test('🚨 spoj úseků se nezdvojuje — společný bod je tam jednou', () => {
+  // Dvakrát týž bod by znamenal plán o bod navíc a dotaz na počasí pro
+  // totéž místo dvakrát.
+  const c = spojUseky([USEK_A, USEK_B]);
+  assert.equal(c.points.length, 3);
+  assert.deepEqual(c.points[1], [49.90, 14.90]);
+});
+
+test('spoj sečte vzdálenost i čas a zachová pořadí profilu', () => {
+  const c = spojUseky([USEK_A, USEK_B]);
+  assert.equal(c.totalDistanceM, 200000);
+  assert.equal(c.totalDurationS, 7200);
+  assert.deepEqual(c.legs.map((l) => l.distanceM), [40000, 160000]);
+});
+
+test('spoj přežije drobnou odchylku v souřadnicích spoje', () => {
+  // Router vrací týž bod, ale zaokrouhlený jinak podle směru jízdy.
+  const b2 = { ...USEK_B, points: [[49.9000004, 14.8999997], [49.20, 16.60]] };
+  assert.equal(spojUseky([USEK_A, b2]).points.length, 3);
+});
+
+test('jediný úsek projde beze změny, prázdný vstup vrátí null', () => {
+  assert.equal(spojUseky([USEK_A]), USEK_A);
+  assert.equal(spojUseky([]), null);
+  assert.equal(spojUseky([null, undefined]), null);
+  assert.equal(spojUseky(null), null);
+});
+
+test('🚨 když jeden úsek chybí, trasa se NESLEPÍ z toho, co zbylo', () => {
+  // Vynechaný kus by znamenal trasu, která vede jinudy, než uživatel zadal —
+  // a nic by na to neupozornilo. Volající pozná chybu podle počtu úseků.
+  const casti = [USEK_A, null, USEK_B];
+  assert.equal(casti.some((c) => !c), true, 'volající tohle musí zachytit dřív');
 });

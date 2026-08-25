@@ -442,3 +442,50 @@ test('v režimu jen pro čtení se trasa nepřejmenuje', () => {
   const store = { ...saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store, readOnly: true };
   assert.equal(renameRoute(store, store.routes[0].key, 'Do práce'), store, 'sklad se nemění');
 });
+
+/* ============================================================
+   MEZIBODY V ULOŽENÉ TRASE
+
+   🚨 Plzeň → Klatovy měří 44 km, přes Domažlice 97. Je to jiná cesta, jiný
+   čas i jiné počasí — a musí to být jiný záznam.
+   ============================================================ */
+
+const DOMAZLICE = { name: 'Domažlice', country: 'Czechia', lat: 49.4407, lon: 12.9294 };
+
+test('🚨 trasa s mezibodem je JINÁ trasa než přímá', () => {
+  let store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store;
+  store = saveRoute(store, { from: PRAHA, to: BRNO, via: [DOMAZLICE], profile: 'driving-car' }, 2000).store;
+
+  assert.equal(store.routes.length, 2, 'obě se musí uložit zvlášť');
+  assert.notEqual(store.routes[0].key, store.routes[1].key);
+});
+
+test('tatáž trasa s týmž mezibodem se neuloží dvakrát', () => {
+  let store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, via: [DOMAZLICE], profile: 'driving-car' }, 1000).store;
+  const res = saveRoute(store, { from: PRAHA, to: BRNO, via: [DOMAZLICE], profile: 'driving-car' }, 2000);
+  assert.equal(res.store.routes.length, 1);
+  assert.equal(res.changed, false, 'jen se osvěží čas použití');
+});
+
+test('🚨 pořadí mezibodů rozhoduje', () => {
+  // Praha → Domažlice → Brno je něco jiného než Praha → Brno → Domažlice.
+  const a = { from: PRAHA, to: BRNO, via: [DOMAZLICE, { ...PRAHA, lat: 49.9, lon: 15.2 }], profile: 'driving-car' };
+  const b = { from: PRAHA, to: BRNO, via: [{ ...PRAHA, lat: 49.9, lon: 15.2 }, DOMAZLICE], profile: 'driving-car' };
+  let store = saveRoute(emptyStore(), a, 1000).store;
+  store = saveRoute(store, b, 2000).store;
+  assert.equal(store.routes.length, 2);
+});
+
+test('rozdělaný mezibod se do uložené trasy nepřenáší', () => {
+  // Prázdné pole je „ještě jsem nevybral", ne zastávka.
+  const store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, via: [null, DOMAZLICE, undefined], profile: 'driving-car' }, 1000).store;
+  assert.equal(store.routes[0].via.length, 1);
+  assert.equal(store.routes[0].via[0].name, 'Domažlice');
+});
+
+test('uložená trasa mezibody přežije uložení i načtení', () => {
+  const store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, via: [DOMAZLICE], profile: 'driving-car' }, 1000).store;
+  const zpet = parseStore(serializeStore(store));
+  assert.equal(zpet.routes[0].via.length, 1);
+  assert.equal(zpet.routes[0].via[0].lat, DOMAZLICE.lat);
+});

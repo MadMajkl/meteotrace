@@ -129,3 +129,55 @@ export function asLocationList(forecast) {
   if (forecast && typeof forecast === 'object') return [forecast];
   return [];
 }
+
+/**
+ * Slepí několik úseků do jedné trasy.
+ *
+ * ⚠️ ČISTÁ FUNKCE.
+ *
+ * 🚨 PROČ TO VŮBEC JE. Mezibody („zastav se pro kamaráda") umí ORS jen přes
+ * POST s tělem `coordinates: [...]`. Naše proxy ale **propouští jen GET**
+ * (`R2`) — a to je bezpečnostní rozhodnutí, ne nedodělek: přes zápis by šlo
+ * cizí službě něco měnit. Trasa se proto skládá z úseků: A→B, B→C, C→D.
+ *
+ * Cena: n+1 dotazů místo jednoho. U tří mezibodů to jsou čtyři volání
+ * z 2 000 denních, a shodné úseky navíc padnou do cache proxy — cesta domů
+ * přes tutéž benzínku se podruhé neptá.
+ *
+ * ⚠️ Spoj se NEDUPLIKUJE: konec jednoho úseku a začátek dalšího je týž bod.
+ * Kdyby tam zůstal dvakrát, měl by plán o bod navíc a předpověď by se ptala
+ * dvakrát na totéž místo.
+ *
+ * ⚠️ Rychlostní profil (`legs`) se skládá za sebou v pořadí úseků — na něm
+ * stojí výpočet času příjezdu (`eta.js`), takže pořadí je podstatné.
+ *
+ * @param {Array<{points: Array, legs: Array, totalDistanceM: number, totalDurationS: number}>} casti
+ * @returns {object|null} trasa téhož tvaru jako z {@link fromOpenRouteService}
+ */
+export function spojUseky(casti) {
+  const platne = (casti || []).filter((c) => c && Array.isArray(c.points) && c.points.length);
+  if (!platne.length) return null;
+  if (platne.length === 1) return platne[0];
+
+  const points = [];
+  const legs = [];
+  let totalDistanceM = 0;
+  let totalDurationS = 0;
+
+  for (const cast of platne) {
+    const body = points.length && jeTotez(points[points.length - 1], cast.points[0])
+      ? cast.points.slice(1)
+      : cast.points;
+    points.push(...body);
+    legs.push(...(Array.isArray(cast.legs) ? cast.legs : []));
+    totalDistanceM += Number(cast.totalDistanceM) || 0;
+    totalDurationS += Number(cast.totalDurationS) || 0;
+  }
+
+  return { points, legs, totalDistanceM, totalDurationS };
+}
+
+/** Dva body na spoji úseků. Router vrací shodné souřadnice, ale zaokrouhlené jinak. */
+function jeTotez(a, b) {
+  return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
+}

@@ -18,7 +18,7 @@ import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
 import { sampleRoute, planRoute, departureOptions, distanceM } from './lib/eta.js';
 import {
-  fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
+  fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs, spojUseky,
 } from './lib/route-adapter.js';
 import {
   buildRouteView, compareDepartures, routeMapData, departureAdvice, ROUTE_FORECAST_PARAMS,
@@ -70,7 +70,10 @@ const state = {
   screen: 'station',    // 'station' | 'route'
   // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
   // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
-  route: { from: null, to: null, profil: 'driving-car', rychlostKmh: 90 },
+  // `via` jsou mezibody v pořadí, jak se má jet. Prázdné pole = cesta z A do B.
+  route: {
+    from: null, to: null, via: [], profil: 'driving-car', rychlostKmh: 90,
+  },
 };
 
 /* ============================================================
@@ -318,7 +321,9 @@ function toggleSaveRoute() {
   if (existing) {
     state.places = forgetRoute(state.places, existing.key);
   } else {
-    const res = saveRoute(state.places, { from, to, profile: profil }, Date.now());
+    const res = saveRoute(state.places, {
+      from, to, via: state.route.via.filter(Boolean), profile: profil,
+    }, Date.now());
     state.places = res.store;
     if (res.full) notice(t('routes.full', state.lang));
   }
@@ -330,7 +335,7 @@ function toggleSaveRoute() {
 function najdiUlozenouTrasu() {
   const { from, to, profil } = state.route;
   if (!from || !to) return null;
-  const klic = routeKey({ from, to, profile: profil });
+  const klic = routeKey({ from, to, via: state.route.via.filter(Boolean), profile: profil });
   return state.places.routes.find((r) => r.key === klic) || null;
 }
 
@@ -372,9 +377,13 @@ function renderRoutes() {
 function pouzijTrasu(r) {
   state.route.from = r.from;
   state.route.to = r.to;
+  // ⚠️ I mezibody — uložená „cesta do práce přes školku" bez školky by byla
+  // jiná cesta, a nic by na to neupozornilo.
+  state.route.via = [...(r.via || [])];
   state.route.profil = r.profile;
   $('route-from').value = r.from.name;
   $('route-to').value = r.to.name;
+  vykresliMezibody();
   state.places = touchRoute(state.places, r.key, Date.now());
   persistPlaces();
   vykresliZpusoby();
@@ -1331,6 +1340,70 @@ function ulozenaProNabidku(dotaz) {
   return vse.filter((p) => stripDiacritics(p.name.toLowerCase()).includes(q)).slice(0, 5);
 }
 
+/**
+ * Zápis místa do trasy. Cíl je `'from'`, `'to'`, nebo POŘADÍ mezibodu.
+ *
+ * ⚠️ Jedno místo zápisu schválně: bez něj by každá nová obsluha musela vědět,
+ * že mezibody jsou pole a start s cílem klíče — a jednou by se to spletlo.
+ */
+function zapisMisto(kam, misto) {
+  if (typeof kam === 'number') state.route.via[kam] = misto;
+  else state.route[kam] = misto;
+}
+
+/**
+ * Pole mezibodů.
+ *
+ * ⚠️ Pole se překresluje CELÉ při každé změně počtu, takže se rozepsaný text
+ * bere ze stavu, ne z DOM. Rozdělaný mezibod se drží jako `null` — jméno
+ * v poli by nestačilo, protože k trase je potřeba souřadnice.
+ *
+ * ⚠️ Řádky nemají stabilní `id`, ale nabídka výsledků ho potřebuje — dostanou
+ * ho podle pořadí. Po odebrání se tedy překreslí všechny.
+ */
+function vykresliMezibody() {
+  const box = $('route-via');
+  box.innerHTML = '';
+
+  state.route.via.forEach((misto, i) => {
+    const radek = document.createElement('div');
+    radek.className = 'route-via-row';
+
+    const pole = document.createElement('label');
+    pole.className = 'route-field';
+    pole.append(el('span', '', `${t('route.via', state.lang)} ${i + 1}`));
+
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.id = `route-via-${i}`;
+    input.autocomplete = 'off';
+    input.placeholder = t('route.viaPlaceholder', state.lang);
+    input.value = misto?.name || '';
+    pole.append(input);
+
+    const nabidka = document.createElement('ul');
+    nabidka.id = `route-via-${i}-results`;
+    nabidka.className = 'results inline';
+    nabidka.hidden = true;
+    pole.append(nabidka);
+
+    const pryc = el('button', 'icon-btn', '✕');
+    pryc.type = 'button';
+    pryc.title = t('route.removeVia', state.lang);
+    pryc.setAttribute('aria-label', t('route.removeVia', state.lang));
+    pryc.addEventListener('click', () => {
+      state.route.via.splice(i, 1);
+      vykresliMezibody();
+      skryjVysledekTrasy();
+    });
+
+    radek.append(pole, pryc);
+    box.append(radek);
+
+    pripojVyber(input.id, nabidka.id, i);
+  });
+}
+
 function pripojVyber(inputId, resultsId, kam) {
   const input = $(inputId);
   const results = $(resultsId);
@@ -1353,7 +1426,7 @@ function pripojVyber(inputId, resultsId, kam) {
     const q = input.value.trim();
     // Vybrané místo přestává platit ve chvíli, kdy uživatel začne psát něco
     // jiného. Jinak by tlačítko počítalo trasu do místa, které už není v poli.
-    state.route[kam] = null;
+    zapisMisto(kam, null);
     // Uložená místa se ukazují hned — nečeká se na síť ani na dvě písmena.
     const ulozena = ulozenaProNabidku(q);
     if (q.length < 2) {
@@ -1403,9 +1476,9 @@ function pripojVyber(inputId, resultsId, kam) {
       btn.type = 'button';
       if (ulozene) {
         btn.addEventListener('click', () => {
-          state.route[kam] = {
+          zapisMisto(kam, {
             name: ulozene.name, country: ulozene.country, lat: ulozene.lat, lon: ulozene.lon,
-          };
+          });
           input.value = ulozene.name;
           skryj();
         });
@@ -1415,9 +1488,9 @@ function pripojVyber(inputId, resultsId, kam) {
       btn.addEventListener('click', () => {
         // 🚨 V poli zůstává ÚPLNÁ adresa i s obcí — „náměstí Republiky" samo
         // o sobě nerozliší osm měst, ve kterých takové náměstí je.
-        state.route[kam] = {
+        zapisMisto(kam, {
           name: placeTitle(r), country: r.country, lat: r.latitude, lon: r.longitude,
-        };
+        });
         input.value = placeLabel(r);
         skryj();
       });
@@ -1494,18 +1567,36 @@ async function loadRoute() {
 
   try {
     const zpusob = ZPUSOBY.find((z) => z.profil === profil);
-    let trasa;
 
-    if (zpusob?.bezRouteru) {
-      // Ani jeden dotaz ven: ortodroma se spočítá u nás ze dvou bodů
-      // a rychlosti, kterou zadal uživatel. Jádru je jedno, odkud trasa je.
-      trasa = straightRoute([from.lat, from.lon], [to.lat, to.lon], state.route.rychlostKmh);
-    } else {
-      const geo = await requests.run('route', (signal) =>
-        apiGet('route', { start: toOrsCoord([from.lat, from.lon]), end: toOrsCoord([to.lat, to.lon]) },
-          { signal, subPath: profil }));
-      trasa = fromOpenRouteService(geo.data);
+    // 🚨 Trasa se skládá z ÚSEKŮ mezi sousedními body. Mezibody umí ORS jen
+    // přes POST s tělem, a naše proxy propouští jen GET (`R2`) — což je
+    // bezpečnostní rozhodnutí, ne nedodělek. Viz `spojUseky()`.
+    const zastavky = [from, ...state.route.via.filter(Boolean), to];
+    const useky = [];
+
+    for (let i = 0; i < zastavky.length - 1; i += 1) {
+      const a = zastavky[i];
+      const b = zastavky[i + 1];
+      let usek;
+
+      if (zpusob?.bezRouteru) {
+        // Ani jeden dotaz ven: ortodroma se spočítá u nás ze dvou bodů
+        // a rychlosti, kterou zadal uživatel. Jádru je jedno, odkud trasa je.
+        usek = straightRoute([a.lat, a.lon], [b.lat, b.lon], state.route.rychlostKmh);
+      } else {
+        const geo = await requests.run(`route-${i}`, (signal) =>
+          apiGet('route', { start: toOrsCoord([a.lat, a.lon]), end: toOrsCoord([b.lat, b.lon]) },
+            { signal, subPath: profil }));
+        usek = fromOpenRouteService(geo.data);
+      }
+
+      // ⚠️ Chybějící úsek NELZE přeskočit. Trasa bez něj by vedla jinudy,
+      // než uživatel zadal, a nic by na to neupozornilo.
+      if (!usek) { poznamkaTrasy(t('route.failed', state.lang)); return; }
+      useky.push(usek);
     }
+
+    const trasa = spojUseky(useky);
     if (!trasa) { poznamkaTrasy(t('route.failed', state.lang)); return; }
 
     const vzorky = sampleRoute(trasa.points, KROK_M);
@@ -1777,6 +1868,12 @@ function init() {
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
   $('route-go').addEventListener('click', loadRoute);
+  $('route-add-via').addEventListener('click', () => {
+    // Nový mezibod je zatím prázdný — vyplní ho až výběr z nabídky.
+    state.route.via.push(null);
+    vykresliMezibody();
+    $(`route-via-${state.route.via.length - 1}`)?.focus();
+  });
   $('btn-save-route').addEventListener('click', toggleSaveRoute);
   $('route-swap').addEventListener('click', () => {
     // Prohození musí přehodit i text v polích, ne jen data — jinak by pole
@@ -1784,6 +1881,9 @@ function init() {
     const { from, to } = state.route;
     state.route.from = to;
     state.route.to = from;
+    // ⚠️ Cesta zpátky vede přes tytéž zastávky, ale v opačném pořadí.
+    state.route.via.reverse();
+    vykresliMezibody();
     const a1 = $('route-from');
     const b1 = $('route-to');
     [a1.value, b1.value] = [b1.value, a1.value];
@@ -1800,6 +1900,7 @@ function init() {
   pripojVyber('route-from', 'route-from-results', 'from');
   pripojVyber('route-to', 'route-to-results', 'to');
   vykresliZpusoby();
+  vykresliMezibody();
   $('places-close').addEventListener('click', () => $('places-dialog').close());
   // Rozepsané jméno se má uložit i tehdy, když se dialog zavře klávesou Esc
   // nebo klepnutím vedle — jinak by práce zmizela bez varování.

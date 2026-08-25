@@ -743,3 +743,17 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   font-size: 14px; text-align: center; color: var(--text-soft);
   background: var(--surface);
 }
+
+/* Mezibody trasy. Vznikají až na vyžádání — většina cest je z A do B. */
+.route-via { display: flex; flex-direction: column; gap: 8px; }
+.route-via:not(:empty) { margin-bottom: 10px; }
+.route-via-row { display: flex; align-items: end; gap: 8px; }
+.route-via-row .route-field { flex: 1; min-width: 0; }
+
+/* Odkaz, ne tlačítko: přidat mezibod je nabídka, ne hlavní akce. */
+.link-btn {
+  margin-bottom: 12px; padding: 0;
+  font: inherit; font-size: 14px;
+  color: var(--accent); background: none; border: 0; cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
