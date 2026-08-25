@@ -41,6 +41,8 @@ export default {
     alreadySaved: 'Already saved as “{name}”.',
     manage: 'Manage saved places',
     manageTitle: 'Saved places',
+    renameHint: 'Tap a name and rewrite it — Home, Work, Grandma.',
+    namePlaceholder: 'Home, Work, Grandma…',
     close: 'Close',
     nameLabel: 'Name of the saved place',
     removeOne: 'Remove',

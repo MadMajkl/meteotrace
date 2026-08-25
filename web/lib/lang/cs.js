@@ -44,6 +44,8 @@ export default {
     alreadySaved: 'Uložené už jako „{name}“.',
     manage: 'Spravovat uložená místa',
     manageTitle: 'Uložená místa',
+    renameHint: 'Klepni na jméno a přepiš ho — Domov, Práce, Babička.',
+    namePlaceholder: 'Domov, Práce, Babička…',
     close: 'Zavřít',
     nameLabel: 'Jméno uloženého místa',
     removeOne: 'Odebrat',

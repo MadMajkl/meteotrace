@@ -87,6 +87,7 @@ tohle je jen shrnutí.**
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
+| Pojmenování míst a tras | Domov, Práce, Babička — přepsáním jména v dialogu ⋯; u tras `renameRoute()` |
 | Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
@@ -95,7 +96,7 @@ tohle je jen shrnutí.**
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**394 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**397 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 

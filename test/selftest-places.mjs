@@ -13,7 +13,7 @@ import {
   placeKey, routeKey, normalizePlace, cleanName,
   emptyStore, parseStore, serializeStore,
   savePlace, saveRoute, forgetPlace, forgetRoute,
-  renamePlace, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
+  renamePlace, renameRoute, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
   SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
 } from '../web/lib/places.js';
 
@@ -410,4 +410,35 @@ test('sklad se mění kopií, ne na místě', () => {
   assert.equal(before.places.length, 1);
   assert.equal(after.places.length, 2);
   assert.notEqual(before.places, after.places);
+});
+
+/* ============================================================
+   PŘEJMENOVÁNÍ TRASY
+
+   „Praha → Brno" je popis, ne jméno. Lidsky je to „do práce" — a Michal
+   25. 8. 2026: „aby si tam někdo mohl dát Domov, Práce… Babička."
+   ============================================================ */
+
+test('trasa se dá přejmenovat', () => {
+  const store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store;
+  const klic = store.routes[0].key;
+  const po = renameRoute(store, klic, 'Do práce');
+  assert.equal(po.routes[0].name, 'Do práce');
+  assert.equal(po.routes[0].key, klic, 'jméno není identita — klíč se nemění');
+});
+
+test('🚨 prázdné jméno trasu NEPŘEJMENUJE', () => {
+  // Dosadit klíč nebo prázdno by znamenalo, že uživatel přijde o jméno
+  // omylem — třeba když pole vyprázdní a klepne vedle.
+  const store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store;
+  const klic = store.routes[0].key;
+  const puvodni = store.routes[0].name;
+  for (const nesmysl of ['', '   ', null, undefined]) {
+    assert.equal(renameRoute(store, klic, nesmysl).routes[0].name, puvodni);
+  }
+});
+
+test('v režimu jen pro čtení se trasa nepřejmenuje', () => {
+  const store = { ...saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store, readOnly: true };
+  assert.equal(renameRoute(store, store.routes[0].key, 'Do práce'), store, 'sklad se nemění');
 });

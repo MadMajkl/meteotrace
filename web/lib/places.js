@@ -392,6 +392,26 @@ export function renamePlace(store, key, name) {
   };
 }
 
+/**
+ * Přejmenování uložené trasy.
+ *
+ * Výchozí jméno je „Praha → Brno", ale lidsky se tomu říká „do práce" nebo
+ * „na letiště". Michal 25. 8. 2026: *„aby si tam někdo mohl dát Domov,
+ * Práce… Babička."* — u tras platí totéž co u míst.
+ *
+ * ⚠️ Prázdné jméno sklad NEMĚNÍ; viz `renamePlace()`.
+ */
+export function renameRoute(store, key, name) {
+  if (store.readOnly) return store;
+  const clean = cleanName(name);
+  if (!clean) return store;
+
+  return {
+    ...store,
+    routes: store.routes.map((r) => (r.key === key ? { ...r, name: clean } : r)),
+  };
+}
+
 /** Zaznamená použití — kvůli vyhazování při přeplnění, ne kvůli řazení. */
 export function touchPlace(store, key, nowMs) {
   if (store.readOnly) return store;

@@ -27,7 +27,7 @@ import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
-  saveRoute, forgetRoute, touchRoute, routeKey,
+  saveRoute, forgetRoute, touchRoute, routeKey, renameRoute,
   findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME, MAX_ROUTES,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
@@ -308,7 +308,37 @@ function renderManageRoutes() {
   fill($('routes-manage'), list, (r) => {
     const li = document.createElement('li');
     li.className = 'manage-row';
-    li.append(el('span', 'manage-name-static', r.name));
+
+    // Trasa se jmenuje „Praha → Brno", ale lidsky je to „do práce".
+    // Přejmenovat jde stejně jako místo — jinak by to byla dvojí logika
+    // pro dvě věci, které uživatel vnímá jako jednu.
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'manage-name';
+    input.value = r.name;
+    input.maxLength = MAX_NAME;
+    input.disabled = state.places.readOnly;
+    input.setAttribute('aria-label', t('places.nameLabel', state.lang));
+    input.placeholder = `${r.from.name} → ${r.to.name}`;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { input.value = r.name; input.blur(); }
+    });
+    input.addEventListener('blur', () => {
+      const nove = input.value.trim();
+      if (nove === r.name) return;
+      if (!nove) {
+        // Prázdné jméno sklad nemění — a musí být poznat, že se nic nestalo.
+        input.value = r.name;
+        notice(t('places.nameEmpty', state.lang));
+        return;
+      }
+      state.places = renameRoute(state.places, r.key, nove);
+      persistPlaces();
+      renderRoutes();
+      notice(tf('places.renamed', { name: nove }, state.lang));
+    });
+    li.append(input);
 
     const del = el('button', 'icon-btn', '🗑');
     del.type = 'button';
@@ -471,6 +501,7 @@ function renderManage() {
     input.maxLength = MAX_NAME;
     input.disabled = state.places.readOnly;
     input.setAttribute('aria-label', t('places.nameLabel', state.lang));
+    input.placeholder = t('places.namePlaceholder', state.lang);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
       if (e.key === 'Escape') { input.value = p.name; input.blur(); }
