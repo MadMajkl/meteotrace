@@ -16,7 +16,7 @@ import { pollenIcon } from './lib/pollen-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
-import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
+import { sampleRoute, planRoute, departureOptions, distanceM } from './lib/eta.js';
 import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
 } from './lib/route-adapter.js';
@@ -201,7 +201,11 @@ function renderSaved() {
     chip.addEventListener('click', () => {
       state.places = touchPlace(state.places, p.key, Date.now());
       persistPlaces();
-      selectPlace({ name: p.name, country: p.country, lat: p.lat, lon: p.lon });
+      const misto = { name: p.name, country: p.country, lat: p.lat, lon: p.lon };
+      // Na trase je uložené místo CÍL, ne to, co si chci prohlédnout.
+      // Start se doplní z aktuální polohy — viz `trasaKMistu()`.
+      if (state.screen === 'route') trasaKMistu(misto);
+      else selectPlace(misto);
     });
     li.append(chip);
     return li;
@@ -219,6 +223,91 @@ function renderSaved() {
    ⚠️ Uloží se START, CÍL A ZPŮSOB, ne spočítaná trasa. Předpověď stará týden
    je k ničemu; smysl má „tahle cesta znovu", a ta se přepočítá.
    ============================================================ */
+
+/**
+ * „Jeď sem" — jedno klepnutí na uložené místo na obrazovce trasy.
+ *
+ * Michal 25. 8. 2026: *„po klepnutí na jedno z uložených míst ti to rovnou
+ * nastaví cíl a start aktuální polohu."* Je to nejčastější dotaz vůbec:
+ * jaké je počasí cestou tam, odsud, teď.
+ *
+ * ⚠️ O polohu se smí říct právě tady, protože to je uživatelovo klepnutí.
+ * Bez gesta by vyskočila žádost, kterou si nikdo nevyžádal (viz `tichaPoloha`).
+ *
+ * ⚠️ Když polohu nedostaneme, cíl se NASTAVÍ STEJNĚ a řekne se, že chybí
+ * start. Zahodit půlku zadání kvůli tomu, co se nepovedlo, by znamenalo
+ * začínat od nuly.
+ */
+async function trasaKMistu(misto) {
+  state.route.to = misto;
+  $('route-to').value = misto.name;
+
+  // ⚠️ Starý start, který je zrovna tam, kam mířím, přestal být startem.
+  // Kdyby zůstal viset v poli, appka by tvrdila „nevím, kde jsi" a přitom
+  // by tam jedno místo bylo napsané — dvě sdělení, která si odporují.
+  const puvodni = state.route.from;
+  if (puvodni && distanceM([puvodni.lat, puvodni.lon], [misto.lat, misto.lon]) < STEJNE_MISTO_M) {
+    state.route.from = null;
+    $('route-from').value = '';
+  }
+
+  const odkud = await polohaProStart();
+  if (odkud) {
+    state.route.from = odkud;
+    $('route-from').value = odkud.name;
+  }
+  skryjVysledekTrasy();
+  renderRoutes();
+
+  if (!odkud) {
+    poznamkaTrasy(t('route.needStart', state.lang));
+    return;
+  }
+  poznamkaTrasy(tf('route.fromHere', { to: misto.name }, state.lang));
+  loadRoute();
+}
+
+/**
+ * Odkud se vyráží: poloha ze zařízení, jinak právě prohlížené místo.
+ *
+ * ⚠️ Prohlížené místo je náhrada, ne rovnocenná volba — proto se použije až
+ * tehdy, když poloha není. A pozná se to podle jména, které zůstane v poli.
+ */
+function polohaProStart() {
+  /**
+   * ⚠️ Prohlížené místo se smí použít jako start, JEN když není zároveň cílem.
+   * Jinak by z „jeď sem" vyšla cesta z Klatov do Klatov — appka by ji spočítala
+   * (0,0 km) a tvářila se, že je vše v pořádku.
+   */
+  const nahradniStart = () => {
+    const m = state.place;
+    if (!isUsablePoint(m)) return null;
+    const cil = state.route.to;
+    if (cil && distanceM([m.lat, m.lon], [cil.lat, cil.lon]) < STEJNE_MISTO_M) return null;
+    return m;
+  };
+
+  return new Promise((hotovo) => {
+    if (isUsablePoint(state.fix)) {
+      hotovo({ ...state.fix, name: t('search.myLocation', state.lang) });
+      return;
+    }
+    if (!navigator.geolocation) {
+      hotovo(nahradniStart());
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        if (!isUsablePoint(bod)) { hotovo(nahradniStart()); return; }
+        state.fix = bod;
+        hotovo({ ...bod, name: t('search.myLocation', state.lang) });
+      },
+      () => hotovo(nahradniStart()),
+      { timeout: 8000, maximumAge: 300000 },
+    );
+  });
+}
 
 /** Hvězdička u souhrnu trasy: uložit / odebrat. */
 function toggleSaveRoute() {
@@ -1199,6 +1288,14 @@ const KROK_M = 25000;
 /** Posuny odjezdu, které se srovnávají. Víc než tři hodiny dopředu nikdo neplánuje. */
 const POSUNY_MIN = [0, 60, 120, 180];
 
+/**
+ * Blíž než tohle už to není cesta, ale tentýž bod.
+ *
+ * Stejný práh jako u shody uložených míst (`places.js`): co se vejde do
+ * 150 metrů, je pro člověka „tady".
+ */
+const STEJNE_MISTO_M = 150;
+
 function prepniObrazovku(kam) {
   state.screen = kam;
   $('station').hidden = kam !== 'station' || !state.place;
@@ -1381,6 +1478,16 @@ function poznamkaTrasy(text) {
 async function loadRoute() {
   const { from, to, profil } = state.route;
   if (!from || !to) { poznamkaTrasy(t('route.needBoth', state.lang)); return; }
+
+  // 🚨 Trasa z místa do téhož místa NENÍ trasa. Appka ji ochotně spočítala
+  // („0,0 km, příjezd v 18:46") a tvářila se, že je všechno v pořádku —
+  // přitom to je zadání, které nedává smysl. Michal na to narazil 25. 8. 2026
+  // přes „jeď sem", když se start nedal zjistit a spadl na prohlížené místo.
+  if (distanceM([from.lat, from.lon], [to.lat, to.lon]) < STEJNE_MISTO_M) {
+    poznamkaTrasy(t('route.sameSpot', state.lang));
+    skryjVysledekTrasy();
+    return;
+  }
 
   poznamkaTrasy(t('route.computing', state.lang));
   skryjVysledekTrasy();
