@@ -93,16 +93,16 @@ export default {
     estimated: 'Časy jsou odhadnuté — router nedal rychlostní profil.',
     beyond: 'Část trasy sahá za obzor předpovědi.',
     hazards: {
-      one: 'Nebezpečné počasí na {count} místě.',
-      few: 'Nebezpečné počasí na {count} místech.',
-      many: 'Nebezpečné počasí na {count} místa.',
-      other: 'Nebezpečné počasí na {count} místech.',
+      one: 'Nebezpečné počasí na {count} místě trasy.',
+      few: 'Nebezpečné počasí na {count} místech trasy.',
+      many: 'Nebezpečné počasí na {count} místa trasy.',
+      other: 'Nebezpečné počasí na {count} místech trasy.',
     },
     rain: {
-      one: 'Déšť na {count} místě.',
-      few: 'Déšť na {count} místech.',
-      many: 'Déšť na {count} místa.',
-      other: 'Déšť na {count} místech.',
+      one: 'Déšť na {count} místě trasy.',
+      few: 'Déšť na {count} místech trasy.',
+      many: 'Déšť na {count} místa trasy.',
+      other: 'Déšť na {count} místech trasy.',
     },
     // ⚠️ Čtvrtý pád, dosazuje se do „vyraž o …": o hodinu, o dvě hodiny, o pět hodin.
     delayHours: {
@@ -207,6 +207,7 @@ export default {
     observed: 'Naměřeno',
     nowcast: 'Dopočet',
     pickHint: 'Klepnutím do mapy vybereš místo.',
+    disabled: 'Mapa je vypnutá parametrem ?nomap=1 v adrese.',
     mapFailed: 'Mapu se nepodařilo načíst. Zkontroluj připojení a zkus to znovu.',
     noWebgl: 'Tenhle prohlížeč mapu nevykreslí — nemá zapnuté 3D vykreslování (WebGL).',
   },

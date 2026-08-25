@@ -205,4 +205,7 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **Co proxy propustí, to se vrátí jako cizí chyba.** Neplatný profil dopravy prošel ven
   a ORS odpověděl 404 „zdroj neodpověděl" — naše vada vypadala jako jejich výpadek.
   Katalog má proto `subPaths` jako allowlist.
+- **`?nomap=1` mapu vypne — a NAPÍŠE to do plochy mapy.** Dřív kartu mlčky
+  odstranil, takže vypnutá mapa vypadala jako rozbitá; Michal na to 25. 8. 2026
+  naletěl, protože jsem mu ten odkaz sám poslal.
 - **Layoutový test běží s `?nomap=1`** — pět rámů s vlastním MapLibre by stránku přetížilo.

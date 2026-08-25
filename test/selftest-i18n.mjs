@@ -332,14 +332,14 @@ for (const kod of Object.keys(LANG_NAMES)) {
    ============================================================ */
 
 test('🚨 množné číslo: čeština má správný tvar pro 1, 2 i 5', () => {
-  assert.equal(tp('route.rain', 1, {}, 'cs'), 'Déšť na 1 místě.');
-  assert.equal(tp('route.rain', 2, {}, 'cs'), 'Déšť na 2 místech.');
-  assert.equal(tp('route.rain', 5, {}, 'cs'), 'Déšť na 5 místech.');
+  assert.equal(tp('route.rain', 1, {}, 'cs'), 'Déšť na 1 místě trasy.');
+  assert.equal(tp('route.rain', 2, {}, 'cs'), 'Déšť na 2 místech trasy.');
+  assert.equal(tp('route.rain', 5, {}, 'cs'), 'Déšť na 5 místech trasy.');
 });
 
 test('množné číslo: angličtina má dva tvary', () => {
-  assert.equal(tp('route.rain', 1, {}, 'en'), 'Rain expected at 1 spot.');
-  assert.equal(tp('route.rain', 3, {}, 'en'), 'Rain expected at 3 spots.');
+  assert.equal(tp('route.rain', 1, {}, 'en'), 'Rain expected at 1 spot along the route.');
+  assert.equal(tp('route.rain', 3, {}, 'en'), 'Rain expected at 3 spots along the route.');
 });
 
 test('🚨 zpoždění se skloňuje: o hodinu, o dvě hodiny, o pět hodin', () => {

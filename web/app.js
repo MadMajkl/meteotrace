@@ -892,6 +892,29 @@ function renderPollen(view) {
    srážek je přesně to, kvůli čemu tahle appka vznikla.
    ============================================================ */
 
+/** Je mapa vypnutá parametrem v adrese? Používá to layoutový test. */
+function mapaVypnuta() {
+  return new URLSearchParams(location.search).get('nomap') === '1';
+}
+
+/**
+ * Napíše sdělení do plochy mapy, aniž by se kvůli tomu tahal celý MapLibre.
+ *
+ * ⚠️ Modul mapy váží skoro megabajt. Kvůli jedné větě ho stahovat nebudeme —
+ * proto se sem píše přímo, stejnou značkou, jakou používá `map.js`.
+ */
+function zpravaMistoMapy(text) {
+  const box = $('map');
+  if (!box) return;
+  let p = box.querySelector('.map-zprava');
+  if (!p) {
+    p = document.createElement('p');
+    p.className = 'map-zprava';
+    box.append(p);
+  }
+  p.textContent = text;
+}
+
 /** Přesune kartu s mapou k obrazovce, která je zrovna vidět. */
 function presunMapu() {
   const karta = document.querySelector('.map-card');
@@ -907,6 +930,8 @@ function presunMapu() {
   // 🚨 Než se trasa spočítá, není mapu z čeho postavit — a prázdný obdélník
   // vypadá jako rozbitá appka. Michal 25. 8. 2026: „mapa tam není žádná."
   // Řekne se tedy, na co se čeká.
+  if (mapaVypnuta()) { zpravaMistoMapy(t('radar.disabled', state.lang)); return; }
+
   if (state.screen === 'route' && !mapModule) {
     import('./map.js')
       .then((m) => {
@@ -942,7 +967,7 @@ function vyberZMapy(misto) {
  * střed země je pořád vymýšlení (viz `odkudSeDivam()`).
  */
 async function ukazMapuTrasy(trasaProMapu) {
-  if (new URLSearchParams(location.search).get('nomap') === '1') return;
+  if (mapaVypnuta()) return;
 
   const stred = state.route.from || state.place || state.fix;
   if (!isUsablePoint(stred)) return;
@@ -980,8 +1005,13 @@ async function showRadar(timeZone) {
   // ?nomap=1 mapu vynechá. Používá to test rozvržení: pět rámů, každý
   // s vlastním MapLibre a WebGL, by stránku přetížilo — a rozvržení se
   // na mapě stejně neměří, je to div s pevnou výškou.
-  if (new URLSearchParams(location.search).get('nomap') === '1') {
-    document.querySelector('.map-card')?.remove();
+  //
+  // 🚨 A ŘEKNE SE TO. Dřív se karta mlčky odstranila, takže appka vypadala
+  // úplně stejně jako appka s rozbitou mapou — a přesně na tom se Michal
+  // 25. 8. 2026 chytil: dostal ode mě odkaz s `?nomap=1` a hlásil „mapa tam
+  // není žádná". Vypnutá věc musí být poznat od vadné.
+  if (mapaVypnuta()) {
+    zpravaMistoMapy(t('radar.disabled', state.lang));
     return;
   }
   try {
