@@ -205,9 +205,8 @@ function renderSaved() {
       state.places = touchPlace(state.places, p.key, Date.now());
       persistPlaces();
       const misto = { name: p.name, country: p.country, lat: p.lat, lon: p.lon };
-      // Na trase je uložené místo CÍL, ne to, co si chci prohlédnout.
-      // Start se doplní z aktuální polohy — viz `trasaKMistu()`.
-      if (state.screen === 'route') trasaKMistu(misto);
+      // Na trase uložené místo VYPLŇUJE TRASU — viz `doplnDoTrasy()`.
+      if (state.screen === 'route') doplnDoTrasy(misto);
       else selectPlace(misto);
     });
     li.append(chip);
@@ -226,6 +225,44 @@ function renderSaved() {
    ⚠️ Uloží se START, CÍL A ZPŮSOB, ne spočítaná trasa. Předpověď stará týden
    je k ničemu; smysl má „tahle cesta znovu", a ta se přepočítá.
    ============================================================ */
+
+/**
+ * Kam patří uložené místo, na které jsem klepl na obrazovce trasy.
+ *
+ * 🚨 Michal 25. 8. 2026: *„zkusil jsem přidat mezibod a kliknul na druhé
+ * uložené místo a neprošlo."* Klepnutí totiž vždycky nastavovalo CÍL — takže
+ * čerstvě přidaný mezibod zůstal prázdný a místo něj se přepsalo něco jiného.
+ * Vypadalo to, že se neděje nic.
+ *
+ * Pravidlo je teď takové, jaké člověk čeká: **vyplní se pole, které čeká.**
+ *
+ *  1. prázdný mezibod (ten, co jsem právě přidal),
+ *  2. prázdný cíl,
+ *  3. jinak „jeď sem" — cíl a start z polohy.
+ *
+ * ⚠️ Co se stalo, se vždycky napíše. Tichý zápis do jednoho ze tří polí by
+ * znamenal hledat očima, co se změnilo.
+ */
+function doplnDoTrasy(misto) {
+  const prazdnyMezibod = state.route.via.findIndex((m) => !m);
+  if (prazdnyMezibod !== -1) {
+    zapisMisto(prazdnyMezibod, misto);
+    vykresliMezibody();
+    skryjVysledekTrasy();
+    poznamkaTrasy(tf('route.viaSet', { n: prazdnyMezibod + 1, name: misto.name }, state.lang));
+    return;
+  }
+
+  if (!state.route.to) {
+    state.route.to = misto;
+    $('route-to').value = misto.name;
+    skryjVysledekTrasy();
+    poznamkaTrasy(tf('route.toSet', { name: misto.name }, state.lang));
+    return;
+  }
+
+  trasaKMistu(misto);
+}
 
 /**
  * „Jeď sem" — jedno klepnutí na uložené místo na obrazovce trasy.

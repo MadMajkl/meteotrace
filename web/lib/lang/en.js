@@ -91,6 +91,8 @@ export default {
     needBoth: 'Pick a start and a destination.',
     sameSpot: 'Start and destination are the same place.',
     needStart: 'Destination set. I do not know where you are, so pick a start.',
+    viaSet: 'Stop {n}: {name}.',
+    toSet: 'Destination: {name}.',
     fromHere: 'From here to {to} — working out the weather on the way.',
     computing: 'Working out the route…',
     failed: 'The route could not be worked out.',

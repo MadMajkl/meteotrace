@@ -94,6 +94,8 @@ export default {
     needBoth: 'Vyber start i cíl.',
     sameSpot: 'Start a cíl jsou totéž místo.',
     needStart: 'Cíl je nastavený. Nevím, kde jsi, tak vyber start.',
+    viaSet: 'Mezibod {n}: {name}.',
+    toSet: 'Cíl: {name}.',
     fromHere: 'Odsud do místa {to} — počítám počasí po cestě.',
     computing: 'Počítám trasu…',
     failed: 'Trasu se nepodařilo spočítat.',
