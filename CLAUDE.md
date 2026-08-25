@@ -50,6 +50,8 @@ a vyměnitelná konfigurací**, ne přepisem.
 - **🕠 Push jen po 16:30 a jen ve všední dny** (Michalovo pravidlo z 24. 8. 2026).
   Nikdy jindy, pokud výslovně neřekne jinak. Commitovat průběžně ano — odesílat ven
   jen v tom okně.
+- **Zprávu commitu piš do souboru** (`git commit -F <soubor>`, soubor přes Write) —
+  heredoc v shellu žere zpětná lomítka a mrší diakritiku.
 - **Verzi bumpovat až úplně nakonec**, na všech místech najednou.
 - **Paritní test i18n je povinná brána** po každém zásahu do lokalizace.
 - **Headless prohlížeč ani emulátor neodhalí chyby specifické pro WebView** ani skutečný
