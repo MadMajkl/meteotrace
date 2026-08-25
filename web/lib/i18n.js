@@ -96,10 +96,57 @@ export function keyPaths(dict, prefix = '') {
   const out = [];
   for (const [key, value] of Object.entries(dict || {})) {
     const path = prefix ? `${prefix}.${key}` : key;
-    if (value && typeof value === 'object') out.push(...keyPaths(value, path));
+    // ⚠️ Tvary množného čísla se do cest NEROZBALUJÍ. Kolik jich je, určuje
+    // JAZYK: čeština má `one/few/other`, angličtina `one/other`. Kdyby se
+    // porovnávaly jako obyčejné klíče, hlásila by parita české tvary jako
+    // „klíče navíc" a nutila by psát je i tam, kde nedávají smysl.
+    // Že jsou tvary úplné, se hlídá zvlášť — viz `checkPlurals()`.
+    if (isPlural(value)) out.push(path);
+    else if (value && typeof value === 'object') out.push(...keyPaths(value, path));
     else out.push(path);
   }
   return out.sort();
+}
+
+/** Kategorie, které umí `Intl.PluralRules`. Nic jiného tvarem není. */
+const KATEGORIE = ['zero', 'one', 'two', 'few', 'many', 'other'];
+
+/** Je tahle hodnota sada tvarů množného čísla? */
+export function isPlural(value) {
+  if (!value || typeof value !== 'object') return false;
+  const klice = Object.keys(value);
+  return klice.length > 0
+    && klice.every((k) => KATEGORIE.includes(k))
+    && Object.values(value).every((v) => typeof v === 'string');
+}
+
+/**
+ * Má jazyk u každého množného čísla všechny tvary, které jeho gramatika
+ * vyžaduje?
+ *
+ * 🚨 Chybějící tvar se v UI neprojeví jako díra, ale jako ŠPATNÁ ČEŠTINA —
+ * spadne se na `other` a vyjde „na 1 místech". Přesně to Michal našel
+ * 25. 8. 2026.
+ *
+ * @returns {{lang: string, path: string, missing: string[]}[]}
+ */
+export function checkPlurals(lang) {
+  const potreba = new Intl.PluralRules(lang).resolvedOptions().pluralCategories;
+  const problemy = [];
+
+  const projdi = (node, prefix) => {
+    for (const [key, value] of Object.entries(node || {})) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (isPlural(value)) {
+        const chybi = potreba.filter((k) => !Object.prototype.hasOwnProperty.call(value, k));
+        if (chybi.length) problemy.push({ lang, path, missing: chybi });
+      } else if (value && typeof value === 'object') {
+        projdi(value, path);
+      }
+    }
+  };
+  projdi(LANGS[lang], '');
+  return problemy;
 }
 
 /**
@@ -127,4 +174,74 @@ export function checkLang(lang) {
 /** Kontrola všech jazyků najednou. */
 export function checkAllLangs() {
   return Object.keys(LANGS).filter((l) => l !== REFERENCE).map(checkLang);
+}
+
+/* ============================================================
+   MNOŽNÉ ČÍSLO
+
+   🚨 „Déšť na 1 místech" je česky špatně a v appce to bylo vidět (Michal
+   25. 8. 2026). Čeština má tři tvary tam, kde angličtina dva:
+
+       1 místo · 2–4 místa · 5 a víc míst
+
+   Dosazovat číslo do jedné věty tedy nestačí. Tvary vybírá `Intl.PluralRules`,
+   vestavěné v prohlížeči i v Node — žádná knihovna, žádná vlastní tabulka
+   pravidel pro jazyky, které teprve přibudou (`R0`).
+
+   V překladu se takový text zapíše jako objekt tvarů:
+
+       rain: { one: 'Déšť na {count} místě.', few: 'Déšť na {count} místech.',
+               other: 'Déšť na {count} místech.' }
+   ============================================================ */
+
+/** Cache pravidel — `Intl.PluralRules` není zadarmo a volá se v seznamech. */
+const PRAVIDLA = new Map();
+
+function pravidlaPro(lang) {
+  if (!PRAVIDLA.has(lang)) {
+    try {
+      PRAVIDLA.set(lang, new Intl.PluralRules(lang));
+    } catch {
+      PRAVIDLA.set(lang, new Intl.PluralRules(REFERENCE));
+    }
+  }
+  return PRAVIDLA.get(lang);
+}
+
+/**
+ * Text s množným číslem.
+ *
+ * @param {string} path   cesta ke klíči, jehož hodnota je objekt tvarů
+ * @param {number} count  počet, podle kterého se tvar vybírá
+ * @param {object} [params] další dosazované hodnoty (`{count}` se doplní sám)
+ * @param {string} [lang]
+ */
+export function tp(path, count, params = {}, lang = REFERENCE) {
+  const tvary = lookupNode(LANGS[lang], path) ?? lookupNode(LANGS[REFERENCE], path);
+
+  // Nepovinný přepis: když je hodnota obyčejný text, chová se `tp` jako `tf`.
+  // Překlad, který množné číslo nepotřebuje, tak nemusí psát tři stejné tvary.
+  if (typeof tvary === 'string') return tf(path, { count, ...params }, lang);
+  if (!tvary || typeof tvary !== 'object') return path;
+
+  const kategorie = pravidlaPro(lang).select(count);
+  // ⚠️ `other` je poslední záchrana — je povinné v každém jazyce, takže se
+  // nikdy nestane, že by se nevrátilo nic.
+  const text = tvary[kategorie] ?? tvary.other ?? tvary.one ?? path;
+  return String(text).replace(/\{(\w+)\}/g, (whole, key) => {
+    if (key === 'count') return String(count);
+    return Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : whole;
+  });
+}
+
+/** Jako `lookup`, ale vrací i objekt (tvary množného čísla). */
+function lookupNode(dict, path) {
+  if (!dict) return undefined;
+  let node = dict;
+  for (const part of String(path).split('.')) {
+    if (node == null || typeof node !== 'object') return undefined;
+    if (!Object.prototype.hasOwnProperty.call(node, part)) return undefined;
+    node = node[part];
+  }
+  return node;
 }

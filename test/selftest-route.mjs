@@ -15,7 +15,8 @@ import {
   fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList,
 } from '../web/lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, RAIN_PROBABILITY, STRONG_WIND_KMH,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice,
+  RAIN_PROBABILITY, STRONG_WIND_KMH,
 } from '../web/lib/route-view.js';
 import { METRIC } from '../web/lib/units.js';
 
@@ -420,4 +421,46 @@ test('🚨 každá varianta odjezdu si nese SVŮJ plán, ne ten první', async (
   const prijezdy = out.options.map((o) => o.plan.arrivalMs);
   assert.equal(new Set(prijezdy).size, 3, 'tři odjezdy = tři různé příjezdy');
   assert.equal(prijezdy[1] - prijezdy[0], 3600 * 1000, 'odjezd o hodinu později = příjezd o hodinu později');
+});
+
+/* ============================================================
+   RADA O POSUNUTÍ ODJEZDU
+
+   🚨 Michal 25. 8. 2026 k větě „Vyjet o 60 min později vychází líp: Po cestě
+   se nikde nečeká déšť." — má říct, ČEMU se tím vyhneš, a mluvit česky.
+   ============================================================ */
+
+test('🚨 rada řekne, čemu se vyhýbáš, a mluví po lidsku', () => {
+  const dest = { rainCount: 2, hazardCount: 0, worst: null };
+  assert.equal(
+    departureAdvice(dest, 60, 'cs'),
+    'Pokud se chceš vyhnout dešti, vyraž o hodinu později — počasí vychází líp.',
+  );
+  assert.equal(
+    departureAdvice(dest, 120, 'cs'),
+    'Pokud se chceš vyhnout dešti, vyraž o 2 hodiny později — počasí vychází líp.',
+  );
+});
+
+test('🚨 nebezpečí se pojmenuje — a NENÍ to [object Object]', () => {
+  // `summary.worst` je objekt. Dosazený rovnou do věty se vypsal jako
+  // „[object Object]", jakmile na trase byla bouřka.
+  const s = { rainCount: 3, hazardCount: 1, worst: { key: 'thunderstorm', condition: 'Bouřka' } };
+  const veta = departureAdvice(s, 180, 'cs');
+  assert.ok(!veta.includes('object'), veta);
+  assert.ok(veta.includes('(bouřka)'), veta);
+  assert.ok(veta.includes('3 hodiny'), veta);
+});
+
+test('rada u nesmyslného posunu mlčí', () => {
+  // Rada „vyraž o 0 minut později" je horší než žádná.
+  assert.equal(departureAdvice({ rainCount: 1 }, 0, 'cs'), '');
+  assert.equal(departureAdvice({ rainCount: 1 }, -60, 'cs'), '');
+});
+
+test('rada existuje i anglicky', () => {
+  assert.equal(
+    departureAdvice({ rainCount: 1, worst: null }, 60, 'en'),
+    'To stay out of the rain, leave an hour later — the weather works out better.',
+  );
 });

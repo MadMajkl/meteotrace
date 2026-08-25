@@ -8,7 +8,7 @@
 
 'use strict';
 
-import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
+import { t, tf, tp, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
@@ -21,7 +21,7 @@ import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
 } from './lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, ROUTE_FORECAST_PARAMS,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice, ROUTE_FORECAST_PARAMS,
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
@@ -904,6 +904,17 @@ function presunMapu() {
   const hint = $('map-hint');
   if (hint) hint.textContent = t(state.screen === 'route' ? 'route.pickHint' : 'radar.pickHint', state.lang);
 
+  // 🚨 Než se trasa spočítá, není mapu z čeho postavit — a prázdný obdélník
+  // vypadá jako rozbitá appka. Michal 25. 8. 2026: „mapa tam není žádná."
+  // Řekne se tedy, na co se čeká.
+  if (state.screen === 'route' && !mapModule) {
+    import('./map.js')
+      .then((m) => {
+        if (state.screen === 'route' && !mapModule) m.mapMessage(t('route.mapWaiting', state.lang));
+      })
+      .catch(() => { /* mapa se nenačetla — na trase to nic nekazí */ });
+  }
+
   // Po přesunu má karta jinou šířku; MapLibre si rozměr sám nehlídá.
   mapModule?.refreshMap?.();
 }
@@ -1346,9 +1357,9 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
   if (plan.estimated) dovetky.push(t('route.estimated', state.lang));
   if (plan.beyondForecast) dovetky.push(t('route.beyond', state.lang));
   if (view.summary.hazardCount) {
-    dovetky.push(tf('route.hazards', { count: view.summary.hazardCount }, state.lang));
+    dovetky.push(tp('route.hazards', view.summary.hazardCount, {}, state.lang));
   } else if (view.summary.rainCount) {
-    dovetky.push(tf('route.rain', { count: view.summary.rainCount }, state.lang));
+    dovetky.push(tp('route.rain', view.summary.rainCount, {}, state.lang));
   } else {
     dovetky.push(t('route.clear', state.lang));
   }
@@ -1359,12 +1370,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
   const rada = $('route-advice');
   const lepsi = srovnani.worthMoving && srovnani.best && srovnani.best.offsetMin > 0;
   rada.hidden = !lepsi;
-  if (lepsi) {
-    rada.textContent = tf('route.adviceLater', {
-      minutes: srovnani.best.offsetMin,
-      reason: srovnani.best.summary.worst || t('route.clear', state.lang),
-    }, state.lang);
-  }
+  if (lepsi) rada.textContent = departureAdvice(view.summary, srovnani.best.offsetMin, state.lang);
 
   $('route-points-card').hidden = false;
   fill($('route-points'), view.points, (p) => {

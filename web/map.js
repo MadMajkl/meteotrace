@@ -114,6 +114,15 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
   if (onPick) priVyberu = onPick;
 
   if (!map) {
+    // 🚨 PRÁZDNÝ ČERNÝ OBDÉLNÍK JE NEJHORŠÍ MOŽNÁ ODPOVĚĎ. Když se mapa
+    // nemá jak vykreslit, uživatel nemá jak poznat, jestli se načítá, jestli
+    // je vadná appka, nebo jeho prohlížeč. Musí to být napsané v tom místě,
+    // kam se dívá — Michal 25. 8. 2026: „mapa tam není žádná."
+    if (typeof maplibregl === 'undefined' || maplibregl.supported?.() === false) {
+      zpravaVMape(t('radar.noWebgl', lang));
+      return;
+    }
+
     // Protokol `pmtiles://` se musí zaregistrovat DŘÍV, než mapa vznikne —
     // jinak si o dlaždice řekne a nikdo jí neodpoví.
     if (!protokolZapsan) {
@@ -136,6 +145,16 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     // by koukal na černý obdélník bez vysvětlení. Se stropem se aspoň řekne,
     // že se mapa nepovedla.
     map.on('load', () => { styleReady = true; });
+
+    // 🚨 Když se nenačte podklad, MapLibre to řekne JEN sem. Bez tohohle
+    // posluchače zůstane po nedostupném archivu prázdná plocha a v konzoli
+    // nic — a hledá se to pak hodiny. Chyba jde do konzole i na obrazovku.
+    map.on('error', (e) => {
+      const duvod = e?.error?.message || 'neznámá chyba';
+      console.warn('[MeteoTrace] mapa:', duvod, e?.sourceId ? `(zdroj ${e.sourceId})` : '');
+      // Radar smí selhat sám o sobě — bez podkladu ale není co ukázat.
+      if (e?.sourceId && e.sourceId !== RADAR_SOURCE) zpravaVMape(t('radar.mapFailed', lang));
+    });
     await Promise.race([
       new Promise((res) => map.on('load', res)),
       new Promise((res) => setTimeout(res, MAP_LOAD_TIMEOUT_MS)),
@@ -146,8 +165,10 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     // sebe, každá s vlastním WebGL. Radar se prostě nekreslí a řekne se to.
     if (!styleReady) {
       $('radar-time').textContent = t('error.failed', lang);
+      zpravaVMape(t('radar.mapFailed', lang));
       return;
     }
+    zpravaVMape(null);
 
     znacka = new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
     $('radar-play').addEventListener('click', togglePlay);
@@ -343,6 +364,30 @@ export function showRoute(data, { fit = false } = {}) {
       new maplibregl.LngLatBounds(cara[0], cara[0]));
     map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 60, left: 40 }, duration: 600 });
   }
+}
+
+/** Sdělení místo mapy — smí ho napsat i obrazovka, viz `presunMapu()`. */
+export function mapMessage(text) {
+  zpravaVMape(text);
+}
+
+/**
+ * Sdělení místo mapy.
+ *
+ * ⚠️ Píše se DO plochy mapy, ne do pruhu pod ní. Kdo se dívá na prázdný
+ * obdélník, hledá vysvětlení v něm — ne o dva řádky níž.
+ */
+function zpravaVMape(text) {
+  const box = $('map');
+  if (!box) return;
+  let p = box.querySelector('.map-zprava');
+  if (!text) { p?.remove(); return; }
+  if (!p) {
+    p = document.createElement('p');
+    p.className = 'map-zprava';
+    box.append(p);
+  }
+  p.textContent = text;
 }
 
 /** Pod kterou vrstvu patří radar, aby nic nepřebil. */

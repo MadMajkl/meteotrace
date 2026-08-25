@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import {
-  LANGS, LANG_NAMES, REFERENCE,
+  LANGS, LANG_NAMES, REFERENCE, tp, checkPlurals,
   detectLang, t, tf, keyPaths, checkLang, checkAllLangs,
 } from '../web/lib/i18n.js';
 import {
@@ -323,3 +323,44 @@ for (const kod of Object.keys(LANG_NAMES)) {
     assert.deepEqual(dvakrat, [], `dvakrát zapsané oddíly: ${dvakrat.join(', ')}`);
   });
 }
+
+/* ============================================================
+   MNOŽNÉ ČÍSLO
+
+   🚨 „Déšť na 1 místech" bylo v appce vidět (Michal, 25. 8. 2026). Čeština
+   má tři tvary tam, kde angličtina dva — dosadit číslo do jedné věty nestačí.
+   ============================================================ */
+
+test('🚨 množné číslo: čeština má správný tvar pro 1, 2 i 5', () => {
+  assert.equal(tp('route.rain', 1, {}, 'cs'), 'Déšť na 1 místě.');
+  assert.equal(tp('route.rain', 2, {}, 'cs'), 'Déšť na 2 místech.');
+  assert.equal(tp('route.rain', 5, {}, 'cs'), 'Déšť na 5 místech.');
+});
+
+test('množné číslo: angličtina má dva tvary', () => {
+  assert.equal(tp('route.rain', 1, {}, 'en'), 'Rain expected at 1 spot.');
+  assert.equal(tp('route.rain', 3, {}, 'en'), 'Rain expected at 3 spots.');
+});
+
+test('🚨 zpoždění se skloňuje: o hodinu, o dvě hodiny, o pět hodin', () => {
+  // Do věty se to dosazuje ve čtvrtém pádě („vyraž o …"), takže tvar musí
+  // sedět i tam — jinak vyjde „vyraž o 1 hodin".
+  assert.equal(tp('route.delayHours', 1, {}, 'cs'), 'hodinu', 'česky se řekne „o hodinu", ne „o 1 hodinu"');
+  assert.equal(tp('route.delayHours', 2, {}, 'cs'), '2 hodiny');
+  assert.equal(tp('route.delayHours', 5, {}, 'cs'), '5 hodin');
+});
+
+test('množné číslo: obyčejný text projde jako dřív', () => {
+  // Překlad, který tvary nepotřebuje, je nemusí psát.
+  assert.equal(tp('route.clear', 3, {}, 'cs'), 'Po cestě se nikde nečeká déšť.');
+});
+
+test('🚨 každý jazyk má všechny tvary, které jeho gramatika vyžaduje', () => {
+  // Chybějící tvar není díra v UI, ale ŠPATNÁ ČEŠTINA: spadne se na `other`
+  // a vyjde „na 1 místech". Test to musí chytit dřív než uživatel.
+  for (const lang of Object.keys(LANG_NAMES)) {
+    const problemy = checkPlurals(lang);
+    assert.deepEqual(problemy, [],
+      problemy.map((p) => `${p.lang}: ${p.path} nemá ${p.missing.join(', ')}`).join(' · '));
+  }
+});

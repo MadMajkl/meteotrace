@@ -89,10 +89,11 @@ tohle je jen shrnutí.**
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
 | Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
+| Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**385 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**394 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 

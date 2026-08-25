@@ -92,10 +92,28 @@ export default {
     result: '{distance}, příjezd v {arrival}',
     estimated: 'Časy jsou odhadnuté — router nedal rychlostní profil.',
     beyond: 'Část trasy sahá za obzor předpovědi.',
-    hazards: 'Nebezpečné počasí na {count} místech.',
-    rain: 'Déšť na {count} místech.',
+    hazards: {
+      one: 'Nebezpečné počasí na {count} místě.',
+      few: 'Nebezpečné počasí na {count} místech.',
+      many: 'Nebezpečné počasí na {count} místa.',
+      other: 'Nebezpečné počasí na {count} místech.',
+    },
+    rain: {
+      one: 'Déšť na {count} místě.',
+      few: 'Déšť na {count} místech.',
+      many: 'Déšť na {count} místa.',
+      other: 'Déšť na {count} místech.',
+    },
+    // ⚠️ Čtvrtý pád, dosazuje se do „vyraž o …": o hodinu, o dvě hodiny, o pět hodin.
+    delayHours: {
+      one: 'hodinu', few: '{count} hodiny', many: '{count} hodiny', other: '{count} hodin',
+    },
+    delayMinutes: {
+      one: 'minutu', few: '{count} minuty', many: '{count} minuty', other: '{count} minut',
+    },
+    adviceRain: 'Pokud se chceš vyhnout dešti, vyraž o {delay} později — počasí vychází líp.',
+    adviceHazard: 'Pokud se chceš vyhnout tomu nejhoršímu ({what}), vyraž o {delay} později — počasí vychází líp.',
     clear: 'Po cestě se nikde nečeká déšť.',
-    adviceLater: 'Vyjet o {minutes} min později vychází líp: {reason}',
     adviceNow: 'Vyjet teď je stejně dobré jako později.',
     departure: 'Odjezd',
     later: '+{hours} h',
@@ -104,6 +122,7 @@ export default {
     badgeClear: 'beze srážek',
     now: 'Teď',
     pickHint: 'Klepnutím do mapy zadáš start, dalším cíl.',
+    mapWaiting: 'Mapa se ukáže, až se spočítá trasa.',
     pickedFrom: 'Start je z mapy. Teď klepni na cíl.',
     pickedTo: 'Cíl je z mapy.',
     start: 'Start',
@@ -188,6 +207,8 @@ export default {
     observed: 'Naměřeno',
     nowcast: 'Dopočet',
     pickHint: 'Klepnutím do mapy vybereš místo.',
+    mapFailed: 'Mapu se nepodařilo načíst. Zkontroluj připojení a zkus to znovu.',
+    noWebgl: 'Tenhle prohlížeč mapu nevykreslí — nemá zapnuté 3D vykreslování (WebGL).',
   },
 
   settings: {

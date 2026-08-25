@@ -17,7 +17,7 @@
 
 'use strict';
 
-import { t } from './i18n.js';
+import { t, tf, tp } from './i18n.js';
 import { formatTemp, formatWind, formatPrecip, windDirKey } from './units.js';
 import { weatherKey, weatherIcon, isHazard } from './weather-code.js';
 import { asLocationList } from './route-adapter.js';
@@ -235,4 +235,33 @@ function stavBodu(p) {
   if (p.hazard) return 'hazard';
   if (p.rain) return 'rain';
   return 'ok';
+}
+
+/**
+ * Rada o posunutí odjezdu.
+ *
+ * 🚨 Musí říct, ČEMU se tím vyhneš. Původní věta zněla „Vyjet o 60 min
+ * později vychází líp: Po cestě se nikde nečeká déšť." a byla špatně třikrát:
+ * popisovala počasí NOVÉ varianty místo toho, čemu se vyhýbáš; „60 min" nikdo
+ * neřekne, když může říct „hodinu"; a `summary.worst` je OBJEKT, takže se do
+ * věty dosazovalo „[object Object]", jakmile na trase bylo nebezpečí.
+ * (Michalova připomínka 25. 8. 2026.)
+ *
+ * @param {object} summary   souhrn PRÁVĚ ZOBRAZENÉ varianty — té, které se vyhýbáme
+ * @param {number} offsetMin o kolik později se doporučuje vyrazit
+ * @param {string} lang
+ */
+export function departureAdvice(summary, offsetMin, lang) {
+  if (!Number.isFinite(offsetMin) || offsetMin <= 0) return '';
+
+  // Celé hodiny se říkají v hodinách. „Vyraž o 120 minut později" je pravda,
+  // kterou nikdo nevysloví.
+  const delay = offsetMin % 60 === 0
+    ? tp('route.delayHours', offsetMin / 60, {}, lang)
+    : tp('route.delayMinutes', offsetMin, {}, lang);
+
+  const nejhorsi = summary?.worst?.condition;
+  return nejhorsi
+    ? tf('route.adviceHazard', { delay, what: nejhorsi.toLowerCase() }, lang)
+    : tf('route.adviceRain', { delay }, lang);
 }
