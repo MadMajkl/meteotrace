@@ -200,6 +200,9 @@ export function fromPelias(body) {
       label: p.label || '',
       country: p.country || null,
       admin1: p.region || p.macroregion || null,
+      // Obec. **Ta jediná rozliší dvě stejně pojmenované ulice** — kraj ne,
+      // ten je u „náměstí Republiky" v Horšovském Týně stejný jako v Plzni.
+      locality: p.locality || p.localadmin || null,
       // Vrstva říká, jestli je to adresa, ulice nebo sídlo — UI podle toho
       // může řadit nebo popisovat.
       layer: p.layer || null,

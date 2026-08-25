@@ -74,3 +74,38 @@ export function placeMeta(r) {
   }
   return [r?.admin1, r?.country].filter(Boolean).join(', ');
 }
+
+/**
+ * ÚPLNÁ adresa — to, co se po výběru dopíše do vyhledávacího pole.
+ *
+ * 🚨 Pole, ve kterém po výběru zůstane jen „náměstí Republiky", **mate**:
+ * takových je v republice osm a z pole se nedá poznat, které si člověk
+ * vybral. Musí tam být i obec. (Michalova připomínka 25. 8. 2026.)
+ *
+ * Zdroj adres vrací úplný popis sám; u zálohy, která zná jen sídla, se
+ * poskládá z kraje a země.
+ */
+export function placeLabel(r) {
+  const stitek = (r?.label || '').trim();
+  if (stitek) return stitek;
+  return [r?.name, r?.admin1, r?.country].filter(Boolean).join(', ');
+}
+
+/**
+ * KRÁTKÉ jméno místa — do nadpisu a mezi uložená místa.
+ *
+ * ⚠️ Úplná adresa se do nadpisu nevejde („náměstí Republiky 1, Horšovský Týn,
+ * PK, Czechia" na displeji širokém 320 px), ale samotné jméno ulice zase
+ * neříká, kde to je. Bere se tedy **jméno a obec** — kraj a země jsou
+ * v nadpisu šum.
+ *
+ * ⚠️ Obec se přidává jen tehdy, když v názvu ještě není. U měst je jméno
+ * a obec totéž a „Plzeň, Plzeň" by vypadalo jako vada.
+ */
+export function placeTitle(r) {
+  const jmeno = (r?.name || '').trim();
+  const obec = (r?.locality || '').trim();
+  if (!obec || !jmeno) return jmeno || obec;
+  if (jmeno.toLowerCase().includes(obec.toLowerCase())) return jmeno;
+  return `${jmeno}, ${obec}`;
+}

@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { stripDiacritics, searchQuery, placeMeta } from '../web/lib/geo-query.js';
+import { stripDiacritics, searchQuery, placeMeta, placeLabel, placeTitle } from '../web/lib/geo-query.js';
 
 test('🚨 česká města se posílají bez diakritiky', () => {
   // Změřeno na skutečné službě: „Plzeň" vrátí 0 nálezů, „Plzen" najde Plzeň.
@@ -80,4 +80,47 @@ test('🚨 z popisu se ustřihnou jen mezery a čárky, ne písmena', () => {
   // v písmeno „s" a z popisu „Statenice" se stane „tatenice".
   assert.equal(placeMeta({ name: 'X', label: 'Statenice, Czechia' }), 'Statenice, Czechia');
   assert.equal(placeMeta({ name: 'X', label: 'Sokolov' }), 'Sokolov');
+});
+
+/* ============================================================
+   CO ZŮSTANE V POLI A CO V NADPISU
+
+   Michal 25. 8. 2026: „když si vybereš ulici, do pole vyhledávání se musí
+   dopsat adresa kompletní vč. města, jinak je to matoucí." Ulic téhož
+   jména je osm — pole, ve kterém zůstane jen „náměstí Republiky", neříká
+   nic o tom, kterou z nich si člověk vybral.
+   ============================================================ */
+
+const ADRESA = {
+  name: 'náměstí Republiky 1',
+  label: 'náměstí Republiky 1, Horšovský Týn, PK, Czechia',
+  locality: 'Horšovský Týn',
+  admin1: 'PK',
+  country: 'Czechia',
+};
+
+test('do pole se dopíše úplná adresa i s obcí', () => {
+  assert.equal(placeLabel(ADRESA), 'náměstí Republiky 1, Horšovský Týn, PK, Czechia');
+});
+
+test('bez úplného popisu se pole poskládá z toho, co je (záloha zná jen sídla)', () => {
+  assert.equal(
+    placeLabel({ name: 'Horšovský Týn', admin1: 'Plzeňský kraj', country: 'Česko' }),
+    'Horšovský Týn, Plzeňský kraj, Česko',
+  );
+});
+
+test('🚨 do nadpisu jde jméno a OBEC, ne kraj a země', () => {
+  // Kraj dvě stejná náměstí nerozliší — v Plzni i v Horšovském Týně je PK.
+  assert.equal(placeTitle(ADRESA), 'náměstí Republiky 1, Horšovský Týn');
+});
+
+test('u města se obec nepřidává dvakrát', () => {
+  assert.equal(placeTitle({ name: 'Plzeň', locality: 'Plzeň' }), 'Plzeň');
+  assert.equal(placeTitle({ name: 'Plzeň 3', locality: 'Plzeň' }), 'Plzeň 3');
+});
+
+test('když obec chybí, zůstane samotné jméno', () => {
+  assert.equal(placeTitle({ name: 'Brno' }), 'Brno');
+  assert.equal(placeTitle({}), '');
 });

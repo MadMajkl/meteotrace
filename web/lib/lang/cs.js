@@ -19,6 +19,7 @@ export default {
   nav: {
     station: 'Místo',
     route: 'Trasa',
+    sections: 'Části appky',
     settings: 'Nastavení',
   },
 

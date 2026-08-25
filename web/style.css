@@ -614,3 +614,33 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 .r-name { display: block; font-size: 15px; }
 .r-meta { display: block; margin-top: 2px; font-size: 13px; color: var(--text-soft); }
+
+/* ── Nastavení: jazyk a jednotky ─────────────────────────────────────────
+   Ozubené kolo je vpravo v řádku se značkou — appka, která mluví cizí řečí,
+   je k nepotřebě hned, ne až se člověk někam proklikne. */
+.icon-btn.settings {
+  margin-left: auto;
+  font-size: 17px;
+  color: var(--text-soft);
+}
+
+.setting {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Popisek si vezme, co zbyde; nabídka drží svou šířku. Na úzkém displeji se
+   tak dlouhý překlad zalomí, místo aby vytlačil nabídku z obrazovky. */
+.setting label { flex: 1; min-width: 0; }
+
+.setting select {
+  flex: none; max-width: 60%;
+  padding: 8px 10px;
+  font: inherit; color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.sheet h3 { margin: 18px 0 6px; font-size: 15px; }

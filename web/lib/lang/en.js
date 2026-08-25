@@ -16,6 +16,7 @@ export default {
   nav: {
     station: 'Place',
     route: 'Route',
+    sections: 'Sections',
     settings: 'Settings',
   },
 

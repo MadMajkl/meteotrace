@@ -21,17 +21,22 @@
   <div class="brand">
     <span class="brand-mark" aria-hidden="true">◈</span>
     <span class="brand-name" data-i18n="app.name">MeteoTrace</span>
+    <!-- Jazyk a jednotky. V hlavičce, protože appka, která mluví cizí řečí,
+         je k nepotřebě hned — ne až se člověk proklikne do nastavení. -->
+    <button id="btn-settings" class="icon-btn settings" type="button"
+            data-i18n-attr="aria-label:settings.title|title:settings.title">⚙</button>
   </div>
   <form class="search" id="search-form" role="search" autocomplete="off">
-    <input id="search-input" type="search" data-i18n-attr="placeholder:search.placeholder"
-           aria-label="Search for a place">
-    <button type="button" id="btn-locate" class="icon-btn" title="My location" aria-label="My location">⌖</button>
+    <input id="search-input" type="search"
+           data-i18n-attr="placeholder:search.placeholder|aria-label:search.placeholder">
+    <button type="button" id="btn-locate" class="icon-btn"
+            data-i18n-attr="title:search.myLocation|aria-label:search.myLocation">⌖</button>
   </form>
   <ul id="search-results" class="results" hidden></ul>
 
   <!-- Přepínač obrazovek. Dvě záložky, ne schované menu: appka umí dvě věci
        a obě mají být na dosah palce. -->
-  <nav class="tabs" aria-label="Sections">
+  <nav class="tabs" data-i18n-attr="aria-label:nav.sections">
     <button id="tab-station" class="tab" type="button" aria-selected="true" data-i18n="nav.station"></button>
     <button id="tab-route" class="tab" type="button" aria-selected="false" data-i18n="nav.route"></button>
   </nav>
@@ -43,7 +48,7 @@
     <ul id="saved-list" class="chips"></ul>
     <!-- Správa je zvlášť: řádek nahoře slouží k PŘEPNUTÍ jedním klepnutím,
          přejmenování a mazání by se do něj pletlo. -->
-    <button id="btn-manage" class="icon-btn manage" type="button">⋯</button>
+    <button id="btn-manage" class="icon-btn manage" type="button" data-i18n-attr="aria-label:places.manage|title:places.manage">⋯</button>
   </nav>
 </header>
 
@@ -52,10 +57,46 @@
 <dialog id="places-dialog" class="sheet" aria-labelledby="places-dialog-title">
   <div class="sheet-head">
     <h2 id="places-dialog-title" data-i18n="places.manageTitle"></h2>
-    <button id="places-close" class="icon-btn" type="button">✕</button>
+    <button id="places-close" class="icon-btn" type="button" data-i18n-attr="aria-label:places.close|title:places.close">✕</button>
   </div>
   <p id="places-note" class="hint" hidden></p>
   <ul id="places-manage" class="manage-list"></ul>
+</dialog>
+
+<!-- Jazyk a jednotky. Jednotky jsou SAMOSTATNÁ OSA, ne součást jazyka (R10):
+     Američan mluvící česky existuje a pilot chce vítr v m/s, i když appka
+     mluví anglicky. -->
+<dialog id="settings-dialog" class="sheet" aria-labelledby="settings-dialog-title">
+  <div class="sheet-head">
+    <h2 id="settings-dialog-title" data-i18n="settings.title"></h2>
+    <button id="settings-close" class="icon-btn" type="button"
+            data-i18n-attr="aria-label:places.close|title:places.close">✕</button>
+  </div>
+
+  <div class="setting">
+    <label for="set-lang" data-i18n="settings.language"></label>
+    <select id="set-lang"></select>
+  </div>
+
+  <h3 data-i18n="settings.units"></h3>
+  <p class="hint" data-i18n="settings.unitsNote"></p>
+
+  <div class="setting">
+    <label for="set-temp" data-i18n="settings.temperature"></label>
+    <select id="set-temp"></select>
+  </div>
+  <div class="setting">
+    <label for="set-wind" data-i18n="settings.wind"></label>
+    <select id="set-wind"></select>
+  </div>
+  <div class="setting">
+    <label for="set-precip" data-i18n="settings.precipitation"></label>
+    <select id="set-precip"></select>
+  </div>
+  <div class="setting">
+    <label for="set-distance" data-i18n="settings.distance"></label>
+    <select id="set-distance"></select>
+  </div>
 </dialog>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->
@@ -110,7 +151,7 @@
     <h2 id="h-radar" data-i18n="radar.title"></h2>
     <div id="map" class="map"></div>
     <div class="radar-bar">
-      <button id="radar-play" class="icon-btn" type="button" aria-label="Play">▶</button>
+      <button id="radar-play" class="icon-btn" type="button" data-i18n-attr="aria-label:radar.play">▶</button>
       <span id="radar-time" class="radar-time"></span>
       <span id="radar-kind" class="radar-kind"></span>
     </div>

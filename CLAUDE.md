@@ -85,9 +85,10 @@ tohle je jen shrnutí.**
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
+| Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**364 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**373 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -103,8 +104,7 @@ tohle je jen shrnutí.**
 - **Start a cíl trasy klepnutím do mapy** — `map-pick.js` to umí, trasa to nevyužívá.
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
   nasazením přepnout na vlastní doménu a zúžit.
-- 🟡 Záloha hledání nemá krátkodobou paměť selhání a odpověď ze zálohy se drží 24 h
-  pod klíčem hlavního zdroje — viz R14, sekce „Co záloha NEŘEŠÍ".
+- 🟡 Nastavení nemá „O aplikaci" (klíč `settings.about` čeká na obrazovku).
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -165,6 +165,12 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
   Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **🚨 Platná výchozí hodnota umí udělat z odhadu mrtvou větev.** `state.lang = 'en'`
+  znamenalo, že podmínka `if (!state.lang || !LANG_NAMES[state.lang])` nikdy neplatila
+  a appka **nikdy nespustila odhad jazyka** — s hotovým a paritně otestovaným
+  překladem v zádech. Výchozí hodnota pro „zatím nevíme" musí být `null`, ne platná
+  odpověď. A **oprava sama nestačí**: komu se špatná hodnota stihla uložit, tomu se
+  musí zahodit, jinak opravená appka chybuje dál právě u těch, kdo si toho všimli.
 - **🚨 Heredoc v Bashi žere zpětná lomítka.** Třikrát za dva dny — naposledy při psaní
   téhle odrážky: `com\.android` se zapsalo jako `com.android` a regulární výraz
   `/^[\s,]+/` jako `/^[s,]+/` — ten by

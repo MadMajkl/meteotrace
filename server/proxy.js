@@ -31,6 +31,46 @@ function jeToPrazdneHledani(out) {
 export const UPSTREAM_TIMEOUT_S = 12;
 
 /**
+ * 🚨 KRÁTKODOBÁ PAMĚŤ SELHÁNÍ.
+ *
+ * Bez ní jde po vyčerpání kvóty KAŽDÝ další dotaz znovu nejdřív na hlavní
+ * zdroj a teprve po jeho odmítnutí na zálohu. Hledání se přitom volá při
+ * psaní, takže se to sečte do zbytečné vteřiny na každé slovo — a chová se
+ * to jako appka, která se „zadrhává".
+ *
+ * Když tedy hlavní zdroj selže a má zálohu, přeskočí se na chvíli rovnou.
+ * Pět minut je kompromis: krátký výpadek se přejde bez povšimnutí, ale
+ * obnovenou kvótu si appka všimne sama a nečeká na půlnoc.
+ */
+export const PAMET_VYPADKU_S = 5 * 60;
+
+/**
+ * 🚨 JAK DLOUHO PLATÍ ODPOVĚĎ ZE ZÁLOHY.
+ *
+ * Ukládá se pod klíčem HLAVNÍHO zdroje — jinak by se týž dotaz ptal pořád
+ * dokola. Jenže platnost hlavního zdroje bývá dlouhá (u hledání 24 hodin,
+ * města se nestěhují) a to by znamenalo, že po obnovení kvóty appka **ještě
+ * celý den nabízí horší výsledek**, přestože už umí lepší.
+ *
+ * Odpověď ze zálohy proto platí krátce. Je to náhradní řešení, ne stav.
+ */
+export const PLATNOST_ZALOHY_S = 10 * 60;
+
+/**
+ * Kdy se smí zase zkusit hlavní zdroj. Klíč je jméno služby.
+ *
+ * ⚠️ Žije to v paměti procesu, takže po restartu (a na Netlify po recyklaci
+ * instance) se paměť ztratí. To je v pořádku: nejhorší, co se stane, je jeden
+ * zbytečný dotaz navíc — nikdy ne špatná odpověď.
+ */
+const vypadky = new Map();
+
+/** Jen pro testy: zapomenout, co se kdy pokazilo. */
+export function zapomenVypadky() {
+  vypadky.clear();
+}
+
+/**
  * @param {object} req
  * @param {string} req.pathname
  * @param {Record<string,string>|URLSearchParams} [req.params]
@@ -78,24 +118,48 @@ export async function serveProxy(req, deps) {
   try {
     let body;
     let pouzity = plan;
+    const ted = (deps.now || Date.now)();
 
-    try {
-      body = await fetchUpstream(fetchImpl, plan);
-    } catch (e) {
-      // 🚨 Hlavní zdroj selhal — vyčerpaná kvóta, výpadek, chybějící klíč.
-      // Když má náhradu, zkusí se. Hledání, které přestane fungovat v půlce
-      // měsíce, je horší než hledání s horšími výsledky.
-      if (!plan.fallback) throw e;
-      log('hlavní zdroj selhal, beru zálohu', {
-        service: plan.service, zaloha: plan.fallback, chyba: e.message,
-      });
+    // Hlavní zdroj se před chvílí pokazil a má zálohu → nezdržuj se s ním.
+    // Viz `PAMET_VYPADKU_S`.
+    const prescasu = vypadky.get(plan.service) || 0;
+    const preskocit = plan.fallback && prescasu > ted;
+
+    if (preskocit) {
       const zaloha = planRequest({ ...req, pathname: API_PREFIX + plan.fallback });
-      if (!zaloha.ok) throw e;
-      pouzity = zaloha;
-      body = await fetchUpstream(fetchImpl, zaloha);
+      if (zaloha.ok) {
+        log('hlavní zdroj je od nedávna mimo, jdu rovnou na zálohu', {
+          service: plan.service, zaloha: plan.fallback, zbyvaS: Math.round((prescasu - ted) / 1000),
+        });
+        pouzity = zaloha;
+        body = await fetchUpstream(fetchImpl, zaloha);
+      }
+    }
+
+    if (pouzity === plan) {
+      try {
+        body = await fetchUpstream(fetchImpl, plan);
+        // Odpověděl → paměť selhání je neplatná. Zapomenout hned, ne čekat,
+        // až vyprší: obnovená kvóta má být znát okamžitě.
+        vypadky.delete(plan.service);
+      } catch (e) {
+        // 🚨 Hlavní zdroj selhal — vyčerpaná kvóta, výpadek, chybějící klíč.
+        // Když má náhradu, zkusí se. Hledání, které přestane fungovat v půlce
+        // měsíce, je horší než hledání s horšími výsledky.
+        if (!plan.fallback) throw e;
+        log('hlavní zdroj selhal, beru zálohu', {
+          service: plan.service, zaloha: plan.fallback, chyba: e.message,
+        });
+        const zaloha = planRequest({ ...req, pathname: API_PREFIX + plan.fallback });
+        if (!zaloha.ok) throw e;
+        vypadky.set(plan.service, ted + PAMET_VYPADKU_S * 1000);
+        pouzity = zaloha;
+        body = await fetchUpstream(fetchImpl, zaloha);
+      }
     }
 
     let out = transformBody(pouzity.service, body, params);
+    let zeZalohy = pouzity !== plan;
 
     // ⚠️ Zkusit zálohu i tehdy, když hlavní zdroj odpověděl, ale nic nenašel.
     // Podmínka `pouzity === plan` je tu proto, aby se to nezacyklilo — ze
@@ -108,6 +172,7 @@ export async function serveProxy(req, deps) {
           if (!jeToPrazdneHledani(jine)) {
             log('hlavní zdroj nic nenašel, pomohla záloha', { service: plan.service });
             out = jine;
+            zeZalohy = true;
           }
         } catch (e) {
           // Záloha taky nevyšla. Vrací se prázdno z hlavního zdroje — to je
@@ -116,9 +181,13 @@ export async function serveProxy(req, deps) {
         }
       }
     }
-    cache.set(plan.cacheKey, out, plan.ttlS);
-    log('staženo', { service: plan.service, key: plan.cacheKey });
-    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(out) };
+    // ⚠️ Odpověď ze zálohy se ukládá pod klíčem hlavního zdroje (jinak by se
+    // týž dotaz ptal pořád dokola), ale na KRATŠÍ dobu — viz `PLATNOST_ZALOHY_S`.
+    const platnostS = zeZalohy ? Math.min(plan.ttlS, PLATNOST_ZALOHY_S) : plan.ttlS;
+
+    cache.set(plan.cacheKey, out, platnostS);
+    log('staženo', { service: pouzity.service, key: plan.cacheKey, zeZalohy });
+    return { status: 200, headers: responseHeaders({ ttlS: platnostS }), body: proMisto(out) };
   } catch (e) {
     // 3) Nepovedlo se. Máme-li prošlou odpověď, je nesrovnatelně lepší než chyba —
     //    desetiminutová předpověď v autě na špatném signálu pořád poslouží.

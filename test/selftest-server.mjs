@@ -12,7 +12,9 @@ import assert from 'node:assert/strict';
 
 import { createCache } from '../web/lib/ttl-cache.js';
 import { parseApiPath, planRequest, transformBody, responseHeaders } from '../web/lib/proxy-core.js';
-import { serveProxy } from '../server/proxy.js';
+import {
+  serveProxy, zapomenVypadky, PAMET_VYPADKU_S, PLATNOST_ZALOHY_S,
+} from '../server/proxy.js';
 import { unpackAreas } from '../web/lib/orp.js';
 import { ORP_DATA } from '../web/data/orp-boundaries.js';
 
@@ -586,4 +588,96 @@ test('🚨 hledání: záloha dostane text BEZ diakritiky', async () => {
   const zaloha = f.calls.find((c) => c.url.includes('open-meteo'));
   assert.ok(zaloha.url.includes('Plzen'), zaloha.url);
   assert.ok(!zaloha.url.includes('%C4%9B'), 'žádné háčky ani v zakódované podobě');
+});
+
+/* ============================================================
+   PAMĚŤ VÝPADKU A PLATNOST ODPOVĚDI ZE ZÁLOHY
+
+   Dvě věci, které samotné přepnutí na zálohu neřešilo: appka se po
+   vyčerpání kvóty ptala pořád dokola zdroje, o kterém už věděla, že
+   neodpovídá — a odpověď ze zálohy si pak držela stejně dlouho jako
+   plnohodnotnou (u hledání 24 hodin).
+   ============================================================ */
+
+test('🚨 po selhání se hlavní zdroj chvíli přeskakuje (nezdržuje každé psaní)', async () => {
+  zapomenVypadky();
+  const clock = fakeClock();
+  const f = fakeFetch((url) => (url.includes('openrouteservice')
+    ? new Error('HTTP 429')
+    : { body: OPEN_METEO }));
+  const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
+
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV }, spolecne);
+  assert.equal(f.calls.length, 2, 'poprvé: hlavní zdroj a po něm záloha');
+
+  // Jiný dotaz, ať se netrefí do cache.
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Domažlice' }, env: ENV }, spolecne);
+  assert.equal(f.calls.length, 3, 'podruhé se rovnou volá záloha, hlavní zdroj se přeskočí');
+  assert.ok(!f.calls[2].url.includes('openrouteservice'));
+});
+
+test('paměť výpadku vyprší a hlavní zdroj dostane další šanci', async () => {
+  zapomenVypadky();
+  const clock = fakeClock();
+  let kvota = false;
+  const f = fakeFetch((url) => {
+    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    return kvota ? { body: PELIAS } : new Error('HTTP 429');
+  });
+  const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
+
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV }, spolecne);
+
+  kvota = true;                       // o půlnoci se kvóta obnovila
+  clock.advance(PAMET_VYPADKU_S + 1);
+  const res = await serveProxy({ pathname: '/api/geocode', params: { name: 'Domažlice' }, env: ENV }, spolecne);
+
+  assert.equal(res.body.results[0].name, 'náměstí Republiky 1', 'zase se ptá hlavního zdroje');
+});
+
+test('když hlavní zdroj zase odpoví, paměť výpadku se hned zahodí', async () => {
+  zapomenVypadky();
+  const clock = fakeClock();
+  let selhavej = true;
+  const f = fakeFetch((url) => {
+    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    return selhavej ? new Error('HTTP 500') : { body: PELIAS };
+  });
+  const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
+
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Praha' }, env: ENV }, spolecne);
+
+  // Výpadek pominul, ale paměť ho ještě drží. Po jejím vypršení se zdroj
+  // zkusí, uspěje — a od té chvíle se už nesmí přeskakovat.
+  selhavej = false;
+  clock.advance(PAMET_VYPADKU_S + 1);
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Brno' }, env: ENV }, spolecne);
+
+  const predtim = f.calls.length;
+  await serveProxy({ pathname: '/api/geocode', params: { name: 'Plzeň' }, env: ENV }, spolecne);
+  assert.equal(f.calls.length, predtim + 1, 'jediné volání — rovnou hlavní zdroj, žádná záloha');
+  assert.ok(f.calls[predtim].url.includes('openrouteservice'));
+});
+
+test('🚨 odpověď ze zálohy platí krátce, ne 24 hodin jako plnohodnotná', async () => {
+  zapomenVypadky();
+  const clock = fakeClock();
+  let kvota = false;
+  const f = fakeFetch((url) => {
+    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    return kvota ? { body: PELIAS } : new Error('HTTP 429');
+  });
+  const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
+  const dotaz = { pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV };
+
+  const nouzova = await serveProxy(dotaz, spolecne);
+  assert.equal(nouzova.body.results[0].name, 'Horšovský Týn', 'zatím jen obec ze zálohy');
+
+  kvota = true;
+  clock.advance(PLATNOST_ZALOHY_S + 1);          // hluboko pod 24hodinovou platností
+  zapomenVypadky();                              // paměť výpadku už vypršela taky
+
+  const pozdeji = await serveProxy(dotaz, spolecne);
+  assert.equal(pozdeji.body.results[0].name, 'náměstí Republiky 1',
+    'po obnovení kvóty se týž dotaz zeptá znovu a vrátí adresu, ne obec');
 });

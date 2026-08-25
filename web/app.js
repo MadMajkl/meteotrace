@@ -9,11 +9,11 @@
 'use strict';
 
 import { t, tf, detectLang, LANG_NAMES } from './lib/i18n.js';
-import { defaultUnits } from './lib/units.js';
+import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
-import { placeMeta } from './lib/geo-query.js';
+import { placeMeta, placeLabel, placeTitle } from './lib/geo-query.js';
 import { searchQuery } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
 import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
@@ -46,7 +46,11 @@ const STORE_KEY = 'meteotrace.v1';
 const PLACES_KEY = 'meteotrace.places.v1';
 
 const state = {
-  lang: 'en',
+  // 🚨 `null`, ne 'en'! Platná výchozí hodnota znamenala, že se odhad jazyka
+  // podle zařízení NIKDY nespustil a appka mluvila anglicky i na českém
+  // telefonu — s hotovým a otestovaným překladem v zádech.
+  lang: null,
+  langManual: '',      // co si uživatel vybral ručně; prázdné = podle zařízení
   units: null,
   place: null,          // {name, country, lat, lon}
   places: emptyStore(), // uložená místa a trasy
@@ -68,14 +72,25 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
     if (saved.place) state.place = saved.place;
     if (saved.units) state.units = saved.units;
-    if (saved.lang) state.lang = saved.lang;
+    // 🚨 Starší zápis nemá `langManual`, a jeho `lang` NENÍ volba uživatele —
+    // je to zabetonovaná angličtina z doby, kdy se odhad jazyka nikdy
+    // nespustil. Kdyby se přečetla, opravená appka by dál mluvila anglicky
+    // přesně těm lidem, kteří si toho už všimli. Takový zápis se zahazuje
+    // a jazyk se odhadne znovu.
+    if (typeof saved.langManual === 'string') {
+      state.langManual = saved.langManual;
+      if (saved.lang) state.lang = saved.lang;
+    }
   } catch { /* jede se dál s výchozím */ }
 }
 
 function save() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
-      place: state.place, units: state.units, lang: state.lang,
+      place: state.place, units: state.units,
+      // Ruční volba se ukládá zvlášť od výsledku: prázdná znamená „ptej se
+      // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
+      lang: state.langManual || null, langManual: state.langManual,
     }));
   } catch { /* nevadí */ }
 }
@@ -185,6 +200,93 @@ function renderSaved() {
    a mazání sem nepatří — proto zvlášť, v dialogu.
    ============================================================ */
 
+/* ============================================================
+   NASTAVENÍ — JAZYK A JEDNOTKY
+
+   🚨 Appka do 25. 8. 2026 mluvila jen anglicky, ačkoli češtinu měla celou
+   přeloženou a otestovanou. Odhad jazyka podle zařízení se totiž nikdy
+   nespustil: výchozí hodnota ve stavu byla `'en'`, a podmínka
+   `if (!state.lang || …)` je platný jazyk, takže odhad nepřipadal v úvahu.
+   **Správně napsaná mrtvá větev** — testy i18n přitom byly zelené, protože
+   měřily překlad, ne to, jestli se k němu appka vůbec dostane.
+
+   Odtud dvě věci: `state.lang` začíná jako `null` (= zatím nevíme) a jazyk
+   jde přepnout ručně, ať se nemusí hádat s prohlížečem.
+
+   ⚠️ Jednotky jsou samostatná osa (`R10`), ne součást jazyka. Pilot chce
+   vítr v m/s, i kdyby appka mluvila anglicky.
+   ============================================================ */
+
+/** Nabídky jednotek. Hodnota je klíč do `SYMBOL`, popisek je ten symbol. */
+const JEDNOTKY = {
+  temp: ['c', 'f'],
+  wind: ['kmh', 'ms', 'mph'],
+  precip: ['mm', 'in'],
+  distance: ['km', 'mi'],
+};
+
+function openSettings() {
+  const jazyk = $('set-lang');
+  fillOptions(jazyk, [
+    // „Podle zařízení" musí být volba, ne jen výchozí chování: kdo si jazyk
+    // jednou přepne, nemá jak se vrátit k automatice.
+    { value: '', text: t('settings.languageAuto', state.lang) },
+    ...Object.entries(LANG_NAMES).map(([kod, jmeno]) => ({ value: kod, text: jmeno })),
+  ], state.langManual || '');
+
+  for (const [osa, hodnoty] of Object.entries(JEDNOTKY)) {
+    fillOptions($(`set-${osa}`), hodnoty.map((h) => ({ value: h, text: SYMBOL[h] })),
+      state.units[osa]);
+  }
+
+  $('settings-dialog').showModal();
+}
+
+function fillOptions(select, items, selected) {
+  select.innerHTML = '';
+  for (const it of items) {
+    const o = document.createElement('option');
+    o.value = it.value;
+    o.textContent = it.text;
+    if (it.value === selected) o.selected = true;
+    select.append(o);
+  }
+}
+
+/**
+ * Přepnutí jazyka.
+ *
+ * Prázdná hodnota znamená „podle zařízení" — uloží se jako prázdná, aby si
+ * appka příště zase řekla o odhad, a ne aby zabetonovala dnešní výsledek.
+ */
+function zmenJazyk(kod) {
+  state.langManual = kod || '';
+  state.lang = kod || detectLang(navigator.languages || []);
+  save();
+  prekresliVse();
+}
+
+function zmenJednotku(osa, hodnota) {
+  state.units = { ...state.units, [osa]: hodnota };
+  save();
+  prekresliVse();
+}
+
+/**
+ * Překreslení po změně jazyka nebo jednotek.
+ *
+ * ⚠️ Nestačí přepsat texty se značkou `data-i18n`: čísla nesou jednotku
+ * a hodiny nesou jazyk, takže se data musí složit znovu. Ven se kvůli tomu
+ * nechodí — odpovědi drží klientská cache.
+ */
+function prekresliVse() {
+  applyI18n();
+  renderSaved();
+  if (state.place) loadStation();
+  if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
+}
+
+
 function openPlaces() {
   renderManage();
   $('places-dialog').showModal();
@@ -291,9 +393,14 @@ function applyI18n() {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.dataset.i18n, state.lang);
   }
+  // Několik atributů najednou se odděluje svislítkem: `title:x|aria-label:x`.
+  // Popisek pro čtečku a bublina bývají tentýž text a psát to dvakrát do
+  // dvou značek by znamenalo, že se jednou opraví jen jeden z nich.
   for (const el of document.querySelectorAll('[data-i18n-attr]')) {
-    const [attr, key] = el.dataset.i18nAttr.split(':');
-    el.setAttribute(attr, t(key, state.lang));
+    for (const pair of el.dataset.i18nAttr.split('|')) {
+      const [attr, key] = pair.split(':');
+      if (attr && key) el.setAttribute(attr, t(key, state.lang));
+    }
   }
   $('splash-text').textContent = t('search.placeholder', state.lang);
   document.title = `${t('app.name', state.lang)} — ${t('app.tagline', state.lang)}`;
@@ -358,8 +465,8 @@ function showResults(list) {
         li.append(span);
       }
       const choose = () => selectPlace({
-        name: r.name, country: r.country, lat: r.latitude, lon: r.longitude,
-      });
+        name: placeTitle(r), country: r.country, lat: r.latitude, lon: r.longitude,
+      }, placeLabel(r));
       li.addEventListener('click', choose);
       li.addEventListener('keydown', (e) => { if (e.key === 'Enter') choose(); });
       ul.append(li);
@@ -370,11 +477,18 @@ function showResults(list) {
 
 const hideResults = () => { $('search-results').hidden = true; };
 
-function selectPlace(place) {
+/**
+ * @param {object} place
+ * @param {string} [textDoPole]  co má zůstat ve vyhledávacím poli.
+ *   U výběru z nabídky je to **úplná adresa i s obcí** — prázdné pole
+ *   nebo samotné „náměstí Republiky" nutí uživatele hádat, co si vybral.
+ *   U uloženého místa a u polohy z GPS se pole čistí: tam se nic nehledalo.
+ */
+function selectPlace(place, textDoPole = '') {
   state.place = place;
   save();
   hideResults();
-  $('search-input').value = '';
+  $('search-input').value = textDoPole;
   $('search-input').blur();
   renderSaved();
   loadStation();
@@ -731,8 +845,12 @@ function pripojVyber(inputId, resultsId, kam) {
       ]);
       btn.type = 'button';
       btn.addEventListener('click', () => {
-        state.route[kam] = { name: r.name, country: r.country, lat: r.latitude, lon: r.longitude };
-        input.value = r.name;
+        // 🚨 V poli zůstává ÚPLNÁ adresa i s obcí — „náměstí Republiky" samo
+        // o sobě nerozliší osm měst, ve kterých takové náměstí je.
+        state.route[kam] = {
+          name: placeTitle(r), country: r.country, lat: r.latitude, lon: r.longitude,
+        };
+        input.value = placeLabel(r);
         skryj();
       });
       li.append(btn);
@@ -987,6 +1105,12 @@ function init() {
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
   $('btn-manage').addEventListener('click', openPlaces);
+  $('btn-settings').addEventListener('click', openSettings);
+  $('settings-close').addEventListener('click', () => $('settings-dialog').close());
+  $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));
+  for (const osa of Object.keys(JEDNOTKY)) {
+    $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
+  }
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
   $('route-go').addEventListener('click', loadRoute);
