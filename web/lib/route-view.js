@@ -265,3 +265,42 @@ export function departureAdvice(summary, offsetMin, lang) {
     ? tf('route.adviceHazard', { delay, what: nejhorsi.toLowerCase() }, lang)
     : tf('route.adviceRain', { delay }, lang);
 }
+
+/**
+ * Úseky trasy pro výpis: odkud kam, kolik kilometrů a v kolik tam budeš.
+ *
+ * ⚠️ ČISTÁ FUNKCE — formátování si dodá volající, protože jednotky a časové
+ * pásmo zná obrazovka.
+ *
+ * 🚨 Když jedu přes zastávky, celkových „97 km" je málo. Zajímá mě, kolik je
+ * to k té první a v kolik tam budu — Michal 25. 8. 2026: *„proč to neukazuje
+ * vzdálenost mezi úseky a celkem?"*
+ *
+ * ⚠️ Čas příjezdu do zastávky je součet trvání VŠECH úseků před ní. Počítat
+ * ho z podílu celkové vzdálenosti by u dálnice a města vyšlo o desítky minut
+ * vedle — proto se sčítají trvání, ne kilometry.
+ *
+ * @param {Array<{from: object, to: object, distanceM: number, durationS: number}>} useky
+ * @param {number} departureMs  čas odjezdu
+ * @returns {{rows: Array, totalDistanceM: number, arrivalMs: number}|null}
+ */
+export function legRows(useky, departureMs) {
+  const platne = (useky || []).filter((u) => u && u.from && u.to);
+  if (platne.length < 2) return null;   // jeden úsek = obyčejná trasa, rozpis nic nepřidá
+
+  let ujeto = 0;
+  let cas = Number(departureMs) || 0;
+
+  const rows = platne.map((u) => {
+    ujeto += Number(u.distanceM) || 0;
+    cas += (Number(u.durationS) || 0) * 1000;
+    return {
+      from: u.from.name,
+      to: u.to.name,
+      distanceM: Number(u.distanceM) || 0,
+      arrivalMs: cas,
+    };
+  });
+
+  return { rows, totalDistanceM: ujeto, arrivalMs: cas };
+}

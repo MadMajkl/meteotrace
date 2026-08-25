@@ -90,6 +90,7 @@ export default {
     straightNote: 'Přímá čára po kouli. Nevyhýbá se pevnině — pro let a volnou vodu dobrá, pro plavbu u břehu ne.',
     compute: 'Ukázat počasí',
     summary: 'Souhrn trasy',
+    total: 'Celkem',
     alongTheWay: 'Po cestě',
     needBoth: 'Vyber start i cíl.',
     sameSpot: 'Start a cíl jsou totéž místo.',

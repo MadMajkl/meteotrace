@@ -88,6 +88,7 @@ tohle je jen shrnutí.**
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | „Jeď sem" | na trase klepnutí na uložené místo nastaví cíl + start z polohy a rovnou počítá |
 | Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
+| Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
 | Pojmenování míst a tras | Domov, Práce, Babička — přepsáním jména v dialogu ⋯; u tras `renameRoute()` |
@@ -99,7 +100,7 @@ tohle je jen shrnutí.**
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**407 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**411 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 

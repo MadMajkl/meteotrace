@@ -757,3 +757,17 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   color: var(--accent); background: none; border: 0; cursor: pointer;
 }
 .link-btn:hover { text-decoration: underline; }
+
+/* Rozpis úseků trasy. Jen u cesty se zastávkami — u A→B by opakoval souhrn. */
+.legs { list-style: none; margin: 10px 0 0; padding: 0; }
+.leg {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  padding: 7px 0;
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+}
+.leg-kam { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leg-km, .leg-cas { font-variant-numeric: tabular-nums; color: var(--text-soft); }
+/* Součet drží pohromadě s rozpisem, ale je poznat na první pohled. */
+.leg-soucet { font-weight: 600; }
+.leg-soucet .leg-km, .leg-soucet .leg-cas { color: var(--text); }

@@ -21,7 +21,8 @@ import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs, spojUseky,
 } from './lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, departureAdvice, ROUTE_FORECAST_PARAMS,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows,
+  ROUTE_FORECAST_PARAMS,
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
@@ -1630,6 +1631,12 @@ async function loadRoute() {
       // ⚠️ Chybějící úsek NELZE přeskočit. Trasa bez něj by vedla jinudy,
       // než uživatel zadal, a nic by na to neupozornilo.
       if (!usek) { poznamkaTrasy(t('route.failed', state.lang)); return; }
+      // Popis úseku pro výpis: odkud kam a kolik to je. Bez toho by se dalo
+      // ukázat jen „celkem 97 km", což u cesty přes zastávky nestačí.
+      usek.from = a;
+      usek.to = b;
+      usek.distanceM = usek.totalDistanceM;
+      usek.durationS = usek.totalDurationS;
       useky.push(usek);
     }
 
@@ -1658,7 +1665,7 @@ async function loadRoute() {
     });
 
     poznamkaTrasy(null);
-    vykresliTrasu({ view, plan, trasa, srovnani, mista });
+    vykresliTrasu({ view, plan, trasa, srovnani, mista, useky });
   } catch (e) {
     if (requests.isAbort(e)) return;
     poznamkaTrasy(`${t('route.failed', state.lang)} ${e.message}`);
@@ -1677,6 +1684,35 @@ async function loadRoute() {
    **Ani jeden dotaz navíc, žádné čekání.** Proto se varianty počítají rovnou
    při výpočtu trasy a přepínač je jen ukazuje.
    ============================================================ */
+
+/**
+ * Rozpis úseků pod souhrnem. Ukazuje se jen u trasy se zastávkami — u cesty
+ * z A do B by jen zopakoval, co je o řádek výš.
+ */
+function vykresliUseky(useky, odjezdMs, pasmo) {
+  const box = $('route-legs');
+  const data = legRows(useky, odjezdMs);
+  box.hidden = !data;
+  if (!data) return;
+
+  box.innerHTML = '';
+  for (const r of data.rows) {
+    box.append(el('li', 'leg', [
+      el('span', 'leg-kam', `${r.from} → ${r.to}`),
+      el('span', 'leg-km', formatDistance(r.distanceM, state.units, state.lang)),
+      el('span', 'leg-cas', formatClock(r.arrivalMs, pasmo, state.lang)),
+    ]));
+  }
+
+  // ⚠️ Součet se vypisuje i tady, přestože je v souhrnu nad tím: v rozpisu
+  // jsou čísla pod sebou a oko je sečíst zkusí. Když to nesedí, člověk hledá
+  // chybu — a když sedí, je to potvrzení.
+  box.append(el('li', 'leg leg-soucet', [
+    el('span', 'leg-kam', t('route.total', state.lang)),
+    el('span', 'leg-km', formatDistance(data.totalDistanceM, state.units, state.lang)),
+    el('span', 'leg-cas', formatClock(data.arrivalMs, pasmo, state.lang)),
+  ]));
+}
 
 /** Krátký odznak k variantě: co na té cestě čeká. */
 function odznakVarianty(summary) {
@@ -1732,16 +1768,20 @@ function prepniOdjezd(posun) {
     trasa: r.trasa,
     srovnani: r.srovnani,
     mista: [{ timezone: r.pasmo }],
+    useky: r.useky,
   });
 }
 
 
-function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
+function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   const pasmo = mista[0]?.timezone || 'UTC';
 
   // Výsledek se drží celý, ať jde přepnout odjezd bez jediného dotazu ven.
   // Varianty jsou spočítané už teď — viz `vykresliOdjezdy()`.
-  state.routeResult = { view, plan, trasa, srovnani, pasmo, posun: view.offsetMin || 0 };
+  state.routeResult = {
+    view, plan, trasa, srovnani, pasmo, useky: useky || state.routeResult?.useky,
+    posun: view.offsetMin || 0,
+  };
   vykresliOdjezdy();
 
   $('route-summary-card').hidden = false;
@@ -1772,6 +1812,8 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
   const lepsi = srovnani.worthMoving && srovnani.best && srovnani.best.offsetMin > 0;
   rada.hidden = !lepsi;
   if (lepsi) rada.textContent = departureAdvice(view.summary, srovnani.best.offsetMin, state.lang);
+
+  vykresliUseky(useky, view.departureMs || Date.now(), pasmo);
 
   $('route-points-card').hidden = false;
   fill($('route-points'), view.points, (p) => {

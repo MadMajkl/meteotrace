@@ -87,6 +87,7 @@ export default {
     straightNote: 'Straight line over the globe. It does not avoid land — fine for flying and open water, not for sailing near a coast.',
     compute: 'Show the weather',
     summary: 'Route summary',
+    total: 'Total',
     alongTheWay: 'Along the way',
     needBoth: 'Pick a start and a destination.',
     sameSpot: 'Start and destination are the same place.',

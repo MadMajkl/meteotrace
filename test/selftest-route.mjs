@@ -15,7 +15,7 @@ import {
   fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList, spojUseky,
 } from '../web/lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, departureAdvice,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows,
   RAIN_PROBABILITY, STRONG_WIND_KMH,
 } from '../web/lib/route-view.js';
 import { METRIC } from '../web/lib/units.js';
@@ -519,4 +519,49 @@ test('🚨 když jeden úsek chybí, trasa se NESLEPÍ z toho, co zbylo', () => 
   // a nic by na to neupozornilo. Volající pozná chybu podle počtu úseků.
   const casti = [USEK_A, null, USEK_B];
   assert.equal(casti.some((c) => !c), true, 'volající tohle musí zachytit dřív');
+});
+
+/* ============================================================
+   ROZPIS ÚSEKŮ
+
+   Michal 25. 8. 2026: „proč to neukazuje vzdálenost mezi úseky a celkem?"
+   U cesty přes zastávky je celkových 97 km málo — zajímá mě, kolik je to
+   k té první a v kolik tam budu.
+   ============================================================ */
+
+const ZASTAVKY = [
+  { from: { name: 'Plzeň' }, to: { name: 'Domažlice' }, distanceM: 52000, durationS: 3000 },
+  { from: { name: 'Domažlice' }, to: { name: 'Klatovy' }, distanceM: 45000, durationS: 2400 },
+];
+
+test('rozpis sčítá kilometry i časy postupně', () => {
+  const out = legRows(ZASTAVKY, T0);
+  assert.equal(out.rows.length, 2);
+  assert.equal(out.rows[0].distanceM, 52000);
+  assert.equal(out.rows[0].arrivalMs, T0 + 3000 * 1000);
+  assert.equal(out.rows[1].arrivalMs, T0 + 5400 * 1000, 'druhá zastávka = součet obou trvání');
+  assert.equal(out.totalDistanceM, 97000);
+  assert.equal(out.arrivalMs, out.rows[1].arrivalMs, 'konec trasy je příjezd do poslední zastávky');
+});
+
+test('🚨 čas se počítá z TRVÁNÍ, ne z podílu kilometrů', () => {
+  // Dálnice a město mají jiný poměr času k délce. Podíl by u prvního úseku
+  // vyšel o desítky minut vedle.
+  const nerovne = [
+    { from: { name: 'A' }, to: { name: 'B' }, distanceM: 10000, durationS: 1800 },  // město
+    { from: { name: 'B' }, to: { name: 'C' }, distanceM: 90000, durationS: 3000 },  // dálnice
+  ];
+  const out = legRows(nerovne, T0);
+  assert.equal(out.rows[0].arrivalMs, T0 + 1800 * 1000, 'krátký úsek trvá dlouho — a musí to být vidět');
+});
+
+test('u cesty z A do B se rozpis neukazuje', () => {
+  // Jeden řádek by jen zopakoval souhrn nad ním.
+  assert.equal(legRows([ZASTAVKY[0]], T0), null);
+  assert.equal(legRows([], T0), null);
+  assert.equal(legRows(null, T0), null);
+});
+
+test('rozbitý úsek rozpis neshodí', () => {
+  assert.equal(legRows([ZASTAVKY[0], null, ZASTAVKY[1]], T0).rows.length, 2);
 });
