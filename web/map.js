@@ -51,8 +51,34 @@ const WARN_COLORS = {
   unknown: '#6b7a8c',
 };
 
+const ROUTE_SOURCE = 'trasa';
+const ROUTE_CASING = 'trasa-obrys';
+const ROUTE_LINE = 'trasa-cara';
+const ROUTE_POINTS = 'trasa-body';
+
+/**
+ * Barvy bodů trasy. Odpovídají tomu, jak se body chovají ve výpisu pod mapou:
+ * co je tam zvýrazněné jako nebezpečné, musí být zvýrazněné i tady — jinak
+ * by mapa a seznam vyprávěly každý něco jiného.
+ */
+const ROUTE_COLORS = {
+  hazard: '#b3261e',    // bouřka, náledí, silný vítr
+  rain: '#1a7fd4',      // pravděpodobný déšť
+  ok: '#2f7d4f',
+  unknown: '#6b7a8c',   // za obzorem předpovědi
+};
+
+/**
+ * Pořadí překryvů odspodu nahoru. Radar se vkládá POD ten nejnižší z nich,
+ * protože se zakládá znovu při každém snímku animace a jinak by po vteřině
+ * přebil všechno, co je nad ním.
+ */
+const PREKRYVY = [WARN_FILL, WARN_LINE, ROUTE_CASING, ROUTE_LINE, ROUTE_POINTS];
+
 let map = null;
 let protokolZapsan = false;
+/** Poslední vykreslená trasa — po přebarvení mapy se kreslí znovu. */
+let trasaData = null;
 /** Špendlík vybraného místa. Vzniká jednou a pak se PŘESOUVÁ, viz níže. */
 let znacka = null;
 /** Co se má stát, když si uživatel vybere místo klepnutím do mapy. */
@@ -168,6 +194,10 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       map.once('styledata', () => {
         drawFrame();
         showWarningArea(vystrahaGeo, vystrahaTrida);
+        // Trasa musí přežít přebarvení stejně jako výstraha — bez tohohle
+        // by po přepnutí na tmavý režim zmizela a vypadalo by to, že se
+        // přepočítala do prázdna.
+        showRoute(trasaData, { fit: false });
       });
     });
 
@@ -223,6 +253,92 @@ export function showWarningArea(geometrie, trida = 'unknown') {
   });
 }
 
+/**
+ * Trasa v mapě — čára a body, ve kterých se počítá počasí.
+ *
+ * ⚠️ KRESLÍ SE NAD RADAR. Pod ním by ji srážky překryly zrovna tehdy, kdy je
+ * to nejzajímavější — tedy když nad trasou prší. Platí to i pro obrys výstrahy;
+ * pořadí drží `PREKRYVY`.
+ *
+ * 🚨 Čára má dvě vrstvy: světlý „obrys" a nad ním barevnou linku. Bez obrysu
+ * trasa mizí přes tmavý les i přes zelené pole silného deště — a mapa má být
+ * čitelná právě v tom počasí, kvůli kterému se do ní člověk dívá.
+ *
+ * @param {{line: Array<[number, number]>, points: Array<object>}|null} data
+ *   `line` jsou body trasy jako [šířka, délka]; `points` nesou navíc `stav`
+ *   (`hazard` | `rain` | `ok` | `unknown`) a `popis` do bubliny.
+ * @param {object} [opts]
+ * @param {boolean} [opts.fit]  srovnat pohled na celou trasu (jen u nové trasy —
+ *   jinak by se uživateli sebral pohled, který si sám nastavil)
+ */
+export function showRoute(data, { fit = false } = {}) {
+  trasaData = data && data.line?.length >= 2 ? data : null;
+  if (!map || !styleReady) return;
+
+  for (const id of [ROUTE_POINTS, ROUTE_LINE, ROUTE_CASING]) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  if (map.getSource(ROUTE_SOURCE)) map.removeSource(ROUTE_SOURCE);
+  if (map.getSource(`${ROUTE_SOURCE}-body`)) map.removeSource(`${ROUTE_SOURCE}-body`);
+  if (!trasaData) return;
+
+  const cara = trasaData.line.map(([la, lo]) => [lo, la]);   // GeoJSON má [délka, šířka]
+  map.addSource(ROUTE_SOURCE, {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: cara }, properties: {} },
+  });
+  map.addSource(`${ROUTE_SOURCE}-body`, {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: (trasaData.points || []).map((p) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+        properties: { barva: ROUTE_COLORS[p.stav] || ROUTE_COLORS.unknown, popis: p.popis || '' },
+      })),
+    },
+  });
+
+  map.addLayer({
+    id: ROUTE_CASING, type: 'line', source: ROUTE_SOURCE,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.85 },
+  });
+  map.addLayer({
+    id: ROUTE_LINE, type: 'line', source: ROUTE_SOURCE,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#1a3d6b', 'line-width': 3.5 },
+  });
+  map.addLayer({
+    id: ROUTE_POINTS, type: 'circle', source: `${ROUTE_SOURCE}-body`,
+    paint: {
+      'circle-radius': 6,
+      'circle-color': ['get', 'barva'],
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+    },
+  });
+
+  if (fit) {
+    // Okraje jsou nesymetrické schválně: dole sedí ovládání radaru.
+    const b = cara.reduce((acc, c) => acc.extend(c),
+      new maplibregl.LngLatBounds(cara[0], cara[0]));
+    map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 60, left: 40 }, duration: 600 });
+  }
+}
+
+/** Pod kterou vrstvu patří radar, aby nic nepřebil. */
+function podCimJeRadar() {
+  const vrstvy = map.getStyle?.()?.layers || [];
+  for (const v of vrstvy) if (PREKRYVY.includes(v.id)) return v.id;
+  return undefined;
+}
+
+/** Po přesunu karty mezi obrazovkami má mapa jinou plochu. */
+export function refreshMap() {
+  if (map) map.resize();
+}
+
 async function loadFrames() {
   try {
     const { data } = await apiGet('radar');
@@ -271,7 +387,7 @@ function drawFrame() {
   map.addLayer({
     id: RADAR_LAYER, type: 'raster', source: RADAR_SOURCE,
     paint: { 'raster-opacity': 0.75 },
-  }, map.getLayer(WARN_FILL) ? WARN_FILL : undefined);
+  }, podCimJeRadar());
 
   const label = frameLabel(frame, timeZone, lang);
   $('radar-time').textContent = label.time;

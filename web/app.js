@@ -20,12 +20,15 @@ import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
 import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs,
 } from './lib/route-adapter.js';
-import { buildRouteView, compareDepartures, ROUTE_FORECAST_PARAMS } from './lib/route-view.js';
+import {
+  buildRouteView, compareDepartures, routeMapData, ROUTE_FORECAST_PARAMS,
+} from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
-  findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME,
+  saveRoute, forgetRoute, touchRoute, routeKey,
+  findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME, MAX_ROUTES,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
@@ -33,6 +36,9 @@ let mapModule = null;
 
 const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
+
+/** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
+const VERZE = '0.0.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -195,6 +201,126 @@ function renderSaved() {
 }
 
 /* ============================================================
+   ULOŽENÉ TRASY
+
+   `R8` je má v jádru vedle uložených míst: *„bez uložených míst a tras je to
+   jednorázová hračka."* Rozhodování (shoda, sloučení, přetečení) je hotové
+   a otestované v `lib/places.js` — tady zbývá jen sáhnout do úložiště
+   a přemalovat řádek.
+
+   ⚠️ Uloží se START, CÍL A ZPŮSOB, ne spočítaná trasa. Předpověď stará týden
+   je k ničemu; smysl má „tahle cesta znovu", a ta se přepočítá.
+   ============================================================ */
+
+/** Hvězdička u souhrnu trasy: uložit / odebrat. */
+function toggleSaveRoute() {
+  const { from, to, profil } = state.route;
+  if (!from || !to) return;
+
+  const existing = najdiUlozenouTrasu();
+  if (existing) {
+    state.places = forgetRoute(state.places, existing.key);
+  } else {
+    const res = saveRoute(state.places, { from, to, profile: profil }, Date.now());
+    state.places = res.store;
+    if (res.full) notice(t('routes.full', state.lang));
+  }
+  persistPlaces();
+  renderRoutes();
+}
+
+/** Je zrovna rozdělaná trasa mezi uloženými? */
+function najdiUlozenouTrasu() {
+  const { from, to, profil } = state.route;
+  if (!from || !to) return null;
+  const klic = routeKey({ from, to, profile: profil });
+  return state.places.routes.find((r) => r.key === klic) || null;
+}
+
+function renderRoutes() {
+  const list = state.places.routes;
+  $('saved-routes').hidden = list.length === 0;
+
+  const current = najdiUlozenouTrasu();
+  const btn = $('btn-save-route');
+  // Hvězdička dává smysl, jen když je co uložit — tedy až je start i cíl.
+  btn.disabled = !state.route.from || !state.route.to || state.places.readOnly;
+  btn.querySelector('.star-icon').textContent = current ? '★' : '☆';
+  btn.querySelector('.star-text').textContent = current
+    ? t('routes.savedShort', state.lang)
+    : t('routes.saveShort', state.lang);
+  btn.setAttribute('aria-pressed', String(!!current));
+  const popis = current ? t('routes.remove', state.lang) : t('routes.save', state.lang);
+  btn.title = popis;
+  btn.setAttribute('aria-label', popis);
+
+  fill($('saved-routes-list'), list, (r) => {
+    const li = document.createElement('li');
+    const chip = el('button', 'chip', r.name);
+    chip.type = 'button';
+    if (current && current.key === r.key) chip.setAttribute('aria-current', 'true');
+    chip.addEventListener('click', () => pouzijTrasu(r));
+    li.append(chip);
+    return li;
+  });
+}
+
+/**
+ * Uložená trasa jedním klepnutím.
+ *
+ * ⚠️ Přepočítá se hned. Uložená cesta je otázka „jaké je počasí na téhle
+ * cestě TEĎ" — ukázat k ní starý výsledek by byl přesně ten druh tichého
+ * nesmyslu, kterému se tu vyhýbáme.
+ */
+function pouzijTrasu(r) {
+  state.route.from = r.from;
+  state.route.to = r.to;
+  state.route.profil = r.profile;
+  $('route-from').value = r.from.name;
+  $('route-to').value = r.to.name;
+  state.places = touchRoute(state.places, r.key, Date.now());
+  persistPlaces();
+  vykresliZpusoby();
+  renderRoutes();
+  prepniObrazovku('route');
+  loadRoute();
+}
+
+/** Seznam tras pro správu v dialogu. */
+function renderManageRoutes() {
+  const list = state.places.routes;
+  const note = $('routes-note');
+
+  // Tři různé stavy, které se nesmí splést — stejně jako u míst.
+  if (state.places.readOnly) note.textContent = t('places.readOnly', state.lang);
+  else if (!list.length) note.textContent = t('routes.empty', state.lang);
+  else note.textContent = tf('routes.count', { count: list.length, max: MAX_ROUTES }, state.lang);
+  note.hidden = false;
+
+  fill($('routes-manage'), list, (r) => {
+    const li = document.createElement('li');
+    li.className = 'manage-row';
+    li.append(el('span', 'manage-name-static', r.name));
+
+    const del = el('button', 'icon-btn', '🗑');
+    del.type = 'button';
+    del.disabled = state.places.readOnly;
+    del.title = t('routes.remove', state.lang);
+    del.setAttribute('aria-label', `${t('routes.remove', state.lang)}: ${r.name}`);
+    del.addEventListener('click', () => {
+      state.places = forgetRoute(state.places, r.key);
+      persistPlaces();
+      renderManageRoutes();
+      renderRoutes();
+      notice(tf('routes.removed', { name: r.name }, state.lang));
+    });
+    li.append(del);
+    return li;
+  });
+}
+
+
+/* ============================================================
    SPRÁVA ULOŽENÝCH MÍST
 
    Řádek v hlavičce slouží k PŘEPNUTÍ jedním klepnutím. Přejmenování
@@ -240,6 +366,7 @@ function openSettings() {
       state.units[osa]);
   }
 
+  $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
 }
 
@@ -290,6 +417,7 @@ function prekresliVse() {
 
 function openPlaces() {
   renderManage();
+  renderManageRoutes();
   $('places-dialog').showModal();
 }
 
@@ -753,6 +881,86 @@ function renderPollen(view) {
   });
 }
 
+/* ============================================================
+   MAPA NA OBRAZOVCE TRASY
+
+   ⚠️ Mapa je JEDNA a mezi obrazovkami se PŘESOUVÁ. Druhá instance MapLibre
+   by znamenala druhý WebGL kontext, druhý megabajt v paměti a druhé stahování
+   dlaždic — na telefonu daň, kterou nic neospravedlňuje (`R0`).
+
+   Vedlejší zisk: na trase je tím pádem i radar. Vidět čáru trasy přes pole
+   srážek je přesně to, kvůli čemu tahle appka vznikla.
+   ============================================================ */
+
+/** Přesune kartu s mapou k obrazovce, která je zrovna vidět. */
+function presunMapu() {
+  const karta = document.querySelector('.map-card');
+  if (!karta) return;                      // ?nomap=1 — kartu jsme odstranili
+  const cil = state.screen === 'route' ? $('route-map-slot') : $('station-map-slot');
+  if (karta.parentElement !== cil) cil.append(karta);
+
+  // Klepnutí do mapy dělá na každé obrazovce něco jiného, takže to musí
+  // říkat i nápověda pod ní. Tichá změna významu je horší než žádná.
+  const hint = $('map-hint');
+  if (hint) hint.textContent = t(state.screen === 'route' ? 'route.pickHint' : 'radar.pickHint', state.lang);
+
+  // Po přesunu má karta jinou šířku; MapLibre si rozměr sám nehlídá.
+  mapModule?.refreshMap?.();
+}
+
+/**
+ * Výběr místa klepnutím do mapy. Co se s ním stane, závisí na obrazovce:
+ * na meteostanici je to nové místo, na trase start nebo cíl.
+ */
+function vyberZMapy(misto) {
+  if (state.screen !== 'route') { selectPlace(misto); return; }
+
+  // Prázdné pole se plní zleva doprava; když jsou obě plná, přepisuje se cíl.
+  // Je to nejčastější případ: start bývá „odsud" a mění se, kam se letí.
+  const kam = !state.route.from ? 'from' : 'to';
+  state.route[kam] = misto;
+  $(kam === 'from' ? 'route-from' : 'route-to').value = misto.name;
+  poznamkaTrasy(t(kam === 'from' ? 'route.pickedFrom' : 'route.pickedTo', state.lang));
+}
+
+/**
+ * Mapa pro obrazovku trasy.
+ *
+ * ⚠️ Když ještě není co ukázat, mapa se na trase VŮBEC neobjeví. Prázdná mapa
+ * někde uprostřed republiky by tvrdila „tady jsi", což není pravda — a vymyslet
+ * střed země je pořád vymýšlení (viz `odkudSeDivam()`).
+ */
+async function ukazMapuTrasy(trasaProMapu) {
+  if (new URLSearchParams(location.search).get('nomap') === '1') return;
+
+  const stred = state.route.from || state.place || state.fix;
+  if (!isUsablePoint(stred)) return;
+
+  try {
+    mapModule ??= await import('./map.js');
+    await mapModule.showMap({
+      lat: stred.lat, lon: stred.lon, lang: state.lang,
+      timeZone: state.routeTimeZone || 'UTC',
+      onPick: vyberZMapy,
+      // Na trase se pohled nepřenastavuje na jeden bod — od toho je `fitBounds`
+      // v `showRoute()`, který ukáže celou cestu.
+      keepView: true,
+    });
+    presunMapu();
+    mapModule.showRoute(trasaProMapu || null, { fit: !!trasaProMapu });
+  } catch (e) {
+    console.warn('[MeteoTrace] mapa trasy se nenačetla:', e.message);
+  }
+}
+
+/** Trasa pro mapu. Rozhodování je v `route-view.js`, tady zbývá formát času. */
+function trasaProMapu(view, trasa, pasmo) {
+  return routeMapData(view, trasa.points, (p) => [
+    formatClock(p.etaMs, pasmo, state.lang), p.condition, p.temp,
+  ].filter(Boolean).join(" · "));
+}
+
+
 /**
  * Mapa s radarem. Načte se až teď, ne při startu appky.
  * Selhání mapy nesmí shodit zbytek obrazovky — počasí je důležitější.
@@ -771,12 +979,16 @@ async function showRadar(timeZone) {
       lat: state.place.lat, lon: state.place.lon, lang: state.lang, timeZone,
       // Klepnutí do mapy vybere místo. Projde touž cestou jako výsledek
       // hledání, takže se o něj postará i hvězdička a uložená místa.
-      onPick: (misto) => selectPlace(misto),
+      onPick: vyberZMapy,
       keepView: state.place.fromMap === true,
     });
     // I když výstraha není, musí se zavolat — jinak by po přepnutí místa
     // zůstal na mapě viset obrys toho předchozího.
+    presunMapu();
     mapModule.showWarningArea(state.warningArea?.geometrie || null, state.warningArea?.trida);
+    // Trasa na meteostanici nepatří — jinak by na mapě zůstala viset čára
+    // k místu, které si uživatel právě přestal prohlížet.
+    mapModule.showRoute(null);
   } catch (e) {
     console.warn('[MeteoTrace] mapa se nenačetla:', e.message);
   }
@@ -869,6 +1081,7 @@ function prepniObrazovku(kam) {
   for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route']]) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
+  presunMapu();
 }
 
 /**
@@ -1044,6 +1257,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
   const pasmo = mista[0]?.timezone || 'UTC';
 
   $('route-summary-card').hidden = false;
+  renderRoutes();
   $('route-summary').textContent = tf('route.result', {
     distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
     arrival: formatClock(plan.arrivalMs, pasmo, state.lang),
@@ -1097,6 +1311,10 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista }) {
     li.append(cas, ikona, el('span', 'rp-text', [popis, km]), teplota);
     return li;
   });
+
+  // A totéž do mapy: čára trasy a body obarvené podle toho, co v nich čeká.
+  state.routeTimeZone = pasmo;
+  ukazMapuTrasy(trasaProMapu(view, trasa, pasmo));
 }
 
 /* ---------- drobné pomůcky nad DOM ---------- */
@@ -1172,6 +1390,7 @@ function init() {
 
   applyI18n();
   renderSaved();
+  renderRoutes();
 
   // Poloha na pozadí — jen když už je povolená. Nikdo se kvůli řazení
   // nabídky neptá; viz `tichaPoloha()`.
@@ -1199,6 +1418,7 @@ function init() {
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
   $('route-go').addEventListener('click', loadRoute);
+  $('btn-save-route').addEventListener('click', toggleSaveRoute);
   $('route-swap').addEventListener('click', () => {
     // Prohození musí přehodit i text v polích, ne jen data — jinak by pole
     // ukazovala něco jiného, než co se spočítá.

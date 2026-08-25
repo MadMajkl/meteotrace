@@ -187,3 +187,49 @@ export const ROUTE_FORECAST_PARAMS = {
   timezone: 'auto',
   forecast_days: '3',
 };
+
+/**
+ * Trasa pro mapu — čára a body i s tím, co se v nich čeká.
+ *
+ * ⚠️ ČISTÁ FUNKCE. Mapa z ní dostane hotová data; formátování času si dodá
+ * volající (`popisek`), protože časové pásmo a jazyk zná obrazovka.
+ *
+ * 🚨 Barvu bodu určuje TÝŽ příznak, který zvýrazňuje řádek ve výpisu pod
+ * mapou. Kdyby si mapa počítala vlastní, mohla by tvrdit něco jiného než
+ * seznam kousek pod ní — a uživatel by nevěděl, čemu věřit.
+ *
+ * @param {{points: Array}} view          výsledek {@link buildRouteView}
+ * @param {Array<[number, number]>} line  body trasy jako [šířka, délka]
+ * @param {(p: object) => string} popisek text do bubliny nad bodem
+ * @returns {{line: Array, points: Array}|null}  `null`, když není co kreslit
+ */
+export function routeMapData(view, line, popisek = () => '') {
+  const cara = Array.isArray(line) ? line.filter(
+    (b) => Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1]),
+  ) : [];
+  // Jeden bod není trasa. Kreslit „čáru" o nulové délce by na mapě udělalo
+  // tečku, kterou si nikdo nespojí s cestou.
+  if (cara.length < 2) return null;
+
+  const points = (view?.points || [])
+    .filter((p) => Array.isArray(p.point) && Number.isFinite(p.point[0]))
+    .map((p) => ({
+      lat: p.point[0],
+      lon: p.point[1],
+      stav: stavBodu(p),
+      popis: popisek(p),
+    }));
+
+  return { line: cara, points };
+}
+
+/**
+ * Jak na tom bod je. Pořadí podmínek je pořadí důležitosti: nebezpečí přebíjí
+ * déšť a „nevíme" se nikdy netváří jako „v pořádku".
+ */
+function stavBodu(p) {
+  if (!p.known) return 'unknown';
+  if (p.hazard) return 'hazard';
+  if (p.rain) return 'rain';
+  return 'ok';
+}

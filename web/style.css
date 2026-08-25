@@ -649,3 +649,6 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
    Není to místo, tak se ani nesmí tvářit jako klikací řádek. */
 .results .empty { padding: 10px 14px; font-size: 13px; color: var(--text-soft); cursor: default; }
 .results .empty:hover { background: none; }
+
+/* Jméno uložené trasy se needituje — appka si ho drží sama („Praha → Brno"). */
+.manage-name-static { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

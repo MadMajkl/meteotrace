@@ -54,6 +54,19 @@ export default {
     count: 'Využito {count} z {max} míst',
   },
 
+  routes: {
+    saved: 'Uložené trasy',
+    save: 'Uložit tuhle trasu',
+    saveShort: 'Uložit',
+    savedShort: 'Uloženo',
+    remove: 'Odebrat tuhle trasu',
+    empty: 'Zatím žádná uložená trasa.',
+    count: 'Využito {count} z {max} tras.',
+    removed: 'Odebráno: {name}.',
+    full: 'Seznam tras je plný — vypadla nejméně používaná.',
+    title: 'Trasy',
+  },
+
   route: {
     title: 'Počasí na trase',
     from: 'Odkud',
@@ -86,6 +99,9 @@ export default {
     adviceNow: 'Vyjet teď je stejně dobré jako později.',
     departure: 'Odjezd',
     now: 'Teď',
+    pickHint: 'Klepnutím do mapy zadáš start, dalším cíl.',
+    pickedFrom: 'Start je z mapy. Teď klepni na cíl.',
+    pickedTo: 'Cíl je z mapy.',
     start: 'Start',
     finish: 'Cíl',
   },
@@ -140,18 +156,6 @@ export default {
     w: 'Z', wnw: 'ZSZ', nw: 'SZ', nnw: 'SSZ',
   },
 
-  warnings: {
-    title: 'Výstrahy',
-    none: 'Žádné výstrahy neplatí.',
-    severity: {
-      Minor: 'Nízká',
-      Moderate: 'Střední',
-      Severe: 'Vysoká',
-      Extreme: 'Extrémní',
-      Unknown: 'Neznámá',
-    },
-    until: 'do {time}',
-  },
 
   pollen: {
     title: 'Pyl',
@@ -193,6 +197,8 @@ export default {
     precipitation: 'Srážky',
     distance: 'Vzdálenost',
     about: 'O aplikaci',
+    version: 'MeteoTrace {version}',
+    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer. Výstrahy: ČHMÚ přes MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
 
   warnings: {

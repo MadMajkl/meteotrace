@@ -61,6 +61,12 @@
   </div>
   <p id="places-note" class="hint" hidden></p>
   <ul id="places-manage" class="manage-list"></ul>
+
+  <!-- Trasy ve stejném dialogu jako místa: je to jedno „co mám uložené".
+       Přejmenovat je nejdou — jméno „Praha → Brno" si appka drží sama. -->
+  <h3 data-i18n="routes.title"></h3>
+  <p id="routes-note" class="hint" hidden></p>
+  <ul id="routes-manage" class="manage-list"></ul>
 </dialog>
 
 <!-- Jazyk a jednotky. Jednotky jsou SAMOSTATNÁ OSA, ne součást jazyka (R10):
@@ -97,6 +103,12 @@
     <label for="set-distance" data-i18n="settings.distance"></label>
     <select id="set-distance"></select>
   </div>
+
+  <!-- ⚠️ Uvedení zdrojů není zdvořilost, ale podmínka licence: podklad mapy
+       stojí na datech OpenStreetMap (ODbL) a ta se musí přiznat. -->
+  <h3 data-i18n="settings.about"></h3>
+  <p class="hint" id="about-version"></p>
+  <p class="hint" data-i18n="settings.sources"></p>
 </dialog>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->
@@ -147,6 +159,9 @@
     <ul class="warnings" id="warnings-list"></ul>
   </section>
 
+  <!-- Přípojné místo mapy. Táž mapa slouží meteostanici i trase; druhá
+       instance MapLibre by na telefonu byla zbytečná daň (R0). -->
+  <div id="station-map-slot">
   <section class="card map-card" aria-labelledby="h-radar">
     <h2 id="h-radar" data-i18n="radar.title"></h2>
     <div id="map" class="map"></div>
@@ -157,8 +172,9 @@
     </div>
     <!-- Bez tohohle by o výběru klepnutím nikdo nevěděl: mapa nevypadá
          jako něco, do čeho se dá ukázat. -->
-    <p class="hint map-hint" data-i18n="radar.pickHint"></p>
+    <p class="hint map-hint" id="map-hint" data-i18n="radar.pickHint"></p>
   </section>
+  </div>
 
   <section class="card" aria-labelledby="h-hourly">
     <h2 id="h-hourly" data-i18n="forecast.hourly"></h2>
@@ -181,6 +197,12 @@
 </main>
 
 <main id="route" hidden>
+
+  <!-- Uložené trasy. Stejná logika jako u míst: jedno klepnutí = použít. -->
+  <nav id="saved-routes" class="saved" hidden aria-labelledby="saved-routes-title">
+    <h2 id="saved-routes-title" class="sr-only" data-i18n="routes.saved"></h2>
+    <ul id="saved-routes-list" class="chips"></ul>
+  </nav>
 
   <section class="card" aria-labelledby="h-route-form">
     <h2 id="h-route-form" data-i18n="route.title"></h2>
@@ -222,9 +244,18 @@
 
   <section class="card" id="route-summary-card" hidden aria-labelledby="h-route-summary">
     <h2 id="h-route-summary" class="sr-only" data-i18n="route.summary"></h2>
-    <p id="route-summary" class="route-summary"></p>
+    <div class="place-row">
+      <p id="route-summary" class="route-summary"></p>
+      <button id="btn-save-route" class="star" type="button" aria-pressed="false">
+        <span class="star-icon" aria-hidden="true">☆</span>
+        <span class="star-text"></span>
+      </button>
+    </div>
     <p id="route-advice" class="route-advice" hidden></p>
   </section>
+
+  <!-- Sem se mapa přesune, když je otevřená trasa. -->
+  <div id="route-map-slot"></div>
 
   <section class="card" id="route-points-card" hidden aria-labelledby="h-route-points">
     <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>

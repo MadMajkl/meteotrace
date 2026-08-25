@@ -85,10 +85,13 @@ tohle je jen shrnutí.**
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
+| Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
+| Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
+| Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**377 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**384 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -99,12 +102,13 @@ tohle je jen shrnutí.**
 
 ### Co zbývá do v1
 
-- **Trasa se nekreslí do mapy** — obrazovka ji vypisuje, mapa o ní neví.
-- **Uložené trasy** (`saveRoute` v `places.js`) nejsou napojené na UI.
-- **Start a cíl trasy klepnutím do mapy** — `map-pick.js` to umí, trasa to nevyužívá.
+**Rozsah `R8` je hotový.** Zbývají věci kolem vydání:
+
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
-  nasazením přepnout na vlastní doménu a zúžit.
-- 🟡 Nastavení nemá „O aplikaci" (klíč `settings.about` čeká na obrazovku).
+  nasazením přepnout na vlastní doménu a zúžit. **Chce Michalovu ruku v Cloudflare.**
+- 🟡 Ostrá doména v `BuildConfig.API_BASE` — vydané APK teď míří na vývojový počítač.
+- 🟡 Verze je pořád `0.0.1` (`VERZE` v `app.js`, `package.json`, Gradle) — bumpnout
+  až úplně nakonec, na všech místech najednou.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -165,6 +169,12 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
   Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **🚨 Dvakrát zapsaný oddíl v překladu je tichá ztráta.** Objekt v JS bere poslední
+  zápis a první zahodí; `warnings` byl v obou jazycích dvakrát, takže půlka byla mrtvá.
+  **Paritní test to nemohl chytit** — porovnává až načtené objekty. Hlídá to teď
+  kontrola nad zdrojovým textem.
+- **🚨 Vrstva nad radarem musí být v `PREKRYVY`.** Radar se zakládá znovu při každém
+  snímku a vkládá se pod nejnižší z nich; co v seznamu není, po vteřině zmizí samo.
 - **🚨 NULOVÝ OSTROV: `0, 0` není poloha, ale „nevím".** Vrací ho prohlížeč bez
   lokalizační služby, rozbitý přijímač i prázdný formulář — a `Number.isFinite(0)`
   je `true`, takže projde jako platný bod. Hledání se pak řadilo podle vzdálenosti

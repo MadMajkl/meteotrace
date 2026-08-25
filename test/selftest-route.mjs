@@ -15,7 +15,7 @@ import {
   fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList,
 } from '../web/lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, RAIN_PROBABILITY, STRONG_WIND_KMH,
+  buildRouteView, compareDepartures, routeMapData, RAIN_PROBABILITY, STRONG_WIND_KMH,
 } from '../web/lib/route-view.js';
 import { METRIC } from '../web/lib/units.js';
 
@@ -345,4 +345,60 @@ test('🚨 nadmořská výška se bere z odpovědi a NULA JE PLATNÁ', () => {
   assert.equal(view.points[0].elevationM, 0, 'hladina moře je údaj, ne prázdno');
   assert.equal(view.points[1].elevationM, 594);
   assert.equal(view.points[2].elevationM, null, 'chybějící výška NENÍ nula');
+});
+
+/* ============================================================
+   TRASA PRO MAPU
+
+   Mapa a seznam pod ní musí tvrdit totéž. Barvu bodu proto určuje týž
+   příznak, který zvýrazňuje řádek ve výpisu — a testuje se to tady,
+   protože v mapě samotné to nikdo nezměří.
+   ============================================================ */
+
+const CARA = [[50.08, 14.42], [49.75, 15.0], [49.2, 16.6]];
+
+const VIEW = {
+  points: [
+    { point: [50.08, 14.42], known: true, hazard: false, rain: false, etaMs: 1, condition: 'Jasno', temp: '21 °C' },
+    { point: [49.75, 15.0], known: true, hazard: false, rain: true, etaMs: 2, condition: 'Déšť', temp: '17 °C' },
+    { point: [49.2, 16.6], known: true, hazard: true, rain: true, etaMs: 3, condition: 'Bouřka', temp: '19 °C' },
+    { point: [48.9, 17.2], known: false, hazard: false, rain: false, etaMs: 4 },
+  ],
+};
+
+test('čára projde v pořadí [šířka, délka] a body dostanou stav', () => {
+  const out = routeMapData(VIEW, CARA);
+  assert.deepEqual(out.line, CARA);
+  assert.deepEqual(out.points.map((p) => p.stav), ['ok', 'rain', 'hazard', 'unknown']);
+  assert.equal(out.points[0].lat, 50.08);
+  assert.equal(out.points[0].lon, 14.42);
+});
+
+test('🚨 nebezpečí přebíjí déšť — a „nevíme" se netváří jako „v pořádku"', () => {
+  // Bod s bouřkou má i vysokou pravděpodobnost srážek; kdyby vyhrál déšť,
+  // byl by na mapě modrý a člověk by bouřku podle barvy přehlédl.
+  const out = routeMapData(VIEW, CARA);
+  assert.equal(out.points[2].stav, 'hazard');
+  assert.equal(out.points[3].stav, 'unknown');
+});
+
+test('popisek si dodá volající (čas zná obrazovka, ne modul)', () => {
+  const out = routeMapData(VIEW, CARA, (p) => `${p.etaMs}: ${p.condition}`);
+  assert.equal(out.points[1].popis, '2: Déšť');
+});
+
+test('jeden bod není trasa', () => {
+  // Tečka na mapě by se nedala odlišit od špendlíku vybraného místa.
+  assert.equal(routeMapData(VIEW, [[50, 14]]), null);
+  assert.equal(routeMapData(VIEW, []), null);
+  assert.equal(routeMapData(VIEW, null), null);
+});
+
+test('nesmyslné souřadnice se do mapy neposílají', () => {
+  const out = routeMapData(
+    { points: [{ point: [50, 14], known: true }, { point: ['x', 14], known: true }] },
+    [[50, 14], [49, 15], [null, 3]],
+  );
+  assert.equal(out.line.length, 2, 'bod bez souřadnic se z čáry vyhodí');
+  assert.equal(out.points.length, 1);
 });

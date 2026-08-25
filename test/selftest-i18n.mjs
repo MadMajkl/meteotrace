@@ -10,6 +10,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   LANGS, LANG_NAMES, REFERENCE,
@@ -291,3 +292,34 @@ test('kódy: seznam klíčů pro paritní test je úplný', () => {
     assert.ok(WEATHER_KEYS.includes(key), `${key} chybí ve WEATHER_KEYS`);
   }
 });
+
+/* ============================================================
+   🚨 DVAKRÁT ZAPSANÝ ODDÍL
+
+   Objekt v JS bere poslední zápis a ten první tiše zahodí. Do 25. 8. 2026
+   byl v obou jazycích oddíl `warnings` DVAKRÁT: první nesl klíče závažnosti
+   s velkými písmeny („Minor"), druhý s malými — a kód používal ty malé.
+   Půlka překladu tedy byla mrtvá a paritní test si toho nemohl všimnout,
+   protože po načtení modulu už první zápis neexistuje.
+
+   Kontroluje se proto ZDROJOVÝ TEXT, ne načtený objekt.
+   ============================================================ */
+
+const KORENOVY_KLIC = /^ {2}([a-zA-Z][\w$]*): \{/;
+
+for (const kod of Object.keys(LANG_NAMES)) {
+  test(`🚨 ${kod}.js nemá žádný oddíl zapsaný dvakrát`, async () => {
+    const cesta = new URL(`../web/lib/lang/${kod}.js`, import.meta.url);
+    const zdroj = await readFile(cesta, 'utf8');
+
+    const videne = new Map();
+    const dvakrat = [];
+    for (const [i, radek] of zdroj.split(/\r?\n/).entries()) {
+      const m = radek.match(KORENOVY_KLIC);
+      if (!m) continue;
+      if (videne.has(m[1])) dvakrat.push(`${m[1]} (řádky ${videne.get(m[1])} a ${i + 1})`);
+      else videne.set(m[1], i + 1);
+    }
+    assert.deepEqual(dvakrat, [], `dvakrát zapsané oddíly: ${dvakrat.join(', ')}`);
+  });
+}

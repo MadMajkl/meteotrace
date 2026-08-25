@@ -51,6 +51,19 @@ export default {
     count: '{count} of {max} places used',
   },
 
+  routes: {
+    saved: 'Saved routes',
+    save: 'Save this route',
+    saveShort: 'Save',
+    savedShort: 'Saved',
+    remove: 'Remove this route',
+    empty: 'No routes saved yet.',
+    count: '{count} of {max} routes used.',
+    removed: 'Removed {name}.',
+    full: 'Route list is full — the least used one was dropped.',
+    title: 'Routes',
+  },
+
   route: {
     title: 'Weather along your route',
     from: 'From',
@@ -83,6 +96,9 @@ export default {
     adviceNow: 'Leaving now is as good as later.',
     departure: 'Departure',
     now: 'Now',
+    pickHint: 'Tap the map to set the start, then the destination.',
+    pickedFrom: 'Start set from the map. Now pick the destination.',
+    pickedTo: 'Destination set from the map.',
     start: 'Start',
     finish: 'Destination',
   },
@@ -139,19 +155,6 @@ export default {
     w: 'W', wnw: 'WNW', nw: 'NW', nnw: 'NNW',
   },
 
-  warnings: {
-    title: 'Warnings',
-    none: 'No warnings in effect.',
-    severity: {
-      Minor: 'Minor',
-      Moderate: 'Moderate',
-      Severe: 'Severe',
-      Extreme: 'Extreme',
-      Unknown: 'Unknown',
-    },
-    until: 'until {time}',
-  },
-
   pollen: {
     title: 'Pollen',
     alder: 'Alder',
@@ -192,6 +195,8 @@ export default {
     precipitation: 'Precipitation',
     distance: 'Distance',
     about: 'About',
+    version: 'MeteoTrace {version}',
+    sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer. Warnings: ČHMÚ via MeteoAlarm. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
   },
 
   warnings: {
