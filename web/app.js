@@ -14,7 +14,7 @@ import { apiGet, createRequestGroup } from './lib/api.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
-import { searchQuery } from './lib/geo-query.js';
+import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
 import { sampleRoute, planRoute, departureOptions } from './lib/eta.js';
 import {
@@ -1217,6 +1217,23 @@ function prepniObrazovku(kam) {
  * a vlastní zrušení. Kdyby sdílelo `requests.run('search')` s hlavním polem,
  * psaní do jednoho pole by rušilo dotaz druhého.
  */
+/**
+ * Uložená místa do nabídky v polích trasy.
+ *
+ * ⚠️ Hledá se v JEDNOM jméně — tom, které místu dal uživatel. „Domov" nemá
+ * s obcí nic společného a hledat ho podle původního názvu by znamenalo, že
+ * si vlastní pojmenování nenajde.
+ *
+ * ⚠️ Bez diakritiky, ať „prace" najde „Práci" — psaní na telefonu bez háčků
+ * je běžnější než s nimi.
+ */
+function ulozenaProNabidku(dotaz) {
+  const q = stripDiacritics(String(dotaz || '').trim().toLowerCase());
+  const vse = state.places.places;
+  if (!q) return vse.slice(0, 5);
+  return vse.filter((p) => stripDiacritics(p.name.toLowerCase()).includes(q)).slice(0, 5);
+}
+
 function pripojVyber(inputId, resultsId, kam) {
   const input = $(inputId);
   const results = $(resultsId);
@@ -1224,32 +1241,52 @@ function pripojVyber(inputId, resultsId, kam) {
 
   const skryj = () => { results.hidden = true; results.innerHTML = ''; };
 
+  // 🚨 Uložená místa patří i sem. Kdo si uloží „Domov" a „Práci", nechce je
+  // při každé trase znovu vypisovat — a hledat vlastní domov přes geokodér
+  // je absurdní. Prázdné pole proto rovnou nabídne, co má člověk uložené.
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) {
+      const ulozena = ulozenaProNabidku('');
+      if (ulozena.length) ukazVysledky([], ulozena);
+    }
+  });
+
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const q = input.value.trim();
     // Vybrané místo přestává platit ve chvíli, kdy uživatel začne psát něco
     // jiného. Jinak by tlačítko počítalo trasu do místa, které už není v poli.
     state.route[kam] = null;
-    if (q.length < 2) { skryj(); return; }
+    // Uložená místa se ukazují hned — nečeká se na síť ani na dvě písmena.
+    const ulozena = ulozenaProNabidku(q);
+    if (q.length < 2) {
+      if (ulozena.length) ukazVysledky([], ulozena);
+      else skryj();
+      return;
+    }
+    ukazVysledky([], ulozena);
     timer = setTimeout(async () => {
       try {
         const { data } = await requests.run(`search-${kam}`, (signal) =>
           apiGet('geocode', { name: q, count: 8, language: state.lang, ...odkudSeDivam() }, { signal }));
-        ukazVysledky(data?.results || []);
+        ukazVysledky(data?.results || [], ulozenaProNabidku(q));
       } catch (e) {
-        if (!requests.isAbort(e)) ukazVysledky([]);
+        if (!requests.isAbort(e)) ukazVysledky([], ulozenaProNabidku(q));
       }
     }, 280);
   });
 
   input.addEventListener('blur', () => setTimeout(skryj, 150));
 
-  function ukazVysledky(list) {
+  function ukazVysledky(list, ulozena = []) {
     results.hidden = false;
     // Poslední řádek je sdělení, ne místo: buď „nic jsme nenašli", nebo
     // „nevím, kde jsi, tak to neumím seřadit". Obojí je stav, který by jinak
     // vypadal jako obyčejná nabídka. Viz `odkudSeDivam()`.
-    const radky = list.length ? [...list] : [{ zprava: t('search.noResults', state.lang) }];
+    // Uložená místa jdou první: jsou to jistoty, ne návrhy.
+    const radky = ulozena.map((m) => ({ ulozene: m }));
+    if (list.length) radky.push(...list);
+    else if (!ulozena.length) radky.push({ zprava: t('search.noResults', state.lang) });
     if (list.length && !znamePolohu()) radky.push({ zprava: t('search.noFocus', state.lang) });
 
     fill(results, radky, (r) => {
@@ -1259,11 +1296,25 @@ function pripojVyber(inputId, resultsId, kam) {
         li.textContent = r.zprava;
         return li;
       }
+      // Uložené místo se pozná hvězdičkou — ať je jasné, proč je nahoře
+      // a proč u něj není adresa z geokodéru.
+      const ulozene = r.ulozene;
       const btn = el('button', '', [
-        el('span', 'r-name', r.name),
-        el('span', 'r-meta', placeMeta(r)),
+        el('span', 'r-name', ulozene ? `★ ${ulozene.name}` : r.name),
+        el('span', 'r-meta', ulozene ? t('places.saved', state.lang) : placeMeta(r)),
       ]);
       btn.type = 'button';
+      if (ulozene) {
+        btn.addEventListener('click', () => {
+          state.route[kam] = {
+            name: ulozene.name, country: ulozene.country, lat: ulozene.lat, lon: ulozene.lon,
+          };
+          input.value = ulozene.name;
+          skryj();
+        });
+        li.append(btn);
+        return li;
+      }
       btn.addEventListener('click', () => {
         // 🚨 V poli zůstává ÚPLNÁ adresa i s obcí — „náměstí Republiky" samo
         // o sobě nerozliší osm měst, ve kterých takové náměstí je.

@@ -86,6 +86,7 @@ tohle je jen shrnutí.**
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
+| Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
 | Pojmenování míst a tras | Domov, Práce, Babička — přepsáním jména v dialogu ⋯; u tras `renameRoute()` |
 | Uložené trasy (R8) | hvězdička u souhrnu, lišta nad formulářem, mazání v dialogu |
@@ -182,6 +183,10 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   zápis a první zahodí; `warnings` byl v obou jazycích dvakrát, takže půlka byla mrtvá.
   **Paritní test to nemohl chytit** — porovnává až načtené objekty. Hlídá to teď
   kontrola nad zdrojovým textem.
+- **🚨 Když se něco „napůl" povede, hledej výjimku uprostřed.** `showRoute()` padalo
+  na chybějící deklaraci hned po nakreslení čáry: čára byla vidět, přiblížení na trasu
+  ne — a výjimku spolkl `catch`, který ji jen zapsal do konzole. Vypadalo to jako vada
+  výpočtu výřezu.
 - **🚨 Vrstva nad radarem musí být v `PREKRYVY`.** Radar se zakládá znovu při každém
   snímku a vkládá se pod nejnižší z nich; co v seznamu není, po vteřině zmizí samo.
 - **🚨 NULOVÝ OSTROV: `0, 0` není poloha, ale „nevím".** Vrací ho prohlížeč bez

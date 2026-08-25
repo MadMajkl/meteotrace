@@ -79,6 +79,16 @@ let map = null;
 let protokolZapsan = false;
 /** Poslední vykreslená trasa — po přebarvení mapy se kreslí znovu. */
 let trasaData = null;
+/**
+ * Obsluha bubliny se zapojuje JEDNOU; vrstva bodů se překresluje pořád.
+ *
+ * 🚨 Tenhle řádek 25. 8. 2026 chyběl a `showRoute()` padalo na
+ * `bublinaZapojena is not defined` hned po nakreslení čáry. Čára se objevila,
+ * ale přiblížení na trasu už ne — a vypadalo to jako vada výpočtu výřezu,
+ * ne jako chybějící deklarace. **Chyba se přitom ztrácela v `catch`**, který
+ * ji jen zapsal do konzole.
+ */
+let bublinaZapojena = false;
 /** Špendlík vybraného místa. Vzniká jednou a pak se PŘESOUVÁ, viz níže. */
 let znacka = null;
 /** Co se má stát, když si uživatel vybere místo klepnutím do mapy. */
@@ -379,12 +389,36 @@ export function showRoute(data, { fit = false } = {}) {
     bublinaZapojena = true;
   }
 
-  if (fit) {
-    // Okraje jsou nesymetrické schválně: dole sedí ovládání radaru.
-    const b = cara.reduce((acc, c) => acc.extend(c),
-      new maplibregl.LngLatBounds(cara[0], cara[0]));
-    map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 60, left: 40 }, duration: 600 });
-  }
+  if (fit) srovnejNaTrasu(cara);
+}
+
+/**
+ * Přiblížení na celou trasu, ať zabere co nejvíc plochy.
+ *
+ * 🚨 NEJDŘÍV `resize()`. Karta s mapou se mezi obrazovkami PŘESOUVÁ, takže
+ * v okamžiku výpočtu má MapLibre ještě rozměry z předchozího místa — a spočítá
+ * přiblížení pro jinak velké okno. Na snímku z 25. 8. 2026 z toho byla trasa
+ * Plzeň → Klatovy jako proužek uprostřed poloviny Čech. Pozorovatel velikosti
+ * to sice srovná, ale až v dalším snímku, tedy po `fitBounds()`.
+ *
+ * ⚠️ Okraje jsou nesymetrické schválně: dole sedí ovládání radaru a nahoře
+ * tlačítka přiblížení. A jsou malé — cílem je trasu maximalizovat, ne ji
+ * uctivě orámovat.
+ *
+ * ⚠️ `maxZoom` je tu proti krátké trase: bez něj by cesta přes dvě ulice
+ * skončila na přiblížení, kde není vidět nic než ty dvě ulice.
+ */
+function srovnejNaTrasu(cara) {
+  map.resize();
+
+  const b = cara.reduce((acc, c) => acc.extend(c),
+    new maplibregl.LngLatBounds(cara[0], cara[0]));
+
+  map.fitBounds(b, {
+    padding: { top: 34, right: 24, bottom: 44, left: 24 },
+    maxZoom: 13,
+    duration: 600,
+  });
 }
 
 /** Sdělení místo mapy — smí ho napsat i obrazovka, viz `presunMapu()`. */
@@ -416,6 +450,25 @@ function podCimJeRadar() {
   const vrstvy = map.getStyle?.()?.layers || [];
   for (const v of vrstvy) if (PREKRYVY.includes(v.id)) return v.id;
   return undefined;
+}
+
+/**
+ * Diagnostika: co mapa právě ukazuje.
+ *
+ * Bez tohohle se přiblížení ladí naslepo — z obrázku se nepozná, jestli je
+ * vada ve výpočtu výřezu, nebo v rozměrech plátna.
+ */
+export function mapState() {
+  if (!map) return null;
+  const c = map.getCenter();
+  return {
+    zoom: Number(map.getZoom().toFixed(2)),
+    stred: [Number(c.lat.toFixed(4)), Number(c.lng.toFixed(4))],
+    sirka: map.getCanvas().clientWidth,
+    vyska: map.getCanvas().clientHeight,
+    maTrasu: !!map.getLayer(ROUTE_LINE),
+    vyrez: (() => { const bb = map.getBounds(); return { jih: +bb.getSouth().toFixed(4), sever: +bb.getNorth().toFixed(4), zapad: +bb.getWest().toFixed(4), vychod: +bb.getEast().toFixed(4) }; })(),
+  };
 }
 
 /** Po přesunu karty mezi obrazovkami má mapa jinou plochu. */
