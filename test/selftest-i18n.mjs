@@ -352,7 +352,7 @@ test('🚨 zpoždění se skloňuje: o hodinu, o dvě hodiny, o pět hodin', () 
 
 test('množné číslo: obyčejný text projde jako dřív', () => {
   // Překlad, který tvary nepotřebuje, je nemusí psát.
-  assert.equal(tp('route.clear', 3, {}, 'cs'), 'Po cestě se nikde nečeká déšť.');
+  assert.equal(tp('route.clear', 3, {}, 'cs'), 'Po cestě neočekáváme déšť.');
 });
 
 test('🚨 každý jazyk má všechny tvary, které jeho gramatika vyžaduje', () => {
