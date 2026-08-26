@@ -1836,6 +1836,9 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   const posledni = view.points[view.points.length - 1];
   const hlaska = routeQuip({
     hazard: view.summary.hazardCount > 0,
+    // 🚨 Jev se musí pojmenovat — vtip, ze kterého se nedozvíš, co hrozí,
+    // je jen vtip. Bere se ten nejzávažnější po trase.
+    hazardWhat: view.summary.worst?.condition || '',
     rainCount: view.summary.rainCount,
     windKmh: Math.max(0, ...view.points.map((p) => p.windKmh || 0)),
     tempC: posledni?.tempC ?? null,

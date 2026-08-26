@@ -88,7 +88,7 @@ tohle je jen shrnutí.**
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | „Jeď sem" | na trase klepnutí na uložené místo nastaví cíl + start z polohy a rovnou počítá |
 | Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
-| Hlášky k trase | `web/lib/quips.js` — cimrmanovsky, JEN česky, a u nebezpečí mlčí |
+| Hlášky k trase | `web/lib/quips.js` — v duchu Mistra, JEN česky; u nebezpečí žertují, ale jev pojmenují |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
