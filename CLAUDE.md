@@ -98,9 +98,10 @@ tohle je jen shrnutí.**
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
 | Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
+| PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**411 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**417 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -142,6 +143,7 @@ npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, 
 npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
 npm run tiles:upload        # nahraje podklad do Cloudflare R2 (klíče z .env)
 npm run android             # nasype web do obalu a sestaví APK (JDK z Android Studia)
+npm run icons               # ikony z web/icons/icon.svg (jednorázově, kreslí Chrome)
 npm run docx                # dokumentace do Wordu
 ```
 

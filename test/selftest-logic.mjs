@@ -13,6 +13,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   distanceM,
@@ -351,4 +352,63 @@ test('odjezdy: nulový posun se rovná prostému plánu', () => {
     ...PLAN_ARGS, baseDepartureMs: PLAN_ARGS.departureMs, offsetsMin: [0],
   });
   assert.deepEqual(only.plan, planRoute(PLAN_ARGS));
+});
+
+/* ============================================================
+   PWA: MANIFEST A IKONY
+
+   🚨 Bez manifestu si appku nikdo nenainstaluje na plochu — a na iPhonu,
+   kde nativní appka nebude, je to jediná cesta k ní (`R1`). Chyba v něm
+   se přitom nijak neprojeví: appka běží dál, jen ji nejde nainstalovat.
+   Proto se kontroluje strojem.
+   ============================================================ */
+
+test('🚨 manifest má všechno, co prohlížeč pro instalaci vyžaduje', async () => {
+  const m = JSON.parse(await readFile(new URL('../web/manifest.json', import.meta.url), 'utf8'));
+
+  assert.equal(m.name, 'MeteoTrace');
+  assert.ok(m.start_url, 'bez start_url se appka po instalaci nemá kde otevřít');
+  assert.equal(m.display, 'standalone', 'jinak se otevře jako obyčejná karta prohlížeče');
+  assert.match(m.theme_color, /^#[0-9a-f]{6}$/i);
+  assert.match(m.background_color, /^#[0-9a-f]{6}$/i);
+});
+
+test('🚨 ikony z manifestu opravdu existují a nejsou prázdné', async () => {
+  // Odkaz na chybějící soubor prohlížeč přejde mlčky a instalaci jen odmítne.
+  const m = JSON.parse(await readFile(new URL('../web/manifest.json', import.meta.url), 'utf8'));
+  assert.ok(m.icons.length >= 2, 'aspoň 192 a 512 px');
+
+  for (const i of m.icons) {
+    const soubor = await readFile(new URL(`../web/${i.src}`, import.meta.url));
+    assert.ok(soubor.length > 300, `${i.src} je podezřele malá`);
+    // PNG začíná podpisem \x89PNG — kdyby tam omylem leželo SVG, Safari mlčí.
+    assert.equal(soubor[0], 0x89, `${i.src} není PNG`);
+    assert.equal(soubor.subarray(1, 4).toString(), 'PNG');
+  }
+});
+
+test('🚨 mezi ikonami je maskovatelná — jinak Android ořízne kresbu', async () => {
+  const m = JSON.parse(await readFile(new URL('../web/manifest.json', import.meta.url), 'utf8'));
+  const maskable = m.icons.filter((i) => String(i.purpose || '').includes('maskable'));
+  assert.equal(maskable.length >= 1, true, 'bez maskable přijde kapka na kruhové masce o špičku');
+  assert.equal(maskable[0].sizes, '512x512');
+});
+
+test('iPhone má svoji PNG ikonu (Safari SVG nepřijme)', async () => {
+  const soubor = await readFile(new URL('../web/icons/apple-touch-icon.png', import.meta.url));
+  assert.equal(soubor[0], 0x89);
+});
+
+test('🚨 service worker neukládá data z /api/', async () => {
+  // Předpověď stará dva dny je horší než hláška „nepodařilo se načíst".
+  // O cache dat se stará proxy, která k nim umí přidat i jejich stáří.
+  const sw = await readFile(new URL('../web/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /pathname\.startsWith\('\/api\/'\)/, 'chybí výjimka pro /api/');
+});
+
+test('🚨 stránka manifest opravdu odkazuje', async () => {
+  const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<link rel="manifest" href="manifest\.json">/);
+  assert.match(html, /apple-touch-icon/);
+  assert.match(html, /<meta name="theme-color"/);
 });

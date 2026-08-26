@@ -2011,6 +2011,32 @@ function init() {
   prepniObrazovku(zacniNa);
 }
 
+/**
+ * Service worker — jen na webu.
+ *
+ * 🚨 V androidím obalu se NEREGISTRUJE. Assety tam servíruje
+ * `WebViewAssetLoader` z balíčku appky a service worker s vlastní cache by
+ * po aktualizaci APK pouštěl staré soubory. Poučení z Gulpky, kde to stálo
+ * večer hledání (viz architektura, kap. 5).
+ *
+ * ⚠️ Registruje se až po `load`: dřív by soupeřil o síť s prvním počasím,
+ * které uživatel doopravdy chce vidět.
+ */
+function zapojServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.hostname === 'appassets.androidplatform.net') return;   // WebView
+  if (location.protocol === 'file:') return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((e) => {
+      // Nevadí — appka funguje dál, jen se nedá otevřít offline.
+      console.warn('[MeteoTrace] service worker se nezaregistroval:', e.message);
+    });
+  });
+}
+
+zapojServiceWorker();
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

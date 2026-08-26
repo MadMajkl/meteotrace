@@ -1,0 +1,43 @@
+{
+  "name": "MeteoTrace",
+  "short_name": "MeteoTrace",
+  "description": "Weather along your route — at every point, at the time you actually get there.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f151c",
+  "theme_color": "#1a7fd4",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["weather", "navigation", "travel"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Route",
+      "short_name": "Route",
+      "url": "/?screen=route",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

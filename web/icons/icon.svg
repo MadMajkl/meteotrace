@@ -1,0 +1,22 @@
+<!--
+  Ikona MeteoTrace: kapka na trase.
+
+  ⚠️ TOHLE JE ZDROJ PRAVDY. PNG verze pro manifest a iPhone se z ní vyrábějí
+  příkazem `npm run icons` — do repa nepatří pět ručně kreslených bitmap,
+  které se při každé úpravě rozejdou.
+
+  Kresba odpovídá androidí `ic_launcher_foreground.xml` a barvě pozadí
+  `ic_launcher_background` (#1A7FD4), aby appka vypadala stejně na ploše
+  telefonu i na webu.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <rect width="108" height="108" fill="#1A7FD4"/>
+
+  <!-- trasa -->
+  <path d="M30,74 C42,74 44,58 54,58 C64,58 66,74 78,74"
+        fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- kapka nad trasou -->
+  <path d="M54,26 C54,26 42,40 42,47 A12,12 0 1,0 66,47 C66,40 54,26 54,26 Z"
+        fill="#FFFFFF"/>
+</svg>

@@ -14,7 +14,8 @@
     "android:sync": "node tools/android-sync.mjs",
     "android": "node tools/android-build.mjs",
     "docx": "node tools/docx.mjs",
-    "selftest:layout": "node tools/layout-check.mjs"
+    "selftest:layout": "node tools/layout-check.mjs",
+    "icons": "node tools/icons-build.mjs"
   },
   "engines": {
     "node": ">=22"
