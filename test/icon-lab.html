@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<title>MeteoTrace — laboratoř ikon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Laboratoř ikon: všechny návrhy vedle sebe ve velikostech, ve kterých je
+  lidé doopravdy uvidí.
+
+  ⚠️ NENÍ SOUČÁSTÍ APPKY. Je to dílna — otevře se na
+  http://localhost:8099/test/icon-lab.html a slouží k rozhodnutí, ne k provozu.
+
+  🚨 PROČ SE TO KRESLÍ TAKHLE MALÉ: favicona má v panelu karty 16 px. Co
+  nepřežije šestnáct pixelů, je hezká kresba a špatná ikona — a na velkém
+  náhledu to nikdo nepozná.
+-->
+<style>
+  :root { color-scheme: dark light; }
+  body {
+    margin: 0; padding: 20px 22px 40px;
+    background: #0f151c; color: #e8eef5;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .lead { color: #93a2b2; font-size: 13px; margin: 0 0 22px; max-width: 60ch; }
+
+  table { border-collapse: collapse; margin-bottom: 26px; }
+  caption {
+    text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: #7c8b9c; padding-bottom: 10px;
+  }
+  th {
+    text-align: left; padding: 8px 16px 8px 0; font-size: 13px; font-weight: 600;
+    color: #cbd5e1; white-space: nowrap; vertical-align: middle;
+  }
+  th small { display: block; font-weight: 400; font-size: 11px; color: #7c8b9c; }
+  td { padding: 8px 12px; vertical-align: middle; text-align: center; }
+  thead td { font-size: 11px; color: #7c8b9c; padding-bottom: 0; }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.03); }
+
+  .svetlo { background: #f4f7fb; color: #16202b; border-radius: 14px; padding: 14px 16px; }
+  .svetlo th { color: #16202b; }
+  .svetlo th small, .svetlo thead td, .svetlo caption { color: #63717f; }
+  .svetlo tbody tr:nth-child(odd) { background: rgba(0,0,0,.03); }
+
+  .kruh svg { border-radius: 50%; }
+  .oblouk svg { border-radius: 24%; }
+  .pozn { color: #93a2b2; font-size: 13px; max-width: 62ch; margin: 0 0 26px; }
+  code { font-size: 12px; color: #a7c7e7; }
+</style>
+</head>
+<body>
+
+<h1>Laboratoř ikon MeteoTrace</h1>
+<p class="lead">
+  Čtyři návrhy v jedné rodině: pořád trasa dole, mění se to, co je nad ní.
+  Vlevo jméno, vpravo velikosti, ve kterých je člověk uvidí — od panelu karty (16 px)
+  po plochu telefonu.
+</p>
+
+<div id="lab"></div>
+
+<p class="pozn">
+  🚨 <b>Rozhoduje sloupec 16 a 24 px.</b> Na 96 px vypadá dobře skoro všechno;
+  favicona ale žije v panelu karty. Kresba, která se tam slije do skvrny, je špatná
+  ikona, i kdyby byla sebehezčí.
+</p>
+<p class="pozn">
+  ⚠️ <b>Kruhová a zaoblená maska</b> ukazuje, co z ikony zbude na ploše Androidu.
+  Ostrá verze pro obchod se generuje zmenšená do bezpečné zóny (viz <code>npm run icons</code>),
+  tady je schválně nezmenšená — ať je vidět, kolik místa kresba potřebuje.
+</p>
+
+<script type="module">
+/** Trasa dole. Stejná ve všech návrzích — drží rodinu pohromadě. */
+const TRASA_TENKA = '<path d="M30,74 C42,74 44,58 54,58 C64,58 66,74 78,74" fill="none" stroke="#FFF" stroke-width="5" stroke-linecap="round"/>';
+const TRASA_TLUSTA = '<path d="M22,80 C40,80 42,58 54,58 C66,58 68,80 86,80" fill="none" stroke="#FFF" stroke-width="10" stroke-linecap="round"/>';
+
+const KAPKA_MALA = '<path d="M54,26 C54,26 42,40 42,47 A12,12 0 1,0 66,47 C66,40 54,26 54,26 Z" fill="#FFF"/>';
+const KAPKA_VELKA = '<path d="M54,12 C54,12 36,33 36,45 A18,18 0 1,0 72,45 C72,33 54,12 54,12 Z" fill="#FFF"/>';
+
+/** Slunce: kotouč a čtyři tlusté paprsky. Tenké by se na 16 px ztratily. */
+const SLUNCE = `
+  <circle cx="54" cy="40" r="17" fill="#FFF"/>
+  <g stroke="#FFF" stroke-width="7" stroke-linecap="round">
+    <path d="M54,8 v7"/><path d="M28,17 l5,5"/><path d="M80,17 l-5,5"/>
+    <path d="M18,40 h7"/><path d="M83,40 h7"/>
+  </g>`;
+
+/** Mráček: tři kruhy a rovné dno, ať drží tvar i v malém. */
+const MRACEK = `
+  <path d="M34,54 a13,13 0 0,1 4,-25 a17,17 0 0,1 32,4 a12,12 0 0,1 -2,21 z" fill="#FFF"/>`;
+
+const NAVRHY = [
+  { jmeno: 'A — dnešní', popis: 'kapka, tenká trasa', kresba: TRASA_TENKA + KAPKA_MALA },
+  { jmeno: 'B — kapka tučně', popis: 'táž značka, silnější tahy', kresba: TRASA_TLUSTA + KAPKA_VELKA },
+  { jmeno: 'C — slunce', popis: 'nad trasou svítí', kresba: TRASA_TLUSTA + SLUNCE },
+  { jmeno: 'D — mráček', popis: 'nad trasou oblak', kresba: TRASA_TLUSTA + MRACEK },
+];
+
+const VELIKOSTI = [16, 24, 32, 48, 96];
+
+const ikona = (kresba, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"
+  width="${px}" height="${px}"><rect width="108" height="108" fill="#1A7FD4"/>${kresba}</svg>`;
+
+function tabulka({ nadpis, sloupce, bunka, trida = '' }) {
+  return `<div class="${trida}"><table>
+    <caption>${nadpis}</caption>
+    <thead><tr><td></td>${sloupce.map((s) => `<td>${s.popisek}</td>`).join('')}</tr></thead>
+    <tbody>
+      ${NAVRHY.map((n) => `<tr>
+        <th>${n.jmeno}<small>${n.popis}</small></th>
+        ${sloupce.map((s) => `<td class="${s.trida || ''}">${bunka(n, s)}</td>`).join('')}
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+document.getElementById('lab').innerHTML = [
+  tabulka({
+    nadpis: 'Na tmavém — velikosti, ve kterých je uvidíš',
+    sloupce: VELIKOSTI.map((px) => ({ popisek: `${px} px`, px })),
+    bunka: (n, s) => ikona(n.kresba, s.px),
+  }),
+  tabulka({
+    nadpis: 'Na světlém pozadí',
+    trida: 'svetlo',
+    sloupce: VELIKOSTI.map((px) => ({ popisek: `${px} px`, px })),
+    bunka: (n, s) => ikona(n.kresba, s.px),
+  }),
+  tabulka({
+    nadpis: 'Masky na ploše telefonu (nezmenšeno — vidíš, kolik místa kresba potřebuje)',
+    sloupce: [
+      { popisek: 'kruh 64', px: 64, trida: 'kruh' },
+      { popisek: 'kruh 40', px: 40, trida: 'kruh' },
+      { popisek: 'zaoblený 64', px: 64, trida: 'oblouk' },
+      { popisek: 'čtverec 64', px: 64 },
+    ],
+    bunka: (n, s) => ikona(n.kresba, s.px),
+  }),
+].join('');
+</script>
+
+</body>
+</html>

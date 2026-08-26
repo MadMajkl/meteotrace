@@ -149,6 +149,7 @@ npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, 
 npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
 npm run tiles:upload        # nahraje podklad do Cloudflare R2 (klíče z .env)
 npm run android             # nasype web do obalu a sestaví APK (JDK z Android Studia)
+npm run dev                 # (v něm i laboratoř ikon: /test/icon-lab.html)
 npm run icons               # ikony z web/icons/icon.svg (jednorázově, kreslí Chrome)
 npm run docx                # dokumentace do Wordu
 ```
