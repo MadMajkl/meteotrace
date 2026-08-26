@@ -822,23 +822,45 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   margin-top: 8px;
 }
 
+/* 🚨 Nadpis skupiny se vedle štítků ZTRÁCEL. Michal 26. 8. 2026: „jak nemaj
+   žádné pozadí". Dostal proto vlastní plochu — ale jinou než štítky: plnou
+   výplň bez rámečku, aby bylo poznat, že je to popiska a ovládání, ne další
+   uložená věc. */
 .saved-toggle {
   flex: none;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 2px;
-  font: inherit; font-size: 13px; font-weight: 600;
-  color: var(--text-soft);
-  background: none; border: 0; cursor: pointer;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 11px;
+  font: inherit; font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 0; border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
 }
-.saved-toggle:hover { color: var(--text); }
-.saved-toggle[aria-expanded="true"] { color: var(--accent); }
+.saved-toggle:hover { filter: brightness(1.08); }
+/* Rozbalený nadpis je „zapnutý": plná barva, ať je vidět, odkud panel visí. */
+.saved-toggle[aria-expanded="true"] { color: #fff; background: var(--accent); }
 .saved-toggle .sipka { font-size: 10px; }
 .saved-toggle[aria-expanded="true"] .sipka { transform: rotate(180deg); }
 
 /* Řádek posledních. Co se nevejde, appka schová — nerolujeme, od toho je
    rozbalení. */
 .chips-fit { flex: 1; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+
+/* ⚠️ Ten jeden štítek, který se ukazuje vždycky (viz `fitCount`), se musí
+   umět zúžit — jinak na displeji širokém 320 px vystrčí dlouhé jméno celou
+   hlavičku z okna. Zkrátí se tedy třemi tečkami.
+
+   🚨 Zúžit se musí I POLOŽKA SEZNAMU, ne jen tlačítko v ní: `li` je taky
+   položka ohebného rozvržení a má `min-width: auto`, takže se pod obsah
+   nesmrskne. Když se ošetří jen tlačítko, přetéká dál — o tři pixely, které
+   se hledají mizerně. */
+/* 🚨 Štítky se NEZUŽUJÍ, jen se schovávají. Když se smrsknou, zbude z nich
+   „↝…" a řádek přestane k čemukoli sloužit — o kolik se jich vejde,
+   rozhoduje `fitCount`, ne stlačení. Strop na šířku je tu jen pro ten
+   jediný štítek, který se ukazuje vždycky: dlouhé jméno se zkrátí tečkami
+   místo aby vystrčilo hlavičku z okna. */
+.chips-fit > li { flex: 0 0 auto; min-width: 0; max-width: 100%; }
+.chips-fit .chip { max-width: 100%; }
 
 /* Rozbalený seznam. Nad obsahem, ne v toku — jinak by při každém otevření
    poskočila celá stránka. */
@@ -860,3 +882,12 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   border-radius: 12px;
   box-shadow: var(--shadow);
 }
+
+/* Poslední řádek rozbaleného seznamu: správa. Vypadá jinak než uložené věci
+   nad ním — jinak by na něj člověk klepl omylem místo na místo. */
+.chip-sprava {
+  color: var(--text-soft);
+  background: none;
+  border-style: dashed;
+}
+.chip-sprava:hover { color: var(--text); background: var(--surface-2); }

@@ -72,10 +72,11 @@
         <span data-i18n="places.mine"></span><span class="sipka" aria-hidden="true">▾</span>
       </button>
       <ul id="saved-list" class="chips chips-fit"></ul>
+      <!-- ⚠️ Správa (přejmenování, mazání) je POSLEDNÍ ŘÁDEK rozbaleného
+           seznamu, ne tlačítko v hlavičce. Ve sloupci širokém 155 px se ⋯
+           nevešlo a vystrkovalo obsah z okna — a hlavně: spravovat chci
+           tehdy, když se na seznam dívám. -->
       <ul id="places-panel" class="saved-panel" hidden></ul>
-      <!-- Správa je zvlášť: štítek slouží k PŘEPNUTÍ jedním klepnutím,
-           přejmenování a mazání by se do něj pletlo. -->
-      <button id="btn-manage" class="icon-btn manage" type="button" data-i18n-attr="aria-label:places.manage|title:places.manage">⋯</button>
     </div>
   </nav>
 </header>

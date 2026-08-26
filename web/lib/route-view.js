@@ -97,6 +97,9 @@ function describePoint(planPoint, location, lang, units) {
     feelsDiffers: liseSe(H.temperature_2m?.[i], H.apparent_temperature?.[i]),
     wind: formatWind(windKmh, units, lang),
     windDir: dirText(H.wind_direction_10m?.[i], lang),
+    // ⚠️ Plný název ke zkratce. Kdo neví, co je „VSV", to z appky nemá jak
+    // zjistit — a ptát se na význam vlastní obrazovky je vada, ne zvědavost.
+    windDirLong: dirLong(H.wind_direction_10m?.[i], lang),
     windKmh,
     gustKmh: H.wind_gusts_10m?.[i] ?? null,
     gusts: formatWind(H.wind_gusts_10m?.[i], units, lang),
@@ -212,6 +215,12 @@ export const GUST_MARGIN_KMH = 15;
 function jeNarazSilny(vitr, naraz) {
   if (!Number.isFinite(vitr) || !Number.isFinite(naraz)) return false;
   return naraz - vitr >= GUST_MARGIN_KMH;
+}
+
+/** Plné jméno směru („východo-severovýchodní"), do bubliny a pro čtečku. */
+function dirLong(degrees, lang) {
+  const key = windDirKey(degrees);
+  return key ? t(`windDirLong.${key}`, lang) : "";
 }
 
 function dirText(degrees, lang) {

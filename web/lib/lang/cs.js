@@ -188,11 +188,27 @@ export default {
     unknown: 'Neznámé',
   },
 
+  // ⚠️ Zkratka je to, co se vejde do řádku. Plný název je v `windDirLong`
+  // a ukazuje se jako bublina — viz poznámka v `app.js`.
   windDir: {
     n: 'S', nne: 'SSV', ne: 'SV', ene: 'VSV',
     e: 'V', ese: 'VJV', se: 'JV', sse: 'JJV',
     s: 'J', ssw: 'JJZ', sw: 'JZ', wsw: 'ZJZ',
     w: 'Z', wnw: 'ZSZ', nw: 'SZ', nnw: 'SSZ',
+  },
+
+  /**
+   * Odkud vítr fouká, celým jménem.
+   *
+   * Šestnáct směrů: čtyři hlavní (S, V, J, Z), čtyři mezi nimi (SV, JV, JZ,
+   * SZ) a osm ještě jemnějších, kde se skládá hlavní směr s vedlejším —
+   * „východo-severovýchod" je mezi východem a severovýchodem.
+   */
+  windDirLong: {
+    n: 'severní', nne: 'severo-severovýchodní', ne: 'severovýchodní', ene: 'východo-severovýchodní',
+    e: 'východní', ese: 'východo-jihovýchodní', se: 'jihovýchodní', sse: 'jiho-jihovýchodní',
+    s: 'jižní', ssw: 'jiho-jihozápadní', sw: 'jihozápadní', wsw: 'západo-jihozápadní',
+    w: 'západní', wnw: 'západo-severozápadní', nw: 'severozápadní', nnw: 'severo-severozápadní',
   },
 
 

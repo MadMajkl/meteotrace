@@ -232,10 +232,29 @@ function vykresliSkupinu({ box, radek, panel, polozky, current }) {
   if (!polozky.length) return;
 
   fill($(radek), polozky, (p) => stitekPolozky(p, current));
-  fill($(panel), polozky, (p) => stitekPolozky(p, current));
+
+  // V rozbaleném seznamu je navíc poslední řádek: správa.
+  fill($(panel), [...polozky, { sprava: true }], (p) => (p.sprava
+    ? radekSpravy()
+    : stitekPolozky(p, current)));
 
   // Měří se až po vykreslení, jinak nemá prohlížeč co měřit.
   requestAnimationFrame(() => srovnejRadek(radek));
+}
+
+/**
+ * Poslední řádek rozbaleného seznamu: přejmenovat a smazat.
+ *
+ * ⚠️ Je to jiná věc než štítky nad ním, takže vypadá jinak — kdyby to byl
+ * další štítek v řadě, klepl by na něj člověk omylem místo na místo.
+ */
+function radekSpravy() {
+  const li = document.createElement('li');
+  const btn = el('button', 'chip chip-sprava', `⋯ ${t('places.manage', state.lang)}`);
+  btn.type = 'button';
+  btn.addEventListener('click', () => { zavriPanely(); openPlaces(); });
+  li.append(btn);
+  return li;
 }
 
 /** Štítek jedné uložené věci — místa i trasy. */
@@ -1091,7 +1110,14 @@ function render(forecast, air) {
   $('now-temp').textContent = c.temp;
   $('now-cond').textContent = c.condition;
   $('now-feels').textContent = c.feelsLike;
-  $('d-wind').textContent = `${c.wind} ${c.windDir}`;
+  // ⚠️ Zkratka směru se vysvětlí bublinou i pro odečítač obrazovky. „VSV"
+  // nikdo číst nemusí umět — appka to má říct sama.
+  const vitr = $('d-wind');
+  vitr.textContent = `${c.wind} ${c.windDir}`;
+  if (c.windDirLong) {
+    vitr.title = `${t('now.wind', state.lang)}: ${c.windDirLong}`;
+    vitr.setAttribute('aria-label', `${c.wind}, ${c.windDirLong}`);
+  }
   $('d-gusts').textContent = c.gusts;
   $('d-humidity').textContent = c.humidity;
   $('d-precip').textContent = c.precip;
@@ -1958,9 +1984,11 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     // náraz když je citelně nad průměrem. Jinak by každý řádek nesl tatáž
     // čísla dvakrát a přestalo by se to číst.
     const detaily = [];
+    let popisSmeru = '';
     if (p.known) {
       if (p.wind && p.wind !== '—') {
         detaily.push(`${p.wind}${p.windDir && p.windDir !== '—' ? ` ${p.windDir}` : ''}`);
+        if (p.windDirLong) popisSmeru = p.windDirLong;
       }
       if (p.gustsMatter && p.gusts && p.gusts !== '—') {
         detaily.push(`${t('now.gusts', state.lang).toLowerCase()} ${p.gusts}`);
@@ -1974,7 +2002,12 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     }
 
     const text = [popis, km];
-    if (detaily.length) text.push(el('span', 'rp-detail', detaily.join(' · ')));
+    if (detaily.length) {
+      const radek = el('span', 'rp-detail', detaily.join(' · '));
+      // Zkratka směru se vysvětlí i tady — bublinou a pro odečítač obrazovky.
+      if (popisSmeru) radek.title = `${t('now.wind', state.lang)}: ${popisSmeru}`;
+      text.push(radek);
+    }
     if (p.gustsMatter) li.dataset.gusts = '1';
 
     li.append(cas, ikona, el('span', 'rp-text', text), teplota);
@@ -2079,7 +2112,6 @@ function init() {
   $('search-form').addEventListener('submit', (e) => e.preventDefault());
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
-  $('btn-manage').addEventListener('click', openPlaces);
   $('routes-toggle').addEventListener('click', () => prepniPanel('routes-toggle', 'routes-panel'));
   $('places-toggle').addEventListener('click', () => prepniPanel('places-toggle', 'places-panel'));
 

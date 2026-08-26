@@ -185,6 +185,14 @@ export default {
     w: 'W', wnw: 'WNW', nw: 'NW', nnw: 'NNW',
   },
 
+  /** Where the wind blows from, spelled out. */
+  windDirLong: {
+    n: 'northerly', nne: 'north-northeasterly', ne: 'northeasterly', ene: 'east-northeasterly',
+    e: 'easterly', ese: 'east-southeasterly', se: 'southeasterly', sse: 'south-southeasterly',
+    s: 'southerly', ssw: 'south-southwesterly', sw: 'southwesterly', wsw: 'west-southwesterly',
+    w: 'westerly', wnw: 'west-northwesterly', nw: 'northwesterly', nnw: 'north-northwesterly',
+  },
+
   pollen: {
     title: 'Pollen',
     alder: 'Alder',

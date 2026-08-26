@@ -148,6 +148,7 @@ export function buildStationView(a) {
       feelsLike: formatTemp(pick(cur.apparent_temperature, H.apparent_temperature?.[iNow]), units, lang),
       wind: formatWind(pick(cur.wind_speed_10m, H.wind_speed_10m?.[iNow]), units, lang),
       windDir: dirText(pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow]), lang),
+      windDirLong: dirLong(pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow]), lang),
       gusts: formatWind(pick(cur.wind_gusts_10m, H.wind_gusts_10m?.[iNow]), units, lang),
       humidity: pct(pick(cur.relative_humidity_2m, H.relative_humidity_2m?.[iNow]), lang),
       precip: formatPrecip(pick(cur.precipitation, H.precipitation?.[iNow]), units, lang),
@@ -256,6 +257,12 @@ function pct(value, lang) {
 function numOrDash(value, lang) {
   if (value == null || !Number.isFinite(value)) return '—';
   return new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(value);
+}
+
+/** Plné jméno směru — do bubliny nad zkratkou. */
+function dirLong(degrees, lang) {
+  const key = windDirKey(degrees);
+  return key ? t(`windDirLong.${key}`, lang) : "";
 }
 
 function dirText(degrees, lang) {
