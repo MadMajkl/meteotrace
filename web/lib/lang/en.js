@@ -30,6 +30,7 @@ export default {
 
   places: {
     saved: 'Saved places',
+    savedAll: 'Saved places and routes',
     save: 'Save this place',
     saveShort: 'Save',
     savedShort: 'Saved',

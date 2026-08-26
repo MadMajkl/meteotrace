@@ -771,3 +771,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* Součet drží pohromadě s rozpisem, ale je poznat na první pohled. */
 .leg-soucet { font-weight: 600; }
 .leg-soucet .leg-km, .leg-soucet .leg-cas { color: var(--text); }
+
+/* Trasa mezi uloženými místy musí být na první pohled poznat — jinak řádek
+   vypadá jako seznam míst, ve kterém se jedno chová divně. */
+.chip-route { display: inline-flex; align-items: center; gap: 6px; }
+.chip-znak { color: var(--accent); font-size: 15px; line-height: 1; }

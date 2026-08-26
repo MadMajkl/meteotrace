@@ -14,7 +14,7 @@ import {
   emptyStore, parseStore, serializeStore,
   savePlace, saveRoute, forgetPlace, forgetRoute,
   renamePlace, renameRoute, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
-  SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
+  savedShortcuts, SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
 } from '../web/lib/places.js';
 
 const PRAHA = { name: 'Praha', country: 'Czechia', lat: 50.0755, lon: 14.4378 };
@@ -488,4 +488,48 @@ test('uložená trasa mezibody přežije uložení i načtení', () => {
   const zpet = parseStore(serializeStore(store));
   assert.equal(zpet.routes[0].via.length, 1);
   assert.equal(zpet.routes[0].via[0].lat, DOMAZLICE.lat);
+});
+
+/* ============================================================
+   SPOLEČNÝ ŘÁDEK ULOŽENÝCH VĚCÍ
+
+   Z pohledu člověka je „Domov" i „do práce" totéž: věc, na kterou klepnu
+   a appka mi ukáže počasí. Dva řádky na dvou místech = dva mechanismy
+   k naučení.
+   ============================================================ */
+
+test('společný řádek nese místa i trasy a je poznat, co je co', () => {
+  let store = savePlace(emptyStore(), PRAHA, 1000).store;
+  store = saveRoute(store, { from: PRAHA, to: BRNO, profile: 'driving-car' }, 2000).store;
+
+  const vse = savedShortcuts(store);
+  assert.equal(vse.length, 2);
+  assert.deepEqual(vse.map((x) => x.kind), ['place', 'route']);
+  assert.equal(vse[0].name, 'Praha');
+  assert.equal(vse[1].name, 'Praha → Brno');
+});
+
+test('🚨 nejdřív místa, pak trasy — nemíchají se podle času uložení', () => {
+  // Trasa mezi dvěma místy vypadá jako omyl; skupiny dají řádku strukturu.
+  let store = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'driving-car' }, 1000).store;
+  store = savePlace(store, PRAHA, 2000).store;   // uloženo POZDĚJI než trasa
+  store = savePlace(store, BRNO, 3000).store;
+
+  assert.deepEqual(savedShortcuts(store).map((x) => x.kind), ['place', 'place', 'route']);
+});
+
+test('🚨 pořadí uvnitř skupiny se nepřerovnává podle použití', () => {
+  // Rozhodnuto 22. 8.: seznam, který se sám přerovnává, se nedá naučit
+  // nazpaměť — a klepnout vedle je horší než o kousek odrolovat.
+  let store = savePlace(emptyStore(), PRAHA, 1000).store;
+  store = savePlace(store, BRNO, 2000).store;
+  const pred = savedShortcuts(store).map((x) => x.name);
+
+  store = touchPlace(store, store.places[1].key, 9999);   // použiju tu spodní
+  assert.deepEqual(savedShortcuts(store).map((x) => x.name), pred, 'pořadí zůstává');
+});
+
+test('prázdný sklad vrátí prázdný řádek, ne výjimku', () => {
+  assert.deepEqual(savedShortcuts(emptyStore()), []);
+  assert.deepEqual(savedShortcuts(null), []);
 });

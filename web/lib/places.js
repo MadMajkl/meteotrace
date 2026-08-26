@@ -538,3 +538,34 @@ export function findPlace(store, key) {
 export function findRoute(store, key) {
   return store.routes.find((r) => r.key === key) || null;
 }
+
+/**
+ * Uložené věci pro jeden společný řádek: místa i trasy.
+ *
+ * 🚨 PROČ VŮBEC DOHROMADY. Michal 26. 8. 2026: *„trasy by se měly ukládat na
+ * stejné místo jako místa, myšleno UXově pro oko uživatele."* Má pravdu:
+ * z pohledu člověka je „Domov" i „do práce" totéž — **věc, na kterou klepnu
+ * a appka mi ukáže počasí.** Dva řádky na dvou různých místech znamenají dva
+ * mechanismy k naučení, přestože jde o jeden nápad.
+ *
+ * ⚠️ POŘADÍ SE NEPŘERZOVÁVÁ PODLE POUŽITÍ. Platí to, co bylo rozhodnuto
+ * 22. 8. u míst: seznam, který se sám přerovnává, se nedá naučit nazpaměť
+ * a klepnout vedle je horší než o kousek odrolovat. `usedAt` proto slouží
+ * jen k vyhazování při přeplnění.
+ *
+ * ⚠️ NEMÍCHAJÍ SE PODLE ČASU ULOŽENÍ, ale drží se ve dvou skupinách: nejdřív
+ * místa, pak trasy. Trasa mezi dvěma místy vypadá jako omyl; skupina za sebou
+ * dá řádku strukturu, kterou oko čte bez přemýšlení. Uvnitř skupiny zůstává
+ * pořadí, jaké měla dosud (nejnovější vlevo).
+ *
+ * @returns {Array<{kind: 'place'|'route', key: string, name: string, item: object}>}
+ */
+export function savedShortcuts(store) {
+  const misto = (p) => ({ kind: 'place', key: p.key, name: p.name, item: p });
+  const trasa = (r) => ({ kind: 'route', key: r.key, name: r.name, item: r });
+
+  return [
+    ...(store?.places || []).map(misto),
+    ...(store?.routes || []).map(trasa),
+  ];
+}

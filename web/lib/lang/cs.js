@@ -33,6 +33,7 @@ export default {
 
   places: {
     saved: 'Uložená místa',
+    savedAll: 'Uložená místa a trasy',
     save: 'Uložit tohle místo',
     saveShort: 'Uložit',
     savedShort: 'Uloženo',

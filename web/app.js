@@ -28,7 +28,7 @@ import { straightRoute } from './lib/great-circle.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
-  saveRoute, forgetRoute, touchRoute, routeKey, renameRoute,
+  saveRoute, forgetRoute, touchRoute, routeKey, renameRoute, savedShortcuts,
   findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME, MAX_ROUTES,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
@@ -169,8 +169,6 @@ function toggleSave() {
 
 function renderSaved() {
   const list = state.places.places;
-  $('saved').hidden = list.length === 0;
-
   const current = state.place ? findNearby(state.places, state.place) : null;
 
   // Hvězdička dává smysl, jen když je co uložit.
@@ -197,19 +195,47 @@ function renderSaved() {
   hint.hidden = !other;
   hint.textContent = other ? tf('places.alreadySaved', { name: other.name }, state.lang) : '';
 
-  fill($('saved-list'), list, (p) => {
+  // 🚨 JEDEN ŘÁDEK PRO MÍSTA I TRASY. Z pohledu člověka je „Domov" i „do
+  // práce" totéž: věc, na kterou klepnu a appka ukáže počasí. Dva řádky na
+  // dvou různých místech znamenaly dva mechanismy k naučení, přestože jde
+  // o jeden nápad. (Michal, 26. 8. 2026.)
+  const vse = savedShortcuts(state.places);
+  $('saved').hidden = vse.length === 0;
+
+  fill($('saved-list'), vse, (polozka) => {
     const li = document.createElement('li');
-    const chip = el('button', 'chip', p.name);
+    const je = polozka.item;
+
+    // ⚠️ Trasa musí být na první pohled poznat, jinak řádek vypadá jako
+    // seznam míst, ve kterém se jedno chová divně. Šipka je součástí
+    // popisku i pro odečítač obrazovky.
+    const chip = polozka.kind === 'route'
+      ? el('button', 'chip chip-route', [
+        el('span', 'chip-znak', '↝'),
+        el('span', '', polozka.name),
+      ])
+      : el('button', 'chip', polozka.name);
+
     chip.type = 'button';
-    if (current && current.key === p.key) chip.setAttribute('aria-current', 'true');
+    chip.setAttribute('aria-label', polozka.kind === 'route'
+      ? `${t('routes.saved', state.lang)}: ${polozka.name}`
+      : polozka.name);
+
+    if (polozka.kind === 'place' && current && current.key === je.key) {
+      chip.setAttribute('aria-current', 'true');
+    }
+
     chip.addEventListener('click', () => {
-      state.places = touchPlace(state.places, p.key, Date.now());
+      if (polozka.kind === 'route') { pouzijTrasu(je); return; }
+
+      state.places = touchPlace(state.places, je.key, Date.now());
       persistPlaces();
-      const misto = { name: p.name, country: p.country, lat: p.lat, lon: p.lon };
+      const misto = { name: je.name, country: je.country, lat: je.lat, lon: je.lon };
       // Na trase uložené místo VYPLŇUJE TRASU — viz `doplnDoTrasy()`.
       if (state.screen === 'route') doplnDoTrasy(misto);
       else selectPlace(misto);
     });
+
     li.append(chip);
     return li;
   });
@@ -378,9 +404,6 @@ function najdiUlozenouTrasu() {
 }
 
 function renderRoutes() {
-  const list = state.places.routes;
-  $('saved-routes').hidden = list.length === 0;
-
   const current = najdiUlozenouTrasu();
   const btn = $('btn-save-route');
   // Hvězdička dává smysl, jen když je co uložit — tedy až je start i cíl.
@@ -394,15 +417,8 @@ function renderRoutes() {
   btn.title = popis;
   btn.setAttribute('aria-label', popis);
 
-  fill($('saved-routes-list'), list, (r) => {
-    const li = document.createElement('li');
-    const chip = el('button', 'chip', r.name);
-    chip.type = 'button';
-    if (current && current.key === r.key) chip.setAttribute('aria-current', 'true');
-    chip.addEventListener('click', () => pouzijTrasu(r));
-    li.append(chip);
-    return li;
-  });
+  // Uložené trasy se vypisují ve společném řádku s místy — viz `renderSaved()`.
+  renderSaved();
 }
 
 /**
