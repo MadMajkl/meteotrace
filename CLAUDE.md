@@ -97,6 +97,7 @@ tohle je jen shrnutí.**
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
 | Pojmenování míst a tras | Domov, Práce, Babička — přepsáním jména v dialogu ⋯; u tras `renameRoute()` |
+| Moje trasy / Moje místa | dvě skupiny v hlavičce; vedle nadpisu tolik posledních, kolik se změřeně vejde (`fit-row.js`) |
 | Uložené trasy (R8) | hvězdička u souhrnu; v hlavičce ve **společné liště s místy** (šipka ↝), mazání v dialogu |
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
@@ -202,6 +203,9 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   výpočtu výřezu.
 - **🚨 Vrstva nad radarem musí být v `PREKRYVY`.** Radar se zakládá znovu při každém
   snímku a vkládá se pod nejnižší z nich; co v seznamu není, po vteřině zmizí samo.
+- **🚨 `display` v pravidle PŘEBÍJÍ atribut `hidden`.** Prvek pak zůstane ve stránce
+  a layoutová kontrola hlásí přetečení u něčeho úplně jiného. Ke každému `display`
+  u skrývaného prvku patří `[hidden] { display: none; }`.
 - **🚨 NULOVÝ OSTROV: `0, 0` není poloha, ale „nevím".** Vrací ho prohlížeč bez
   lokalizační služby, rozbitý přijímač i prázdný formulář — a `Number.isFinite(0)`
   je `true`, takže projde jako platný bod. Hledání se pak řadilo podle vzdálenosti

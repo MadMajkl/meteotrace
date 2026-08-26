@@ -427,7 +427,11 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 
 /* ── Správa uložených míst ─────────────────────────────────────────────── */
-.saved { display: flex; align-items: center; gap: 8px; }
+/* ⚠️ Skupiny jdou POD SEBE. Tohle pravidlo pochází z doby, kdy tu byl jeden
+   řádek štítků a tlačítko správy vedle něj — od 26. 8. 2026 jsou tu ale dvě
+   skupiny („Moje trasy", „Moje místa") a vedle sebe se na telefon nevejdou:
+   druhá začínala 111 px od kraje a vytlačila obsah z okna. */
+.saved { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
 .saved .chips { flex: 1; min-width: 0; }
 
 .icon-btn.manage {
@@ -796,4 +800,54 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   margin: 8px 0 0;
   font-size: 13px; font-style: italic; line-height: 1.45;
   color: var(--text-soft);
+}
+
+
+/* ── Uložené věci ve dvou pojmenovaných skupinách ────────────────────────
+   Vlevo nadpis, který se dá rozklepnout na celý seznam; vedle tolik
+   posledních, kolik se doopravdy vejde (změřeno, viz lib/fit-row.js). */
+.saved-group {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  max-width: 100%;                 /* ať se řádek nikdy neroztáhne přes okno */
+  margin-top: 8px;
+}
+
+.saved-toggle {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 2px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-soft);
+  background: none; border: 0; cursor: pointer;
+  white-space: nowrap;
+}
+.saved-toggle:hover { color: var(--text); }
+.saved-toggle[aria-expanded="true"] { color: var(--accent); }
+.saved-toggle .sipka { font-size: 10px; }
+.saved-toggle[aria-expanded="true"] .sipka { transform: rotate(180deg); }
+
+/* Řádek posledních. Co se nevejde, appka schová — nerolujeme, od toho je
+   rozbalení. */
+.chips-fit { flex: 1; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+
+/* Rozbalený seznam. Nad obsahem, ne v toku — jinak by při každém otevření
+   poskočila celá stránka. */
+/* 🚨 `display` v pravidle PŘEBÍJÍ atribut `hidden`. Bez téhle výjimky
+   zůstane panel ve stránce pořád, roztáhne hlavičku a layoutová kontrola
+   hlásí přetečení u úplně jiného prvku (u hodinového pruhu). Stálo to
+   čtvrthodinu hledání 26. 8. 2026. */
+.saved-panel[hidden] { display: none; }
+
+.saved-panel {
+  position: absolute; top: 100%; left: 0; z-index: 20;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  max-width: min(520px, calc(100vw - 32px));
+  max-height: 40vh; overflow-y: auto;
+  margin: 4px 0 0; padding: 10px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }

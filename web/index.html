@@ -53,10 +53,30 @@
        a ne schovaná v nastavení. -->
   <nav id="saved" class="saved" hidden aria-labelledby="saved-title">
     <h2 id="saved-title" class="sr-only" data-i18n="places.savedAll"></h2>
-    <ul id="saved-list" class="chips"></ul>
-    <!-- Správa je zvlášť: řádek nahoře slouží k PŘEPNUTÍ jedním klepnutím,
-         přejmenování a mazání by se do něj pletlo. -->
-    <button id="btn-manage" class="icon-btn manage" type="button" data-i18n-attr="aria-label:places.manage|title:places.manage">⋯</button>
+
+    <!-- Dvě pojmenované skupiny, ne jeden shluk. Vlevo nadpis, který se dá
+         rozklepnout na úplný seznam; vedle tolik posledních, kolik se
+         doopravdy vejde (změřeno, ne odhadnuto — viz lib/fit-row.js). -->
+    <div class="saved-group" id="group-routes" hidden>
+      <button class="saved-toggle" id="routes-toggle" type="button"
+              aria-expanded="false" aria-controls="routes-panel">
+        <span data-i18n="routes.mine"></span><span class="sipka" aria-hidden="true">▾</span>
+      </button>
+      <ul id="saved-routes-list" class="chips chips-fit"></ul>
+      <ul id="routes-panel" class="saved-panel" hidden></ul>
+    </div>
+
+    <div class="saved-group" id="group-places" hidden>
+      <button class="saved-toggle" id="places-toggle" type="button"
+              aria-expanded="false" aria-controls="places-panel">
+        <span data-i18n="places.mine"></span><span class="sipka" aria-hidden="true">▾</span>
+      </button>
+      <ul id="saved-list" class="chips chips-fit"></ul>
+      <ul id="places-panel" class="saved-panel" hidden></ul>
+      <!-- Správa je zvlášť: štítek slouží k PŘEPNUTÍ jedním klepnutím,
+           přejmenování a mazání by se do něj pletlo. -->
+      <button id="btn-manage" class="icon-btn manage" type="button" data-i18n-attr="aria-label:places.manage|title:places.manage">⋯</button>
+    </div>
   </nav>
 </header>
 

@@ -25,6 +25,7 @@ import {
   ROUTE_FORECAST_PARAMS,
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
+import { fitCount } from './lib/fit-row.js';
 import { routeQuip } from './lib/quips.js';
 import { formatDistance } from './lib/units.js';
 import {
@@ -196,50 +197,118 @@ function renderSaved() {
   hint.hidden = !other;
   hint.textContent = other ? tf('places.alreadySaved', { name: other.name }, state.lang) : '';
 
-  // 🚨 JEDEN ŘÁDEK PRO MÍSTA I TRASY. Z pohledu člověka je „Domov" i „do
-  // práce" totéž: věc, na kterou klepnu a appka ukáže počasí. Dva řádky na
-  // dvou různých místech znamenaly dva mechanismy k naučení, přestože jde
-  // o jeden nápad. (Michal, 26. 8. 2026.)
-  const vse = savedShortcuts(state.places);
-  $('saved').hidden = vse.length === 0;
-
-  fill($('saved-list'), vse, (polozka) => {
-    const li = document.createElement('li');
-    const je = polozka.item;
-
-    // ⚠️ Trasa musí být na první pohled poznat, jinak řádek vypadá jako
-    // seznam míst, ve kterém se jedno chová divně. Šipka je součástí
-    // popisku i pro odečítač obrazovky.
-    const chip = polozka.kind === 'route'
-      ? el('button', 'chip chip-route', [
-        el('span', 'chip-znak', '↝'),
-        el('span', '', polozka.name),
-      ])
-      : el('button', 'chip', polozka.name);
-
-    chip.type = 'button';
-    chip.setAttribute('aria-label', polozka.kind === 'route'
-      ? `${t('routes.saved', state.lang)}: ${polozka.name}`
-      : polozka.name);
-
-    if (polozka.kind === 'place' && current && current.key === je.key) {
-      chip.setAttribute('aria-current', 'true');
-    }
-
-    chip.addEventListener('click', () => {
-      if (polozka.kind === 'route') { pouzijTrasu(je); return; }
-
-      state.places = touchPlace(state.places, je.key, Date.now());
-      persistPlaces();
-      const misto = { name: je.name, country: je.country, lat: je.lat, lon: je.lon };
-      // Na trase uložené místo VYPLŇUJE TRASU — viz `doplnDoTrasy()`.
-      if (state.screen === 'route') doplnDoTrasy(misto);
-      else selectPlace(misto);
-    });
-
-    li.append(chip);
-    return li;
+  // 🚨 DVĚ POJMENOVANÉ SKUPINY, ne jeden shluk. Michal 26. 8. 2026: vlevo
+  // nadpis („Moje trasy"), který se dá rozklepnout na úplný seznam, a vedle
+  // tolik posledních, kolik se doopravdy vejde.
+  vykresliSkupinu({
+    box: 'group-routes',
+    radek: 'saved-routes-list',
+    panel: 'routes-panel',
+    polozky: state.places.routes.map((r) => ({ kind: 'route', item: r, name: r.name })),
+    current: najdiUlozenouTrasu(),
   });
+
+  vykresliSkupinu({
+    box: 'group-places',
+    radek: 'saved-list',
+    panel: 'places-panel',
+    polozky: list.map((p) => ({ kind: 'place', item: p, name: p.name })),
+    current,
+  });
+
+  $('saved').hidden = !list.length && !state.places.routes.length;
+}
+
+/**
+ * Jedna skupina uložených věcí: nadpis, řádek posledních a rozbalený seznam.
+ *
+ * ⚠️ Vykreslí se VŠECHNY položky a teprve pak se schovají ty, které se do
+ * řádku nevešly. Změřit jde jen to, co v stránce opravdu je — odhadovat
+ * šířku podle počtu písmen by u „Domov" a „Praha → Brno přes Jihlavu"
+ * vyšlo pokaždé jinak.
+ */
+function vykresliSkupinu({ box, radek, panel, polozky, current }) {
+  $(box).hidden = polozky.length === 0;
+  if (!polozky.length) return;
+
+  fill($(radek), polozky, (p) => stitekPolozky(p, current));
+  fill($(panel), polozky, (p) => stitekPolozky(p, current));
+
+  // Měří se až po vykreslení, jinak nemá prohlížeč co měřit.
+  requestAnimationFrame(() => srovnejRadek(radek));
+}
+
+/** Štítek jedné uložené věci — místa i trasy. */
+function stitekPolozky(polozka, current) {
+  const li = document.createElement('li');
+  const je = polozka.item;
+
+  // ⚠️ Trasa musí být na první pohled poznat, jinak řádek vypadá jako
+  // seznam míst, ve kterém se jedno chová divně.
+  const chip = polozka.kind === 'route'
+    ? el('button', 'chip chip-route', [
+      el('span', 'chip-znak', '↝'),
+      el('span', '', polozka.name),
+    ])
+    : el('button', 'chip', polozka.name);
+
+  chip.type = 'button';
+  chip.setAttribute('aria-label', polozka.kind === 'route'
+    ? `${t('routes.mine', state.lang)}: ${polozka.name}`
+    : polozka.name);
+  if (current && current.key === je.key) chip.setAttribute('aria-current', 'true');
+
+  chip.addEventListener('click', () => {
+    zavriPanely();
+    if (polozka.kind === 'route') { pouzijTrasu(je); return; }
+
+    state.places = touchPlace(state.places, je.key, Date.now());
+    persistPlaces();
+    const misto = { name: je.name, country: je.country, lat: je.lat, lon: je.lon };
+    // Na trase uložené místo VYPLŇUJE TRASU — viz `doplnDoTrasy()`.
+    if (state.screen === 'route') doplnDoTrasy(misto);
+    else selectPlace(misto);
+  });
+
+  li.append(chip);
+  return li;
+}
+
+/**
+ * Schová ze řádku to, co se do něj nevejde.
+ *
+ * ⚠️ Nepočítá se s pevným počtem („tři poslední"): na širokém displeji by to
+ * bylo plýtvání místem a na úzkém přetečení. Rozhodnutí dělá `fitCount()`
+ * z naměřených šířek.
+ */
+function srovnejRadek(idRadku) {
+  const radek = $(idRadku);
+  if (!radek) return;
+
+  const polozky = [...radek.children];
+  for (const li of polozky) li.hidden = false;
+
+  const sirky = polozky.map((li) => li.getBoundingClientRect().width);
+  const mezera = parseFloat(getComputedStyle(radek).gap) || 8;
+  const kolik = fitCount(sirky, radek.clientWidth, mezera);
+
+  polozky.forEach((li, i) => { li.hidden = i >= kolik; });
+}
+
+/** Zavře oba rozbalené seznamy. */
+function zavriPanely() {
+  for (const [tlacitko, panel] of [['routes-toggle', 'routes-panel'], ['places-toggle', 'places-panel']]) {
+    $(panel).hidden = true;
+    $(tlacitko).setAttribute('aria-expanded', 'false');
+  }
+}
+
+/** Rozbalí nebo zavře jeden seznam. */
+function prepniPanel(tlacitko, panel) {
+  const otevrit = $(panel).hidden;
+  zavriPanely();
+  $(panel).hidden = !otevrit;
+  $(tlacitko).setAttribute('aria-expanded', String(otevrit));
 }
 
 /* ============================================================
@@ -2007,6 +2076,22 @@ function init() {
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
   $('btn-manage').addEventListener('click', openPlaces);
+  $('routes-toggle').addEventListener('click', () => prepniPanel('routes-toggle', 'routes-panel'));
+  $('places-toggle').addEventListener('click', () => prepniPanel('places-toggle', 'places-panel'));
+
+  // ⚠️ Rozbalený seznam se zavírá klepnutím vedle i Escapem. Panel, který
+  // zůstane viset přes obsah, je horší než žádný.
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.saved-group')) zavriPanely();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') zavriPanely(); });
+
+  // Po otočení telefonu nebo rozložení skládacího displeje se do řádku vejde
+  // jiný počet štítků — musí se přepočítat, ne zůstat podle staré šířky.
+  new ResizeObserver(() => {
+    srovnejRadek('saved-routes-list');
+    srovnejRadek('saved-list');
+  }).observe($('saved'));
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', () => $('settings-dialog').close());
   $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));

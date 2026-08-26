@@ -34,6 +34,7 @@ export default {
   places: {
     saved: 'Uložená místa',
     savedAll: 'Uložená místa a trasy',
+    mine: 'Moje místa',
     save: 'Uložit tohle místo',
     saveShort: 'Uložit',
     savedShort: 'Uloženo',
@@ -59,6 +60,7 @@ export default {
 
   routes: {
     saved: 'Uložené trasy',
+    mine: 'Moje trasy',
     save: 'Uložit tuhle trasu',
     saveShort: 'Uložit',
     savedShort: 'Uloženo',

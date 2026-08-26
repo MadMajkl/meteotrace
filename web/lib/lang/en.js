@@ -31,6 +31,7 @@ export default {
   places: {
     saved: 'Saved places',
     savedAll: 'Saved places and routes',
+    mine: 'My places',
     save: 'Save this place',
     saveShort: 'Save',
     savedShort: 'Saved',
@@ -56,6 +57,7 @@ export default {
 
   routes: {
     saved: 'Saved routes',
+    mine: 'My routes',
     save: 'Save this route',
     saveShort: 'Save',
     savedShort: 'Saved',
