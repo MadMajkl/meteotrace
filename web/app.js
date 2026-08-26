@@ -1940,6 +1940,8 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     hazardWhat: view.summary.worst?.condition || '',
     rainCount: view.summary.rainCount,
     windKmh: Math.max(0, ...view.points.map((p) => p.windKmh || 0)),
+    // ⚠️ Směr se bere od bodu, kde fouká nejvíc — o tom se mluví.
+    windDirKey: view.points.reduce((a, p) => ((p.windKmh || 0) > (a?.windKmh || 0) ? p : a), null)?.windDirKey || "",
     tempC: posledni?.tempC ?? null,
     distanceM: trasa.totalDistanceM,
     arrivalHour: new Date(plan.arrivalMs).getHours(),

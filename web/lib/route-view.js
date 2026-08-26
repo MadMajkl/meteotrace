@@ -100,6 +100,7 @@ function describePoint(planPoint, location, lang, units) {
     // ⚠️ Plný název ke zkratce. Kdo neví, co je „VSV", to z appky nemá jak
     // zjistit — a ptát se na význam vlastní obrazovky je vada, ne zvědavost.
     windDirLong: dirLong(H.wind_direction_10m?.[i], lang),
+    windDirKey: windDirKey(H.wind_direction_10m?.[i]) || null,
     windKmh,
     gustKmh: H.wind_gusts_10m?.[i] ?? null,
     gusts: formatWind(H.wind_gusts_10m?.[i], units, lang),

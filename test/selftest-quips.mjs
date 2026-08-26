@@ -139,3 +139,54 @@ test('hlášky jsou krátké — je to dovětek, ne odstavec', () => {
     assert.ok(v.length <= 110, `moc dlouhé (${v.length}): ${v}`);
   }
 });
+
+/* ============================================================
+   VÍTR PODLE TOHO, ODKUD FOUKÁ
+
+   Michal 26. 8. 2026: „tyhle směry větru by stálo za to taky lehce vtipně
+   okomentovat." Každý český směr má svou pověst — a je to informace
+   zabalená do vtipu, ne vtip místo informace.
+   ============================================================ */
+
+const VETRNO = { ...KLID, windKmh: 32 };
+
+test('směr větru má vlastní hlášku', () => {
+  const s = routeQuip({ ...VETRNO, windDirKey: 'n' });
+  const z = routeQuip({ ...VETRNO, windDirKey: 'w' });
+  assert.match(s, /sever/i);
+  assert.match(z, /západ/i);
+  assert.notEqual(s, z, 'každý směr mluví jinak');
+});
+
+test('🚨 šestnáct směrů se svede na osm — VSV je pořád východní', () => {
+  // Kdo by pro každý z šestnácti psal vlastní hlášku, dopadne u čtvrtého
+  // jako kalendář.
+  assert.equal(routeQuip({ ...VETRNO, windDirKey: 'ene' }), routeQuip({ ...VETRNO, windDirKey: 'e' }));
+  assert.equal(routeQuip({ ...VETRNO, windDirKey: 'wsw' }), routeQuip({ ...VETRNO, windDirKey: 'w' }));
+});
+
+test('bez známého směru zůstane obecná hláška o větru', () => {
+  const v = routeQuip(VETRNO);
+  assert.ok(v.length > 10);
+  assert.match(v, /vít|Mistr/i);
+});
+
+test('🚨 nebezpečí přebíjí i hlášku o směru větru', () => {
+  const v = routeQuip({ ...VETRNO, windDirKey: 'n', hazard: true, hazardWhat: 'Bouřka' });
+  assert.match(v, /bouřka/i);
+});
+
+test('u slabého větru se o směru nemluví', () => {
+  // Vítr 8 km/h nikoho nezajímá, ať fouká odkudkoli.
+  const v = routeQuip({ ...KLID, windDirKey: 'n' });
+  assert.ok(!/severák/i.test(v), v);
+});
+
+test('všech osm směrů má aspoň dvě věty a žádná nenese zakázané jméno', () => {
+  for (const smer of ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']) {
+    const veta = routeQuip({ ...VETRNO, windDirKey: smer });
+    assert.ok(veta.length > 20, `${smer}: ${veta}`);
+    assert.ok(veta.length <= 110, `${smer} je moc dlouhé: ${veta}`);
+    assert.ok(!/cimrman/i.test(veta), `${smer}: zakázané jméno`);
+  }
+});

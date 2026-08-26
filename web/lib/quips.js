@@ -130,6 +130,59 @@ const SITUACE = [
 ];
 
 /**
+ * Vítr podle toho, ODKUD fouká.
+ *
+ * 🚨 Michalův nápad 26. 8. 2026: *„tyhle směry větru by stálo za to taky
+ * lehce vtipně okomentovat."* Sedí to: každý český směr má svou pověst —
+ * severák studí, západní nese déšť, jižák voní létem. Je to informace
+ * zabalená do vtipu, ne vtip místo informace.
+ *
+ * ⚠️ Šestnáct směrů se svede na osm. „Východo-severovýchodní" je pořád
+ * východní vítr; kdo by pro každý z šestnácti psal vlastní hlášku, dopadne
+ * u čtvrtého jako kalendář.
+ */
+const VITR_ODKUD = {
+  n: [
+    'Severák. Mistr ho měl za poctivý vítr: nelže, prostě studí.',
+    'Fouká od severu. Mistr v takovém větru zásadně nefilozofoval, jen si zapnul kabát.',
+  ],
+  ne: [
+    'Vítr od severovýchodu. Mistr tvrdil, že s ním chodí jasno a mrazivé myšlenky.',
+    'Severovýchodní. Mistr říkal, že tenhle vítr člověka vystřízliví rychleji než káva.',
+  ],
+  e: [
+    'Vítr od východu. Mistr ho vinil z toho, že suší prádlo i řeči.',
+    'Východní. Mistr věřil, že přináší zprávy — obvykle ty, o které nikdo nestál.',
+  ],
+  se: [
+    'Jihovýchodní vítr. Mistr ho nazýval vlažným diplomatem: nikomu neublíží, nikomu nepomůže.',
+    'Fouká od jihovýchodu. Mistr by řekl, že příroda dnes není rozhodnutá.',
+  ],
+  s: [
+    'Jižní vítr. Mistr v něm poznával první příslib léta — i v listopadu.',
+    'Jižák. Mistr tvrdil, že s ním se lépe cestuje i lépe zapomíná.',
+  ],
+  sw: [
+    'Jihozápadní vítr. Mistr ho podezíral, že za sebou obvykle něco táhne — nejčastěji mraky.',
+    'Fouká od jihozápadu. Mistr v takové chvíli radil vzít si něco přes ramena. Pro jistotu.',
+  ],
+  w: [
+    'Západní vítr. Mistr říkal, že s ním chodí déšť jako pes za pánem.',
+    'Od západu. Mistr tvrdil, že tenhle vítr je upovídaný a málokdy přijde sám.',
+  ],
+  nw: [
+    'Severozápadní vítr. Mistr ho měl za nespolehlivého společníka: přifouká i odfouká.',
+    'Od severozápadu. Mistr by poznamenal, že počasí si to ještě rozmýšlí.',
+  ],
+};
+
+/** Šestnáct směrů na osm. „VSV" je pořád východní vítr. */
+const NA_OSM = {
+  n: 'n', nne: 'n', ne: 'ne', ene: 'e', e: 'e', ese: 'e', se: 'se', sse: 's',
+  s: 's', ssw: 's', sw: 'sw', wsw: 'w', w: 'w', wnw: 'w', nw: 'nw', nnw: 'n',
+};
+
+/**
  * Otisk zadání → číslo. Táž trasa v tentýž čas dá tutéž hlášku.
  *
  * ⚠️ Nejde o bezpečnost, jen o stabilitu, takže stačí nejjednodušší možný
@@ -154,6 +207,7 @@ const NEBEZPECI_OBECNE = 'nebezpečné počasí';
  * @param {string} [k.hazardWhat]   jméno jevu („Bouřka") — u nebezpečí povinné
  * @param {number} k.rainCount      kolik bodů má pravděpodobný déšť
  * @param {number} k.windKmh        nejsilnější vítr po trase
+ * @param {string} [k.windDirKey]   odkud fouká (`n`, `ne`, … `nnw`)
  * @param {number|null} k.tempC     teplota v cíli
  * @param {number} k.distanceM      délka trasy
  * @param {number} k.arrivalHour    hodina příjezdu (0–23)
@@ -175,6 +229,14 @@ export function routeQuip(k, lang = 'cs') {
 
   const situace = SITUACE.find((s) => s.kdy(kontext));
   if (!situace) return '';
+
+  // U větru se dá říct víc než „fouká": odkud. Když směr známe, vyhrává —
+  // je to informace navíc, ne jen jiný vtip.
+  const smer = NA_OSM[String(k.windDirKey || '').toLowerCase()];
+  if (situace.klic === 'vitr' && smer) {
+    const vety = VITR_ODKUD[smer];
+    return vety[otisk(`vitr|${smer}|${kontext.distanceM}`) % vety.length];
+  }
 
   // Otisk zahrnuje i situaci — po přepnutí odjezdu, které změní počasí, se
   // tedy změní i hláška. Táž trasa se stejným počasím ji ale drží.
