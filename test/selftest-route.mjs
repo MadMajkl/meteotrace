@@ -623,3 +623,17 @@ test('🚨 po trase se stahuje i pocitová teplota a nárazy větru', () => {
   assert.match(ROUTE_FORECAST_PARAMS.hourly, /apparent_temperature/);
   assert.match(ROUTE_FORECAST_PARAMS.hourly, /wind_gusts_10m/);
 });
+
+test('🚨 pocitovka má smysl, až když se liší aspoň o dva stupně', () => {
+  // „24 °C, pocitově 23 °C" je rozdíl, který nikomu nic neřekne a jen
+  // prodlužuje řádek. Pocitovka má měnit rozhodnutí, ne dělat společnost.
+  const plan = planAt(T0);
+  const s = structuredClone(FORECAST);
+  s[0].hourly.apparent_temperature = s[0].hourly.temperature_2m.map((t) => t - 1);
+  s[1].hourly.apparent_temperature = s[1].hourly.temperature_2m.map((t) => t - 6);
+  s[2].hourly.apparent_temperature = s[2].hourly.temperature_2m.slice();
+
+  const v = buildRouteView({ plan, forecast: s, lang: 'cs', units: METRIC });
+  assert.equal(v.points[0].feelsDiffers, false, 'jeden stupeň je šum');
+  assert.equal(v.points[1].feelsDiffers, true, 'šest stupňů mění rozhodnutí');
+});

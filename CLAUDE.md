@@ -88,6 +88,7 @@ tohle je jen shrnutí.**
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | „Jeď sem" | na trase klepnutí na uložené místo nastaví cíl + start z polohy a rovnou počítá |
 | Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
+| Hlášky k trase | `web/lib/quips.js` — cimrmanovsky, JEN česky, a u nebezpečí mlčí |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
@@ -102,7 +103,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**430 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**439 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 

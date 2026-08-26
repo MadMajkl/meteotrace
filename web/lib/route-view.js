@@ -88,6 +88,9 @@ function describePoint(planPoint, location, lang, units) {
     icon: weatherIcon(code, true),
     condition: t(`weather.${weatherKey(code)}`, lang),
     temp: formatTemp(H.temperature_2m?.[i], units, lang),
+    // ⚠️ Číslo, ne text: podle něj se rozhoduje (hlášky, prahy). Formátovaná
+    // podoba nese jednotku a desetinnou čárku, takže se z ní počítat nedá.
+    tempC: Number.isFinite(H.temperature_2m?.[i]) ? H.temperature_2m[i] : null,
     // ⚠️ Pocitovka se ukazuje, JEN když se od teploměru liší — jinak by
     // každý řádek nesl dvakrát totéž číslo a přestalo by se to číst.
     feels: formatTemp(H.apparent_temperature?.[i], units, lang),
@@ -192,12 +195,14 @@ export function compareDepartures({ options, forecast, lang, units }) {
 /**
  * Liší se pocitová teplota od naměřené natolik, aby stálo za to ji psát?
  *
- * Práh je jeden stupeň: menší rozdíl je pod rozlišením zaokrouhleného čísla,
- * takže by se v UI objevilo „22 °C, pocitově 22 °C".
+ * ⚠️ Práh jsou DVA stupně, ne jeden. Při jednom se v appce objevilo
+ * „24 °C, pocitově 23 °C" — rozdíl, který nikomu nic neřekne a jen prodlužuje
+ * řádek. Pocitovka má smysl, až když mění rozhodnutí: vítr ubere pět stupňů,
+ * vlhko v horku jich pár přidá.
  */
 function liseSe(teplota, pocitova) {
   if (!Number.isFinite(teplota) || !Number.isFinite(pocitova)) return false;
-  return Math.abs(teplota - pocitova) >= 1;
+  return Math.abs(teplota - pocitova) >= 2;
 }
 
 /** O kolik musí náraz převýšit průměr, aby to bylo sdělení, a ne šum. */

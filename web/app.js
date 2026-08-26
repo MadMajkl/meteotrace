@@ -25,6 +25,7 @@ import {
   ROUTE_FORECAST_PARAMS,
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
+import { routeQuip } from './lib/quips.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -1828,6 +1829,23 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   const cil = $('route-arrival');
   cil.hidden = !veta;
   cil.textContent = veta;
+
+  // Hláška k trase. ⚠️ Stojí POD údaji jako dovětek — kdyby zabrala místo
+  // teploty nebo větru, byla by z appky legrace, ne nástroj. A u nebezpečí
+  // mlčí, viz `quips.js`.
+  const posledni = view.points[view.points.length - 1];
+  const hlaska = routeQuip({
+    hazard: view.summary.hazardCount > 0,
+    rainCount: view.summary.rainCount,
+    windKmh: Math.max(0, ...view.points.map((p) => p.windKmh || 0)),
+    tempC: posledni?.tempC ?? null,
+    distanceM: trasa.totalDistanceM,
+    arrivalHour: new Date(plan.arrivalMs).getHours(),
+  }, state.lang);
+
+  const zert = $('route-quip');
+  zert.hidden = !hlaska;
+  zert.textContent = hlaska;
 
   // Rada o posunu odjezdu se ukáže, JEN když má cenu (R8: `worthMoving`).
   // Rada bez užitku podkopává důvěru ve všechny ostatní.

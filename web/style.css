@@ -789,3 +789,11 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .rp-detail { display: block; margin-top: 2px; font-size: 12px; color: var(--text-soft); }
 /* Bod s nárazy větru je pro pilota to hlavní, co na trase hledá. */
 .route-point[data-gusts="1"] .rp-detail { color: var(--warn-text); }
+
+/* Hláška k trase. Kurzívou a tlumeně: je to dovětek pod údaji, ne údaj.
+   U nebezpečného počasí se neukáže vůbec (viz lib/quips.js). */
+.route-quip {
+  margin: 8px 0 0;
+  font-size: 13px; font-style: italic; line-height: 1.45;
+  color: var(--text-soft);
+}
