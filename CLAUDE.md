@@ -54,6 +54,9 @@ a vyměnitelná konfigurací**, ne přepisem.
   heredoc v shellu žere zpětná lomítka a mrší diakritiku.
 - **Verzi bumpovat až úplně nakonec**, na všech místech najednou.
 - **Paritní test i18n je povinná brána** po každém zásahu do lokalizace.
+- **Tón textů (Michal, 26. 8. 2026): živý, odlehčený, lehounce překvapivý** — ale
+  **nikdy u výstrah, chyb a nebezpečí**. Věta musí vždy říct, co dělat; veselost se
+  přidává k informaci, ne místo ní. Emoji jen výjimečně (dvě v celé appce).
 - **Headless prohlížeč ani emulátor neodhalí chyby specifické pro WebView** ani skutečný
   výkon telefonu — na výkon se testuje na reálném zařízení (Samsung A53 = referenční
   střední třída, Z Fold 7 = vlajková loď a test skládacího displeje).
