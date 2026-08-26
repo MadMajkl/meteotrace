@@ -88,15 +88,38 @@ const SLUNCE = `
     <path d="M18,40 h7"/><path d="M83,40 h7"/>
   </g>`;
 
-/** Mráček: tři kruhy a rovné dno, ať drží tvar i v malém. */
+/**
+ * Mráček.
+ *
+ * 🚨 SPODNÍ HRANA NESMÍ BÝT ROVNÁ. Michal 26. 8. 2026: „je to nepřirozené
+ * a je to vidět." Skutečný mrak má dole nepravidelné bříško — rovná čára
+ * z něj dělá klipart. Dno je proto ze tří mělkých obloučků.
+ */
 const MRACEK = `
-  <path d="M34,54 a13,13 0 0,1 4,-25 a17,17 0 0,1 32,4 a12,12 0 0,1 -2,21 z" fill="#FFF"/>`;
+  <path d="M33,52
+           a12,12 0 0,1 3,-23
+           a17,17 0 0,1 31,3
+           a11,11 0 0,1 -1,20
+           q-6,7 -12,1
+           q-6,7 -12,0
+           q-5,6 -9,-1 z" fill="#FFF"/>`;
+
+/** Mráček podruhé: níž posazený, s výraznějším bříškem vlevo. */
+const MRACEK_B = `
+  <path d="M31,50
+           a11,11 0 0,1 5,-21
+           a16,16 0 0,1 30,1
+           a12,12 0 0,1 1,21
+           q-7,8 -14,2
+           q-7,6 -13,-1
+           q-5,4 -9,-2 z" fill="#FFF"/>`;
 
 const NAVRHY = [
   { jmeno: 'A — dnešní', popis: 'kapka, tenká trasa', kresba: TRASA_TENKA + KAPKA_MALA },
   { jmeno: 'B — kapka tučně', popis: 'táž značka, silnější tahy', kresba: TRASA_TLUSTA + KAPKA_VELKA },
   { jmeno: 'C — slunce', popis: 'nad trasou svítí', kresba: TRASA_TLUSTA + SLUNCE },
-  { jmeno: 'D — mráček', popis: 'nad trasou oblak', kresba: TRASA_TLUSTA + MRACEK },
+  { jmeno: 'D — mráček', popis: 'nad trasou oblak, měkké dno', kresba: TRASA_TLUSTA + MRACEK },
+  { jmeno: 'E — mráček podruhé', popis: 'níž posazený, výraznější bříško', kresba: TRASA_TLUSTA + MRACEK_B },
 ];
 
 const VELIKOSTI = [16, 24, 32, 48, 96];

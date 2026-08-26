@@ -1196,7 +1196,11 @@ function pouzijVzhled() {
  * vzhledu a strom zůstává stabilní.
  */
 function pouzijPoradi() {
-  document.querySelector('.tabs')?.setAttribute('data-primary', state.primary);
+  // ⚠️ Značka jde na záložky I na uložené věci: skupiny sedí pod svými
+  // záložkami, takže když se prohodí záložky, musí se prohodit i ony.
+  for (const el of [document.querySelector('.tabs'), $('saved')]) {
+    el?.setAttribute('data-primary', state.primary);
+  }
 }
 
 /** Je mapa vypnutá parametrem v adrese? Používá to layoutový test. */

@@ -427,12 +427,21 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 
 /* ── Správa uložených míst ─────────────────────────────────────────────── */
-/* ⚠️ Skupiny jdou POD SEBE. Tohle pravidlo pochází z doby, kdy tu byl jeden
-   řádek štítků a tlačítko správy vedle něj — od 26. 8. 2026 jsou tu ale dvě
-   skupiny („Moje trasy", „Moje místa") a vedle sebe se na telefon nevejdou:
-   druhá začínala 111 px od kraje a vytlačila obsah z okna. */
-.saved { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+/* 🚨 KAŽDÁ SKUPINA SEDÍ POD SVOU ZÁLOŽKOU. Michal 26. 8. 2026: „Moje trasy
+   pod záložkou trasy zarovnaně a Moje místa pod záložkou místa." Dvě stejně
+   široké dráhy s týmž odstupem jako záložky nad nimi — jinak by nadpis
+   ukazoval jinam, než kam patří.
+
+   ⚠️ Dráhy se PŘIŘAZUJÍ napevno (`grid-column`), ne pořadím. Kdyby jedna
+   skupina byla prázdná a schovaná, druhá by se jinak přesunula pod cizí
+   záložku. */
+.saved { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
 .saved .chips { flex: 1; min-width: 0; }
+
+.saved[data-primary="route"] #group-routes,
+.saved[data-primary="station"] #group-places { grid-column: 1; }
+.saved[data-primary="route"] #group-places,
+.saved[data-primary="station"] #group-routes { grid-column: 2; }
 
 .icon-btn.manage {
   flex: none;
@@ -808,8 +817,8 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
    posledních, kolik se doopravdy vejde (změřeno, viz lib/fit-row.js). */
 .saved-group {
   position: relative;
-  display: flex; align-items: center; gap: 8px;
-  max-width: 100%;                 /* ať se řádek nikdy neroztáhne přes okno */
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0;                    /* v dráze mřížky se musí umět zúžit */
   margin-top: 8px;
 }
 
