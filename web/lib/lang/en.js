@@ -100,6 +100,7 @@ export default {
     failed: 'The route could not be worked out.',
     noWeather: 'The route is ready, but the weather for it could not be loaded.',
     result: '{distance}, arriving at {arrival}',
+    arrival: 'Arriving at {time} — {what}.',
     estimated: 'Times are estimated — the router gave no speed profile.',
     beyond: 'Part of the route reaches beyond the forecast.',
     hazards: {

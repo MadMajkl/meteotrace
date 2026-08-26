@@ -776,3 +776,16 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
    vypadá jako seznam míst, ve kterém se jedno chová divně. */
 .chip-route { display: inline-flex; align-items: center; gap: 6px; }
 .chip-znak { color: var(--accent); font-size: 15px; line-height: 1; }
+
+/* Věta o cíli. Nejdůležitější řádek obrazovky trasy: kilometry si člověk
+   umí představit, počasí v cíli je to, kvůli čemu sem přišel. */
+.route-arrival {
+  margin: 10px 0 0;
+  font-size: 15px; line-height: 1.45;
+}
+
+/* Druhý řádek u bodu trasy: vítr, nárazy, pocitovka. Menší a tlumené —
+   je to doplněk k tomu, co je na řádku vidět hned. */
+.rp-detail { display: block; margin-top: 2px; font-size: 12px; color: var(--text-soft); }
+/* Bod s nárazy větru je pro pilota to hlavní, co na trase hledá. */
+.route-point[data-gusts="1"] .rp-detail { color: var(--warn-text); }

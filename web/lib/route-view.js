@@ -88,9 +88,19 @@ function describePoint(planPoint, location, lang, units) {
     icon: weatherIcon(code, true),
     condition: t(`weather.${weatherKey(code)}`, lang),
     temp: formatTemp(H.temperature_2m?.[i], units, lang),
+    // ⚠️ Pocitovka se ukazuje, JEN když se od teploměru liší — jinak by
+    // každý řádek nesl dvakrát totéž číslo a přestalo by se to číst.
+    feels: formatTemp(H.apparent_temperature?.[i], units, lang),
+    feelsDiffers: liseSe(H.temperature_2m?.[i], H.apparent_temperature?.[i]),
     wind: formatWind(windKmh, units, lang),
     windDir: dirText(H.wind_direction_10m?.[i], lang),
     windKmh,
+    gustKmh: H.wind_gusts_10m?.[i] ?? null,
+    gusts: formatWind(H.wind_gusts_10m?.[i], units, lang),
+    // 🚨 Náraz se hlásí, až když je citelně nad průměrem. Vítr 20 s nárazy 22
+    // je pořád „vítr 20"; 20 s nárazy 55 je něco úplně jiného — a přesně to
+    // shodí kluzák nebo drona.
+    gustsMatter: jeNarazSilny(windKmh, H.wind_gusts_10m?.[i]),
     precip: formatPrecip(H.precipitation?.[i], units, lang),
     precipProb,
     precipProbText: precipProb == null ? '—' : `${Math.round(precipProb)} %`,
@@ -179,6 +189,26 @@ export function compareDepartures({ options, forecast, lang, units }) {
   };
 }
 
+/**
+ * Liší se pocitová teplota od naměřené natolik, aby stálo za to ji psát?
+ *
+ * Práh je jeden stupeň: menší rozdíl je pod rozlišením zaokrouhleného čísla,
+ * takže by se v UI objevilo „22 °C, pocitově 22 °C".
+ */
+function liseSe(teplota, pocitova) {
+  if (!Number.isFinite(teplota) || !Number.isFinite(pocitova)) return false;
+  return Math.abs(teplota - pocitova) >= 1;
+}
+
+/** O kolik musí náraz převýšit průměr, aby to bylo sdělení, a ne šum. */
+export const GUST_MARGIN_KMH = 15;
+
+/** Je náraz větru natolik nad průměrem, že se o něm musí říct? */
+function jeNarazSilny(vitr, naraz) {
+  if (!Number.isFinite(vitr) || !Number.isFinite(naraz)) return false;
+  return naraz - vitr >= GUST_MARGIN_KMH;
+}
+
 function dirText(degrees, lang) {
   const key = windDirKey(degrees);
   return key ? t(`windDir.${key}`, lang) : '—';
@@ -186,7 +216,10 @@ function dirText(degrees, lang) {
 
 /** Parametry pro dotaz na předpověď po trase — jen to, co se opravdu použije. */
 export const ROUTE_FORECAST_PARAMS = {
-  hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m',
+  // ⚠️ Pocitová teplota a NÁRAZY větru nejsou navíc, jsou to ty údaje, podle
+  // kterých se člověk rozhoduje. Pilotovi řekne náraz víc než průměr, cyklistovi
+  // pocitovka víc než teploměr. Stojí to jeden parametr, ne jedno volání navíc.
+  hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
   timezone: 'auto',
   forecast_days: '3',
 };
@@ -303,4 +336,44 @@ export function legRows(useky, departureMs) {
   });
 
   return { rows, totalDistanceM: ujeto, arrivalMs: cas };
+}
+
+/**
+ * Věta o příjezdu: v kolik tam budeš a co tam bude.
+ *
+ * 🚨 Michal 26. 8. 2026: *„jakože zpráva příjezd v XX:XX v cíli bude tak
+ * a tak."* Souhrn dosud říkal jen kilometry a čas — tedy nejmíň zajímavou
+ * půlku. Celý smysl appky je to druhé: **co tam zastihneš.**
+ *
+ * ⚠️ Skládá se z toho, co je v CÍLI, ne z průměru trasy. Průměr by u cesty
+ * z mlhy do slunce vyšel jako „oblačno" a nesedělo by ani jedno.
+ *
+ * ⚠️ Co se neví, se vynechá — věta se nesmí rozpadnout na „, , ." Když
+ * nevíme nic (bod za obzorem předpovědi), vrátí se prázdno a UI větu neukáže.
+ *
+ * @param {object} view   výsledek {@link buildRouteView}
+ * @param {string} cas    už naformátovaný čas příjezdu
+ * @param {string} lang
+ */
+export function arrivalSentence(view, cas, lang) {
+  const cil = view?.points?.[view.points.length - 1];
+  if (!cil || !cil.known) return '';
+
+  const casti = [];
+  if (cil.condition) casti.push(cil.condition.toLowerCase());
+  if (cil.temp && cil.temp !== '—') casti.push(cil.temp);
+  if (cil.feelsDiffers && cil.feels && cil.feels !== '—') {
+    casti.push(`${t('now.feelsLike', lang).toLowerCase()} ${cil.feels}`);
+  }
+  if (cil.wind && cil.wind !== '—') {
+    const smer = cil.windDir && cil.windDir !== '—' ? ` ${cil.windDir}` : '';
+    casti.push(`${t('now.wind', lang).toLowerCase()} ${cil.wind}${smer}`);
+  }
+  // Náraz jen když je citelně nad průměrem — viz `jeNarazSilny()`.
+  if (cil.gustsMatter && cil.gusts && cil.gusts !== '—') {
+    casti.push(`${t('now.gusts', lang).toLowerCase()} ${cil.gusts}`);
+  }
+
+  if (!casti.length) return '';
+  return tf('route.arrival', { time: cas, what: casti.join(', ') }, lang);
 }

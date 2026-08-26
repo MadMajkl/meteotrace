@@ -351,3 +351,26 @@ test('hledání: poloha se propíše do dotazu, bez ní se nic nevymýšlí', ()
   assert.equal(bez['focus.point.lat'], undefined);
   assert.equal(bez.size, '8');
 });
+
+/* ============================================================
+   JAZYK V HLEDÁNÍ MÍST
+
+   🚨 Bez jazyka vrací služba anglické názvy: „Prague, Czechia" místo
+   „Praha, Česko". Pro českého uživatele to vypadá, jako by appka mluvila
+   o cizím městě — a u „Vienna" vs „Vídeň" je to ještě horší.
+   ============================================================ */
+
+test('🚨 hledání posílá jazyk, ať vrací česká jména', () => {
+  const url = buildUrl('geocode', mapParams('geocode', { name: 'Praha', count: 5, language: 'cs' }), '');
+  assert.match(url, /[?&]lang=cs(&|$)/);
+});
+
+test('bez jazyka se nic nevymýšlí', () => {
+  const url = buildUrl('geocode', mapParams('geocode', { name: 'Praha', count: 5 }), '');
+  assert.ok(!url.includes('lang='), url);
+});
+
+test('jazyk se ořízne — do cizí služby nepatří nic dlouhého', () => {
+  const p = mapParams('geocode', { name: 'Praha', language: 'cs-CZ-x-nesmysl' });
+  assert.equal(p.lang.length <= 5, true);
+});

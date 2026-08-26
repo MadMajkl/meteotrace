@@ -15,8 +15,8 @@ import {
   fromOpenRouteService, hoursToMs, toOrsCoord, toForecastParams, asLocationList, spojUseky,
 } from '../web/lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows,
-  RAIN_PROBABILITY, STRONG_WIND_KMH,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows, arrivalSentence,
+  RAIN_PROBABILITY, STRONG_WIND_KMH, ROUTE_FORECAST_PARAMS,
 } from '../web/lib/route-view.js';
 import { METRIC } from '../web/lib/units.js';
 
@@ -564,4 +564,62 @@ test('u cesty z A do B se rozpis neukazuje', () => {
 
 test('rozbitý úsek rozpis neshodí', () => {
   assert.equal(legRows([ZASTAVKY[0], null, ZASTAVKY[1]], T0).rows.length, 2);
+});
+
+/* ============================================================
+   VĚTA O PŘÍJEZDU
+
+   Michal 26. 8. 2026: „zpráva příjezd v XX:XX, v cíli bude tak a tak."
+   Souhrn dosud říkal jen kilometry a čas — tedy tu nezajímavější půlku.
+   ============================================================ */
+
+function bodCile(navic = {}) {
+  return {
+    points: [
+      { known: true, condition: 'Jasno', temp: '20 °C' },
+      {
+        known: true, condition: 'Polojasno', temp: '22 °C', feels: '24 °C',
+        feelsDiffers: false, wind: '12 km/h', windDir: 'JZ',
+        gusts: '20 km/h', gustsMatter: false, ...navic,
+      },
+    ],
+  };
+}
+
+test('věta mluví o CÍLI, ne o průměru trasy', () => {
+  // Průměr by u cesty z mlhy do slunce vyšel jako „oblačno" a nesedělo by ani jedno.
+  const v = arrivalSentence(bodCile(), '15:12', 'cs');
+  assert.match(v, /^Příjezd v 15:12 — polojasno, 22 °C, vítr 12 km\/h JZ\.$/);
+});
+
+test('🚨 pocitovka se píše, jen když se liší od teploměru', () => {
+  // Jinak by každý řádek nesl dvakrát totéž číslo.
+  assert.ok(!arrivalSentence(bodCile(), '15:12', 'cs').includes('pocitově'));
+  assert.match(arrivalSentence(bodCile({ feelsDiffers: true }), '15:12', 'cs'), /pocitově 24 °C/);
+});
+
+test('🚨 náraz větru se hlásí, až když je citelně nad průměrem', () => {
+  // Vítr 20 s nárazy 22 je pořád „vítr 20". 20 s nárazy 55 shodí kluzák.
+  assert.ok(!arrivalSentence(bodCile(), '15:12', 'cs').includes('nárazech'));
+  const s = arrivalSentence(bodCile({ gustsMatter: true, gusts: '55 km/h' }), '15:12', 'cs');
+  assert.match(s, /v nárazech 55 km\/h/);
+});
+
+test('co se neví, se vynechá — věta se nerozpadne na čárky', () => {
+  const v = arrivalSentence({ points: [{ known: true, condition: 'Jasno' }] }, '15:12', 'cs');
+  assert.equal(v, 'Příjezd v 15:12 — jasno.');
+  assert.ok(!v.includes(', ,'));
+});
+
+test('bod za obzorem předpovědi větu neukáže vůbec', () => {
+  // Tvrdit „v cíli bude" o něčem, co se neví, je horší než mlčet.
+  assert.equal(arrivalSentence({ points: [{ known: false }] }, '15:12', 'cs'), '');
+  assert.equal(arrivalSentence({ points: [] }, '15:12', 'cs'), '');
+  assert.equal(arrivalSentence(null, '15:12', 'cs'), '');
+});
+
+test('🚨 po trase se stahuje i pocitová teplota a nárazy větru', () => {
+  // Bez nich by je nebylo z čeho počítat — a přitom to nestojí volání navíc.
+  assert.match(ROUTE_FORECAST_PARAMS.hourly, /apparent_temperature/);
+  assert.match(ROUTE_FORECAST_PARAMS.hourly, /wind_gusts_10m/);
 });

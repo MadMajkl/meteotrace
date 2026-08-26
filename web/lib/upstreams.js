@@ -70,15 +70,20 @@ export const UPSTREAMS = {
    */
   geocode: {
     base: 'https://api.openrouteservice.org/geocode/search',
-    params: ['text', 'size', 'focus.point.lat', 'focus.point.lon'],
+    params: ['text', 'size', 'lang', 'focus.point.lat', 'focus.point.lon'],
     // Klient posílá pořád `name`/`count`; překlad na řeč služby patří sem,
     // ne do appky — jinak by výměna zdroje znamenala zásah do obrazovky.
     //
     // ⚠️ `lat`/`lon` jsou nepovinné a znamenají „odkud se uživatel dívá".
     // Tatáž ulice je v desítce měst; bez tohohle je pořadí náhodné a člověk
     // musí číst všechny řádky. S tím se nejbližší nabídne první.
-    mapParams: ({ name, count, lat, lon }) => {
+    mapParams: ({ name, count, lat, lon, language }) => {
       const out = { text: String(name ?? ''), size: String(count || 8) };
+      // 🚨 Bez jazyka vrací služba anglické názvy: „Prague, Czechia" místo
+      // „Praha, Česko". Pro českého uživatele to vypadá, jako by appka mluvila
+      // o cizím městě — a u „Vienna" vs „Vídeň" je to ještě horší.
+      // Změřeno 26. 8. 2026: `lang=cs` vrátí „Praha, Česko".
+      if (language) out.lang = String(language).slice(0, 5);
       if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
         out['focus.point.lat'] = String(lat);
         out['focus.point.lon'] = String(lon);

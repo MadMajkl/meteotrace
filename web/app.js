@@ -21,7 +21,7 @@ import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs, spojUseky,
 } from './lib/route-adapter.js';
 import {
-  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows,
+  buildRouteView, compareDepartures, routeMapData, departureAdvice, legRows, arrivalSentence,
   ROUTE_FORECAST_PARAMS,
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
@@ -1822,6 +1822,13 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   }
   $('route-summary').append(el('span', 'route-extra', dovetky.join(' ')));
 
+  // 🚨 Co tam zastihneš, je celý smysl appky — souhrn to musí říct, ne jen
+  // kolik je to kilometrů. Viz `arrivalSentence()`.
+  const veta = arrivalSentence(view, formatClock(plan.arrivalMs, pasmo, state.lang), state.lang);
+  const cil = $('route-arrival');
+  cil.hidden = !veta;
+  cil.textContent = veta;
+
   // Rada o posunu odjezdu se ukáže, JEN když má cenu (R8: `worthMoving`).
   // Rada bez užitku podkopává důvěru ve všechny ostatní.
   const rada = $('route-advice');
@@ -1849,7 +1856,34 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     const popis = el('span', 'rp-cond', p.condition || '');
     const teplota = el('span', 'rp-temp', p.temp ?? '');
 
-    li.append(cas, ikona, el('span', 'rp-text', [popis, km]), teplota);
+    // 🚨 Samotné srážky nestačí. Michal 26. 8. 2026: „mělo by to psát i vítr,
+    // normální i pocitovou teplotu, protože třeba vítr fouká." Pro pilota je
+    // náraz větru důležitější než déšť.
+    //
+    // ⚠️ Píše se jen to, co něco přidává: pocitovka když se liší od teploměru,
+    // náraz když je citelně nad průměrem. Jinak by každý řádek nesl tatáž
+    // čísla dvakrát a přestalo by se to číst.
+    const detaily = [];
+    if (p.known) {
+      if (p.wind && p.wind !== '—') {
+        detaily.push(`${p.wind}${p.windDir && p.windDir !== '—' ? ` ${p.windDir}` : ''}`);
+      }
+      if (p.gustsMatter && p.gusts && p.gusts !== '—') {
+        detaily.push(`${t('now.gusts', state.lang).toLowerCase()} ${p.gusts}`);
+      }
+      if (p.feelsDiffers && p.feels && p.feels !== '—') {
+        detaily.push(`${t('now.feelsLike', state.lang).toLowerCase()} ${p.feels}`);
+      }
+      if (p.rain && p.precipProbText && p.precipProbText !== '—') {
+        detaily.push(`${t('now.precipitation', state.lang).toLowerCase()} ${p.precipProbText}`);
+      }
+    }
+
+    const text = [popis, km];
+    if (detaily.length) text.push(el('span', 'rp-detail', detaily.join(' · ')));
+    if (p.gustsMatter) li.dataset.gusts = '1';
+
+    li.append(cas, ikona, el('span', 'rp-text', text), teplota);
     return li;
   });
 

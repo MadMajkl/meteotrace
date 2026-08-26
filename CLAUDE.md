@@ -88,6 +88,7 @@ tohle je jen shrnutí.**
 | Srovnání časů odjezdu (R8) | přepínač Teď / +1 / +2 / +3 h, bez jediného dotazu navíc |
 | „Jeď sem" | na trase klepnutí na uložené místo nastaví cíl + start z polohy a rovnou počítá |
 | Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
+| Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
 | Trasa v mapě | čára a body podle počasí; táž mapa se mezi obrazovkami PŘESOUVÁ (jedna instance MapLibre) |
@@ -101,7 +102,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**421 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**430 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -185,6 +186,8 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   dva segfaulty). Referenční přístroj je **Samsung A53**.
 - **Když nástroj tvrdí, že je appka rozbitá, ověř nejdřív, že měří to, co si myslí.**
   Večer ladění mapy byly nakonec čtyři chyby v `tools/browser.mjs`, ne v appce.
+- **⚠️ Změna v `upstreams.js` (a v čemkoli na serveru) potřebuje RESTART dev serveru.**
+  Proxy si katalog drží v paměti od spuštění — jinak měříš starý kód a nechápeš proč.
 - **🚨 Dvakrát zapsaný oddíl v překladu je tichá ztráta.** Objekt v JS bere poslední
   zápis a první zahodí; `warnings` byl v obou jazycích dvakrát, takže půlka byla mrtvá.
   **Paritní test to nemohl chytit** — porovnává až načtené objekty. Hlídá to teď

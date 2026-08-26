@@ -103,6 +103,7 @@ export default {
     failed: 'Trasu se nepodařilo spočítat.',
     noWeather: 'Trasa je hotová, ale počasí k ní se nepodařilo načíst.',
     result: '{distance}, příjezd v {arrival}',
+    arrival: 'Příjezd v {time} — {what}.',
     estimated: 'Časy jsou odhadnuté — router nedal rychlostní profil.',
     beyond: 'Část trasy sahá za obzor předpovědi.',
     hazards: {
