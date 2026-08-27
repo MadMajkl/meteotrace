@@ -891,3 +891,23 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   border-style: dashed;
 }
 .chip-sprava:hover { color: var(--text); background: var(--surface-2); }
+
+/* 🚨 Předěl dne v hodinovém pruhu. Osmačtyřicet dlaždic s časy 0–23 a znovu
+   0–23 je bez něj bludiště: „v 8:00" se dá číst jako dnes i zítra. */
+.hour-newday {
+  position: relative;
+  margin-left: 14px;
+  border-left: 1px solid var(--line);
+  padding-left: 14px;
+}
+.hour-newday::before {
+  content: attr(data-day);
+  position: absolute; top: -2px; left: 14px;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--accent);
+}
+/* ⚠️ Místo pro jméno dne se dělá NAD CELÝM PRUHEM, ne uvnitř jedné dlaždice.
+   Když se odsazovala jen ta jedna, byla vyšší než ostatní a řada vypadala
+   rozhozeně. */
+.hours { padding-top: 14px; }
+.hour-newday::before { top: -14px; }

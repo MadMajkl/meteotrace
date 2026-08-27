@@ -1127,12 +1127,21 @@ function render(forecast, air) {
   $('d-sunset').textContent = view.sun.sunset;
   $('now-updated').textContent = c.updated;
 
-  fill($('hours'), view.hourly, (h) => el('div', 'hour', [
-    el('div', 't', h.time),
-    el('span', 'i', h.icon),
-    el('div', 'v', h.temp),
-    el('div', 'p', h.precipProb === '0 %' ? '' : h.precipProb),
-  ]));
+  fill($('hours'), view.hourly, (h) => {
+    const bunka = el('div', 'hour', [
+      el('div', 't', h.time),
+      el('span', 'i', h.icon),
+      el('div', 'v', h.temp),
+      el('div', 'p', h.precipProb === '0 %' ? '' : h.precipProb),
+    ]);
+    // Předěl dne. Bez něj je dvoudenní pruh bludiště — „v 8:00" se dá číst
+    // jako dnes i zítra.
+    if (h.dayLabel) {
+      bunka.dataset.day = h.dayLabel;
+      bunka.classList.add('hour-newday');
+    }
+    return bunka;
+  });
 
   fill($('days'), view.daily, (d) => el('li', '', [
     el('span', 'd', d.day),

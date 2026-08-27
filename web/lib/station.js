@@ -118,7 +118,11 @@ export function pollenLevel(species, value) {
  * @param {number} [a.hours=24]
  */
 export function buildStationView(a) {
-  const { forecast, air, lang, units, nowMs, hours = 24 } = a;
+  // 🚨 48 hodin, ne 24. Data na sedm dní se stahují tak jako tak (jedno
+  // volání), takže delší pruh nestojí ani dotaz navíc — a pilotovi, který
+  // v pátek plánuje sobotní let, je čtyřiadvacet hodin k ničemu.
+  // Víc než dva dny už po hodinách nikdo nečte; od toho je sedmidenní výhled.
+  const { forecast, air, lang, units, nowMs, hours = 48 } = a;
   if (!forecast || !forecast.hourly) return null;
 
   const tz = forecast.timezone || 'UTC';
@@ -165,9 +169,18 @@ export function buildStationView(a) {
     hourly: hourMs.slice(iNow, iNow + hours).map((ms, k) => {
       const i = iNow + k;
       const c = H.weather_code?.[i];
+      // ⚠️ U dvoudenního pruhu musí být poznat, kde končí dnešek. Osmačtyřicet
+      // stejných dlaždic s časy 0–23 a znovu 0–23 je bludiště: „v 8:00" se
+      // pak dá číst jako dnes i zítra. Proto se první hodina nového dne
+      // označí jménem dne.
+      const denZacina = k > 0 && !stejnyDen(ms, hourMs[i - 1], off);
       return {
         timeMs: ms,
         time: formatClock(ms, tz, lang),
+        // Zítřek se řekne slovem, další dny zkratkou — „Zítra" se čte líp než „Pá".
+        dayLabel: denZacina
+          ? (jeZitra(ms, hourMs[iNow], off) ? t('forecast.tomorrow', lang) : formatWeekday(ms, tz, lang))
+          : '',
         icon: weatherIcon(c, isDaylight(ms, sunrise[0], sunset[0])),
         temp: formatTemp(H.temperature_2m?.[i], units, lang),
         precipProb: pct(H.precipitation_probability?.[i], lang),
@@ -271,6 +284,24 @@ function dirText(degrees, lang) {
 }
 
 /** Parametry pro dotaz na předpověď — na jednom místě, ať se nerozejdou. */
+/**
+ * Jsou dva časy týž den v místním pásmu?
+ *
+ * ⚠️ Porovnává se v pásmu MÍSTA, ne prohlížeče. Kdo se dívá z Prahy na
+ * počasí v Reykjavíku, potřebuje vědět, kdy tam začíná zítřek — ne kdy
+ * začíná jemu.
+ */
+function stejnyDen(a, b, offsetS) {
+  const den = (ms) => Math.floor((ms + offsetS * 1000) / 86400000);
+  return den(a) === den(b);
+}
+
+/** Je ten čas o den dál než začátek pruhu? */
+function jeZitra(ms, zacatek, offsetS) {
+  const den = (x) => Math.floor((x + offsetS * 1000) / 86400000);
+  return den(ms) - den(zacatek) === 1;
+}
+
 export const FORECAST_PARAMS = {
   current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
   hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index',

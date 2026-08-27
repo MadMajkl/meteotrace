@@ -279,3 +279,87 @@ test('tvary jsou kreslitelné — mají čáru nebo plochu', () => {
     }
   }
 });
+
+/* ============================================================
+   HODINOVÝ PRUH NA DVA DNY
+
+   🚨 Michal 27. 8. 2026: „ta předpověď po hodinách by měla být
+   scrollovatelná… 48 h?" Data na sedm dní se stahují tak jako tak, takže
+   delší pruh nestojí ani dotaz navíc. Musí v něm ale být poznat, kde končí
+   dnešek — jinak je 0–23 a znovu 0–23 bludiště.
+   ============================================================ */
+
+/** Předpověď na 60 hodin od poledne, ať pruh přesáhne přes dva půlnoci. */
+function dlouhaPredpoved(pocet = 60) {
+  const zacatek = Date.parse('2026-08-21T10:00:00Z');   // 12:00 v Praze
+  const casy = Array.from({ length: pocet }, (_, i) =>
+    new Date(zacatek + i * 3600000).toISOString().slice(0, 16));
+  const pole = (v) => Array.from({ length: pocet }, () => v);
+
+  return {
+    timezone: 'Europe/Prague',
+    utc_offset_seconds: 7200,
+    current: { temperature_2m: 20, weather_code: 1, wind_speed_10m: 10, wind_direction_10m: 350 },
+    hourly: {
+      // ⚠️ Časy jsou MÍSTNÍ, jak je vrací Open-Meteo — proto se posouvají
+      // o offset a nikoli o UTC.
+      time: casy.map((s) => new Date(Date.parse(s + ':00Z') + 7200000).toISOString().slice(0, 16)),
+      temperature_2m: pole(20),
+      apparent_temperature: pole(20),
+      relative_humidity_2m: pole(50),
+      precipitation_probability: pole(0),
+      precipitation: pole(0),
+      weather_code: pole(1),
+      cloud_cover: pole(10),
+      wind_speed_10m: pole(10),
+      wind_direction_10m: pole(350),
+      uv_index: pole(3),
+    },
+    daily: {
+      time: ['2026-08-21', '2026-08-22', '2026-08-23'],
+      weather_code: [1, 2, 3],
+      temperature_2m_max: [24, 25, 22],
+      temperature_2m_min: [12, 13, 11],
+      precipitation_probability_max: [10, 20, 60],
+      sunrise: ['2026-08-21T06:00', '2026-08-22T06:01', '2026-08-23T06:03'],
+      sunset: ['2026-08-21T20:00', '2026-08-22T19:58', '2026-08-23T19:56'],
+    },
+  };
+}
+
+const POLEDNE = Date.parse('2026-08-21T10:00:00Z');
+
+test('hodinový pruh dává 48 hodin', () => {
+  const v = buildStationView({ forecast: dlouhaPredpoved(), lang: 'cs', units: METRIC, nowMs: POLEDNE });
+  assert.equal(v.hourly.length, 48);
+});
+
+test('🚨 první hodina nového dne je označená jménem dne', () => {
+  const v = buildStationView({ forecast: dlouhaPredpoved(), lang: 'cs', units: METRIC, nowMs: POLEDNE });
+  const predely = v.hourly.filter((h) => h.dayLabel);
+
+  assert.equal(predely.length, 2, 'pruh od poledne přesáhne přes dvě půlnoci');
+  assert.equal(predely[0].dayLabel, 'Zítra', 'druhý den se řekne slovem');
+  assert.notEqual(predely[1].dayLabel, 'Zítra', 'třetí den má vlastní jméno, ne zase „Zítra“');
+});
+
+test('první hodina pruhu předěl NEMÁ', () => {
+  // „Dnes" nad první dlaždicí je šum: uživatel ví, že pruh začíná teď.
+  const v = buildStationView({ forecast: dlouhaPredpoved(), lang: 'cs', units: METRIC, nowMs: POLEDNE });
+  assert.equal(v.hourly[0].dayLabel, '');
+});
+
+test('kratší pruh jde vyžádat', () => {
+  const v = buildStationView({ forecast: dlouhaPredpoved(), lang: 'cs', units: METRIC, nowMs: POLEDNE, hours: 6 });
+  assert.equal(v.hourly.length, 6);
+  assert.equal(v.hourly.every((h) => !h.dayLabel), true, 'šest hodin od poledne se do zítřka nedostane');
+});
+
+test('🚨 den se láme podle pásma MÍSTA, ne prohlížeče', () => {
+  // Kdo se dívá z Prahy na Reykjavík, potřebuje vědět, kdy začíná zítřek
+  // TAM. Posunuté pásmo proto musí posunout i předěl.
+  const f = dlouhaPredpoved();
+  const v = buildStationView({ forecast: f, lang: 'cs', units: METRIC, nowMs: POLEDNE });
+  const prvni = v.hourly.findIndex((h) => h.dayLabel);
+  assert.equal(prvni, 12, 'od 12:00 místního je do půlnoci dvanáct hodin');
+});
