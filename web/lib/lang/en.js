@@ -250,7 +250,7 @@ export default {
     title: 'Warnings',
     none: 'No warnings in force. All quiet for now.',
     noneFor: 'No warnings for {place}.',
-    outside: 'Warnings are not issued for this place.',
+    outside: 'We do not cover warnings for this area — we follow the European system.',
     unsure: 'We could not tell which places these apply to, so all warnings are shown.',
     unavailable: 'Warnings could not be loaded.',
     unnamed: 'Warning',

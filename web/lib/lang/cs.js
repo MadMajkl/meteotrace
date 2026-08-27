@@ -269,7 +269,10 @@ export default {
     title: 'Výstrahy',
     none: 'Žádné výstrahy neplatí. Zatím klid.',
     noneFor: 'Pro {place} žádné výstrahy neplatí.',
-    outside: 'Pro tohle místo se výstrahy nevydávají.',
+    // ⚠️ NE „výstrahy se nevydávají" — pro New York se vydávají, jen my
+    // sledujeme evropský systém. Tvrdit uživateli klid, o kterém nic nevíme,
+    // je horší než přiznat mezeru.
+    outside: 'Výstrahy pro tuhle oblast neumíme — sledujeme evropský systém.',
     unsure: 'Nevím, kterých míst se týkají, tak ukazuju všechny.',
     unavailable: 'Výstrahy se nepodařilo načíst.',
     unnamed: 'Výstraha',

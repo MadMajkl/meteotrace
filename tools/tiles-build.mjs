@@ -42,8 +42,20 @@ const CIL = join(KOREN, 'web', 'data', 'cz.pmtiles');
 /**
  * ČR s příhraničím. Okraj je tam schválně: trasa do Drážďan nebo do Lince
  * nesmí skončit na bílé ploše kus za hranicí.
+ *
+ * 🚨 Rozšířeno 27. 8. 2026. Michal: *„proč mapa končí geometricky useknutá
+ * směrem na západ někde za Hollfeldem a směrem na východ někde u Trstené?"*
+ * Přesně tam byl starý okraj (11,6 a 19,4° v. d.) — a rovná svislá hrana
+ * uprostřed krajiny vypadá jako vada vykreslování, ne jako naše nastavení.
+ *
+ * Nově 10,5–20,8° v. d. a 47,4–52,0° s. š.: přibude Norimberk, celý Mnichov,
+ * Salcburk, Krakov, Vratislav. Archiv tím naroste zhruba na 2,5 GB.
+ *
+ * ⚠️ Větší archiv appku NEZPOMALÍ. Čte se po kouskách přes `Range`, takže
+ * se stáhnou jen dlaždice, na které se člověk dívá. Platí se za to jen
+ * místem v R2 a časem při generování.
  */
-const VYREZ = '11.6,48.1,19.4,51.5';
+const VYREZ = '10.5,47.4,20.8,52.0';
 
 /**
  * Nejvyšší přiblížení. `z14` je ulice; nad ním si mapa dopočítá zvětšeninu.

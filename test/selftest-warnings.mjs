@@ -48,7 +48,11 @@ test('🚨 prázdno: „nic nehrozí" a „nepodařilo se načíst" se nesmí sp
 test('🚨 prázdno: místo mimo pokrytí není totéž co klid', () => {
   const mimo = pohled({ warnings: [], misto: null, pokryto: false, filtrovano: true });
   assert.equal(mimo.stav, 'mimo');
-  assert.ok(mimo.zprava.includes('nevydávají'));
+  // 🚨 A věta nesmí tvrdit, že se výstrahy NEVYDÁVAJÍ — pro New York se
+  // vydávají, jen my sledujeme evropský systém. Slibovat klid, o kterém
+  // nic nevíme, je nejhorší možná chyba právě u výstrah.
+  assert.match(mimo.zprava, /neumíme|evropsk/i, mimo.zprava);
+  assert.ok(!/nevydávají/.test(mimo.zprava), mimo.zprava);
 });
 
 test('klid u známého místa se zeptá jménem', () => {
