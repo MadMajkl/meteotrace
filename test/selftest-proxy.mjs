@@ -22,6 +22,7 @@ import {
   trimWarnings,
   fromPelias, mapParams,
 } from '../web/lib/upstreams.js';
+import { planRequest } from '../web/lib/proxy-core.js';
 
 /* ============================================================
    SEZNAM SLUŽEB
@@ -43,10 +44,37 @@ test('katalog: jméno služby nejde podstrčit přes dědičnost objektu', () =>
 
 test('katalog: každá služba má základ, seznam parametrů a platnost', () => {
   for (const [name, spec] of Object.entries(UPSTREAMS)) {
-    assert.ok(spec.base.startsWith('https://'), `${name}: základ musí být https`);
+    // Místní služba se skládá u nás a žádnou cizí adresu nemá — zato musí
+    // být jako místní OZNAČENÁ. Chybějící základ bez té značky je překlep,
+    // ne rozhodnutí, a proxy by na něj spadla až za běhu.
+    if (spec.localOnly) {
+      assert.equal(spec.base, undefined, `${name}: místní služba nemá mít adresu`);
+    } else {
+      assert.ok(spec.base.startsWith('https://'), `${name}: základ musí být https`);
+    }
     assert.ok(Array.isArray(spec.params), `${name}: chybí seznam parametrů`);
     assert.ok(spec.ttl > 0, `${name}: chybí platnost`);
   }
+});
+
+test('🚨 místní služba nikam nechodí — a nesmí chtít klíč', () => {
+  // Klíč u služby, která se nikam neptá, by znamenal, že se někam ptá.
+  for (const [name, spec] of Object.entries(UPSTREAMS)) {
+    if (!spec.localOnly) continue;
+    assert.ok(!spec.needsKey, `${name}: místní služba nepotřebuje klíč`);
+    assert.ok(!spec.fallback, `${name}: místní služba nemá kam couvnout`);
+  }
+});
+
+test('🚨 jméno místa má v klíči cache SOUŘADNICE', () => {
+  // Kdyby se lat/lon do klíče nedostaly, měly by všechny body společný
+  // záznam — druhý tazatel by dostal jméno prvního a nepoznal by to.
+  const a = planRequest({ pathname: '/api/place', params: { lat: '49.53', lon: '12.94' } });
+  const b = planRequest({ pathname: '/api/place', params: { lat: '50.08', lon: '14.44' } });
+  assert.ok(a.ok && b.ok);
+  assert.ok(a.localOnly, 'place musí být místní služba');
+  assert.notEqual(a.cacheKey, b.cacheKey);
+  assert.equal(a.url, null, 'místní služba nemá adresu');
 });
 
 test('katalog: neznámá služba je chyba, ne tichý průchod', () => {

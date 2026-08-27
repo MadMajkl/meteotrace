@@ -100,6 +100,31 @@ export const UPSTREAMS = {
   },
 
   /**
+   * Jméno místa ze souřadnic — BEZ CIZÍ SLUŽBY.
+   *
+   * 🚨 Nejdřív to zkusilo opačné hledání u Pelias/ORS. Změřeno 27. 8. 2026:
+   * na venkovský bod vrátí „Jezerce 23" — tedy číslo popisné — a z územních
+   * polí jen kraj („Plzeňský"). Ve větě „nejblíž prší asi 62 km na jihozápad"
+   * je oboje k ničemu: jedno moc přesné a náhodné, druhé moc hrubé.
+   *
+   * Vlastní hranice ORP (R11) dají přesně tu správnou hrubost — jméno města,
+   * pod které bod spadá. A navíc zadarmo: žádný klíč, žádná kvóta, žádná
+   * třetí strana, funguje i při výpadku (R0).
+   *
+   * ⚠️ `localOnly` znamená, že se NIKAM nechodí. Odpověď skládá proxy sama
+   * z dat, která už drží kvůli výstrahám.
+   *
+   * ⚠️ `lat`/`lon` jsou tu schválně mezi `params`, ne mezi `local`:
+   * musí se dostat do klíče cache. Kdyby byly „místní" jako u výstrah, měly
+   * by všechny body společný záznam a druhý tazatel by dostal jméno prvního.
+   */
+  place: {
+    localOnly: true,
+    params: ['lat', 'lon'],
+    ttl: 24 * HOUR,          // města se nestěhují
+  },
+
+  /**
    * Hledání místa — ZÁLOHA (Open-Meteo, bez klíče a bez kvóty).
    *
    * Umí jen sídla, ne adresy. Zato se nemá jak vyčerpat.
@@ -333,6 +358,15 @@ export function cacheKey(service, params, subPath = '') {
 }
 
 /** Platnost odpovědi v sekundách. */
+/**
+ * Skládá si odpověď proxy sama, bez cizí služby?
+ *
+ * Zatím jediný případ je `place` (jméno místa z vlastních hranic ORP).
+ */
+export function isLocalService(service) {
+  return !!UPSTREAMS[service]?.localOnly;
+}
+
 export function ttlFor(service) {
   const spec = UPSTREAMS[service];
   if (!spec) throw new Error(`Neznámá služba: ${service}`);

@@ -165,6 +165,8 @@ export function buildStationView(a) {
       windDirKey: windDirKey(pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow])) || '',
       gustKmh: pick(cur.wind_gusts_10m, H.wind_gusts_10m?.[iNow]) ?? null,
       tempC: pick(cur.temperature_2m, H.temperature_2m?.[iNow]) ?? null,
+      cloudPct: pick(cur.cloud_cover, H.cloud_cover?.[iNow]) ?? null,
+      precipMm: pick(cur.precipitation, H.precipitation?.[iNow]) ?? null,
       code,
       isDay: day,
     },

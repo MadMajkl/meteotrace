@@ -20,7 +20,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { routeQuip, placeQuip, SITUACE_KLICE, VSECHNY_VETY } from '../web/lib/quips.js';
+import { routeQuip, placeQuip, SITUACE_KLICE, VSECHNY_VETY, okoliQuip } from '../web/lib/quips.js';
 
 /** Obyčejná klidná trasa. */
 const KLID = {
@@ -207,9 +207,21 @@ test('místo: vítr se komentuje podle směru už od svěžího vánku', () => {
   assert.match(s, /sever/i);
 });
 
-test('🚨 pod dvanáct km/h se o směru nemluví', () => {
-  // Povídání o tom, odkud fouká vánek 5 km/h, je povídání o ničem.
-  const v = placeQuip({ windKmh: 5, windDirKey: 'w', tempC: 18 });
+test('🚨 slabý vítr se komentuje jinak než pořádný — ale směr řekne taky', () => {
+  // 🚨 Michal 27. 8. 2026: „nemáš žádné hlášky k větru?" Měl je — jenže
+  // začínaly až na dvanácti km/h, a pod nimi appka spadla na obecnou hlášku
+  // o ničem. Slabý vítr je přitom nejčastější stav: většinu dní by tak
+  // o větru nepadlo ani slovo. Původní pravidlo („pod dvanáct se o směru
+  // mlčí") tímhle padá.
+  const vanek = placeQuip({ windKmh: 6, windDirKey: 'w', tempC: 18 });
+  const poradny = placeQuip({ windKmh: 25, windDirKey: 'w', tempC: 18 });
+  assert.match(vanek, /západ/i);
+  assert.notEqual(vanek, poradny, 'vánek nemá znít jako vichr');
+});
+
+test('🚨 v bezvětří se o směru nemluví', () => {
+  // Odkud nefouká, to je povídání o ničem — tahle část pravidla platí dál.
+  const v = placeQuip({ windKmh: 1, windDirKey: 'w', tempC: 18 });
   assert.ok(!/západ/i.test(v), v);
 });
 
@@ -241,4 +253,54 @@ test('místo: rozbitý vstup hlášku neshodí', () => {
   assert.equal(placeQuip(null), '');
   assert.equal(typeof placeQuip({}), 'string');
   assert.equal(typeof placeQuip({ windKmh: 'x', tempC: NaN }), 'string');
+});
+
+/* ============================================================
+   KDE NEJBLÍŽ PRŠÍ / KAM ZA SLUNCEM
+
+   Michal 26. 8. 2026: „nejbližší déšť k trase je <místo, kde fakt aktuálně
+   nejblíže prší>" a „za sluncem bys musel jet až <kam>".
+   ============================================================ */
+
+test('okolí: věta nese vzdálenost, směr i místo', () => {
+  const v = okoliQuip({ hledame: 'dest', km: 62, dirKey: 'sw', misto: 'Klatovy' });
+  assert.match(v, /62 km/);
+  assert.match(v, /na jihozápad/);
+  assert.match(v, /Klatovy/);
+});
+
+test('🚨 mluví se opatrně — sonda není měření', () => {
+  // Sondy sedí na osmi směrech a třech vzdálenostech; skutečný nejbližší
+  // déšť může být mezi nimi. Věta nesmí tvrdit víc, než kolik se ví.
+  const v = okoliQuip({ hledame: 'dest', km: 62, dirKey: 'sw' });
+  assert.match(v, /asi/, v);
+});
+
+test('okolí: bez jména místa věta pořád dává smysl', () => {
+  const v = okoliQuip({ hledame: 'slunce', km: 25, dirKey: 'e' });
+  assert.match(v, /25 km/);
+  assert.match(v, /na východ/);
+  assert.ok(!v.includes('()'), 'prázdná závorka po chybějícím jménu');
+});
+
+test('okolí: když se nic nenajde, řekne se dosah', () => {
+  const dest = okoliQuip({ hledame: 'dest', km: null, dosahKm: 120 });
+  const slunce = okoliQuip({ hledame: 'slunce', km: null, dosahKm: 120 });
+  assert.match(dest, /120 km/);
+  assert.match(slunce, /120 km/);
+  assert.notEqual(dest, slunce, 'déšť a slunce nemají mít tutéž větu');
+});
+
+test('okolí: bez směru se netvrdí směr', () => {
+  // Kdyby se klíč směru nepodařilo přeložit, nesmí ve větě zůstat díra.
+  const v = okoliQuip({ hledame: 'dest', km: 40, dirKey: 'nesmysl' });
+  assert.ok(!v.includes('undefined'), v);
+  assert.match(v, /120 km/, 'spadne se na odpověď o dosahu');
+});
+
+test('okolí: táž situace dá tutéž větu a jiný jazyk mlčí', () => {
+  const k = { hledame: 'dest', km: 62, dirKey: 'sw', misto: 'Klatovy' };
+  assert.equal(okoliQuip(k), okoliQuip(k));
+  assert.equal(okoliQuip(k, 'en'), '');
+  assert.equal(okoliQuip(null), '');
 });

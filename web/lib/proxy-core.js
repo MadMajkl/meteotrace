@@ -14,7 +14,7 @@
 
 import {
   isKnownService, buildUrl, upstreamHeaders, cacheKey, ttlFor, trimWarnings,
-  mapParams, fromPelias, UPSTREAMS,
+  mapParams, fromPelias, UPSTREAMS, isLocalService,
 } from './upstreams.js';
 import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 
@@ -77,6 +77,23 @@ export function planRequest(req) {
     // `text` a co `size`, ví jen katalog. Výměna zdroje je pak změna v katalogu,
     // ne v obrazovce (`R0`).
     const prelozene = mapParams(service, params);
+
+    // Místní služba se skládá u nás — nemá adresu ani hlavičky, jen klíč
+    // cache. Viz `place` v katalogu.
+    if (isLocalService(service)) {
+      return {
+        ok: true,
+        service,
+        localOnly: true,
+        url: null,
+        headers: {},
+        cacheKey: cacheKey(service, prelozene, subPath),
+        ttlS: ttlFor(service),
+        dropped: droppedOf(service, prelozene),
+        fallback: null,
+      };
+    }
+
     return {
       ok: true,
       service,
@@ -98,6 +115,9 @@ export function planRequest(req) {
 
 /** Pomocná: co se z dotazu zahodilo (kvůli logu, ne kvůli chybě). */
 function droppedOf(service, params) {
+  // Místní služba žádnou adresu nestaví, takže se z ní nedá nic „zahodit".
+  if (isLocalService(service)) return [];
+
   const entries = params instanceof URLSearchParams
     ? [...params.keys()] : Object.keys(params || {});
   const url = buildUrl(service, params, '');

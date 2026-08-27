@@ -16,6 +16,7 @@
 import {
   planRequest, transformBody, filterByPlace, responseHeaders, errorBody, API_PREFIX,
 } from '../web/lib/proxy-core.js';
+import { findArea } from '../web/lib/orp.js';
 
 /**
  * Vypadá odpověď hledání jako „nic jsme nenašli"?
@@ -84,6 +85,40 @@ export function zapomenVypadky() {
  * @param {(msg: string, detail?: object) => void} [deps.log]
  * @returns {Promise<{status: number, headers: object, body: any}>}
  */
+/**
+ * Odpověď, kterou proxy skládá sama — bez cizí služby.
+ *
+ * 🚨 Jméno místa ze souřadnic. Zkusilo se to opačným hledáním u Pelias/ORS
+ * a změřilo se, že to nestačí: na venkovský bod vrátí číslo popisné
+ * („Jezerce 23") a z územních polí jen kraj. Vlastní hranice ORP dají to,
+ * co se hodí do věty — jméno města, pod které bod spadá.
+ *
+ * ⚠️ Hranice nemusí být po ruce (ořezané nasazení, nezapojený obal). Pak se
+ * vrátí `nazev: null`, ne výmluva — volající si s tím poradí a napíše větu
+ * bez jména. Zamlčet se to ale nesmí: od toho je `pokryto`.
+ */
+function mistniOdpoved(service, params, deps) {
+  if (service !== 'place') return null;
+
+  const lat = Number(params.lat);
+  const lon = Number(params.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return { nazev: null, kraj: null, pokryto: false };
+  }
+
+  const areas = deps.areas || [];
+  if (!areas.length) return { nazev: null, kraj: null, pokryto: false };
+
+  const misto = findArea([lat, lon], areas);
+  return {
+    nazev: misto ? misto.nazev : null,
+    kraj: misto ? misto.kraj : null,
+    // Hranice byly k dispozici a bod do žádné nespadl — je to cizina,
+    // ne nevědomost. To je jiná odpověď a musí jít poznat.
+    pokryto: true,
+  };
+}
+
 export async function serveProxy(req, deps) {
   const { cache } = deps;
   const fetchImpl = deps.fetchImpl || globalThis.fetch;
@@ -112,6 +147,14 @@ export async function serveProxy(req, deps) {
   if (hit && hit.fresh) {
     log('cache: čerstvé', { key: plan.cacheKey });
     return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(hit.value) };
+  }
+
+  // 1b) Místní služba: odpověď si skládáme sami, ven se nechodí vůbec.
+  if (plan.localOnly) {
+    const telo = mistniOdpoved(plan.service, params, deps);
+    cache.set(plan.cacheKey, telo, plan.ttlS);
+    log('místní odpověď', { service: plan.service, key: plan.cacheKey });
+    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: telo };
   }
 
   // 2) Ven.

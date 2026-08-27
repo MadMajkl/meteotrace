@@ -11,6 +11,7 @@
 import { t, tf, tp, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
+import { probePoints, nearestProbe, jeSrazka, jeJasno, probeDistanceM, PRSTENCE_KM } from './lib/probes.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
@@ -26,7 +27,7 @@ import {
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
-import { routeQuip, placeQuip } from './lib/quips.js';
+import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
 import {
@@ -1010,6 +1011,88 @@ function locate() {
    NAČTENÍ A VYKRESLENÍ
    ============================================================ */
 
+/**
+ * Kde nejblíž prší — a když prší tady, tak kam za sluncem.
+ *
+ * 🚨 Michal 26. a 27. 8. 2026: *„nejbližší déšť k trase je <místo>"*,
+ * *„za sluncem bys musel jet až <kam>"*. Odpověď „tady neprší" totiž hned
+ * plodí druhou otázku: a kde teda?
+ *
+ * ⚠️ PTÁ SE JEN NA JEDNU VĚC. Když tady prší nebo je zataženo, hledá se
+ * slunce; jinak déšť. Obojí naráz by znamenalo dvě pojmenování navíc — a to
+ * jméno stojí kvótu sdílenou s hledáním (3 000/den).
+ *
+ * ⚠️ NIKDY NESHODÍ STANICI. Je to dovětek: když se nepovede, prostě není.
+ * Proto vlastní `try` a vlastní jméno v skupině dotazů (zruší se při
+ * přepnutí místa, ne dřív).
+ */
+async function ukazOkoli(place, c) {
+  const prvek = $('now-around');
+  prvek.hidden = true;
+  prvek.textContent = '';
+
+  // Hlášky umí jen česky — viz pravidlo v `quips.js`. Bez češtiny by se
+  // zbytečně platilo za dotazy, ze kterých se nic nenapíše.
+  if (state.lang !== 'cs') return;
+
+  const stred = [place.lat, place.lon];
+  const sondy = probePoints(stred);
+  if (!sondy.length) return;
+
+  // Zataženo se počítá jako „slunce tu není". Michalova věta mluví o slunci,
+  // ne o suchu — a pod souvislou oblačností je odpověď „za sluncem se musí
+  // jinam" pravdivá, i když neprší.
+  const prsiTady = jeSrazka({ weather_code: c.code, precipitation: c.precipMm });
+  const zatazeno = Number(c.cloudPct) >= 80;
+  const hledame = (prsiTady || zatazeno) ? 'slunce' : 'dest';
+
+  try {
+    const odpoved = await requests.run('okoli', (signal) => apiGet('forecast', {
+      latitude: sondy.map((s) => s.lat).join(','),
+      longitude: sondy.map((s) => s.lon).join(','),
+      current: 'weather_code,precipitation,cloud_cover',
+      timezone: 'auto',
+    }, { signal }));
+
+    // 🚨 U seznamu souřadnic vrací Open-Meteo POLE odpovědí, u jedné
+    // souřadnice objekt. Sjednotit, jinak by se sondy přiřadily naprázdno.
+    const pole = Array.isArray(odpoved.data) ? odpoved.data : [odpoved.data];
+    const stavy = pole.map((x) => x?.current || null);
+
+    const nalez = nearestProbe(sondy, stavy, hledame === 'dest' ? jeSrazka : jeJasno);
+
+    let misto = '';
+    if (nalez) {
+      // Jméno je bonus, a bere se z VLASTNÍCH hranic ORP — žádná cizí
+      // služba, žádná kvóta. (Opačné hledání u Pelias vracelo na venkovský
+      // bod číslo popisné, viz katalog zdrojů.) Když se nepovede, věta
+      // jméno prostě neuvede.
+      try {
+        const jm = await requests.run('okoli-jmeno', (signal) => apiGet('place', {
+          lat: nalez.lat, lon: nalez.lon,
+        }, { signal }));
+        misto = jm.data?.nazev || '';
+      } catch { /* bez jména to dává smysl taky */ }
+    }
+
+    const veta = okoliQuip({
+      hledame,
+      km: nalez ? (probeDistanceM(stred, nalez) ?? nalez.distanceM) / 1000 : null,
+      dirKey: nalez?.dirKey,
+      misto,
+      dosahKm: PRSTENCE_KM[PRSTENCE_KM.length - 1],
+    }, state.lang);
+
+    if (!veta) return;
+    prvek.textContent = veta;
+    prvek.hidden = false;
+  } catch (e) {
+    if (requests.isAbort(e)) return;
+    // Dovětek, který se nepovedl, se mlčí. Chybová hláška o tom, kde neprší,
+    // by byla víc na obtíž než sama informace.
+  }
+}
+
 async function loadStation() {
   const place = state.place;
   if (!place) return;
@@ -1111,12 +1194,17 @@ function render(forecast, air) {
   $('now-temp').textContent = c.temp;
   $('now-cond').textContent = c.condition;
   $('now-feels').textContent = c.feelsLike;
-  // ⚠️ Zkratka směru se vysvětlí bublinou i pro odečítač obrazovky. „VSV"
-  // nikdo číst nemusí umět — appka to má říct sama.
+  // 🚨 CELÝM SLOVEM, ne zkratkou. Michal 27. 8. 2026: *„to bys měl
+  // překlápět automaticky na celá slova, to lidi neznaj."* Měl pravdu —
+  // „VSV" je značka pro meteorologa, ne pro člověka, který se dívá, jestli
+  // si vzít bundu. Bublina to nezachrání: na telefonu žádná není.
+  //
+  // ⚠️ Zkratka nezmizela úplně — zůstává tam, kde se měří na pixely
+  // (řádky bodů trasy). Tady je místa dost, tak se to napíše pořádně.
   const vitr = $('d-wind');
-  vitr.textContent = `${c.wind} ${c.windDir}`;
+  vitr.textContent = c.wind;
   if (c.windDirLong) {
-    vitr.title = `${t('now.wind', state.lang)}: ${c.windDirLong}`;
+    vitr.append(el('span', 'dir', c.windDirLong));
     vitr.setAttribute('aria-label', `${c.wind}, ${c.windDirLong}`);
   }
   $('d-gusts').textContent = c.gusts;
@@ -1142,6 +1230,9 @@ function render(forecast, air) {
   const zertMista = $('now-quip');
   zertMista.hidden = !hlaskaMista;
   zertMista.textContent = hlaskaMista;
+
+  // Dovětek o okolí se dotahuje zvlášť a nikoho nezdržuje.
+  if (state.place) ukazOkoli(state.place, c);
 
   hlidejRolovani();
   fill($('hours'), view.hourly, (h) => {
@@ -2082,7 +2173,10 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     let popisSmeru = '';
     if (p.known) {
       if (p.wind && p.wind !== '—') {
-        detaily.push(`${p.wind}${p.windDir && p.windDir !== '—' ? ` ${p.windDir}` : ''}`);
+        // Celé slovo i tady. Řádek je delší, ale „12 km/h severovýchodní"
+        // se dá přečíst; „12 km/h SV" se dá jen tušit.
+        const smerem = p.windDirLong || (p.windDir !== '—' ? p.windDir : '');
+        detaily.push(`${p.wind}${smerem ? ` ${smerem}` : ''}`);
         if (p.windDirLong) popisSmeru = p.windDirLong;
       }
       if (p.gustsMatter && p.gusts && p.gusts !== '—') {

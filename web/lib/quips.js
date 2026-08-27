@@ -176,6 +176,40 @@ const VITR_ODKUD = {
   ],
 };
 
+/**
+ * Odkud — druhý pád. Pro věty typu „pofukuje od severovýchodu".
+ */
+export const SMER_ODKUD = {
+  n: 'od severu', ne: 'od severovýchodu', e: 'od východu', se: 'od jihovýchodu',
+  s: 'od jihu', sw: 'od jihozápadu', w: 'od západu', nw: 'od severozápadu',
+};
+
+/**
+ * Kam — čtvrtý pád. Pro věty typu „šedesát kilometrů na jihozápad".
+ *
+ * ⚠️ Jiný pád než {@link SMER_ODKUD}, a proto vlastní tabulka. Skládat to
+ * z jednoho tvaru předponou by dřív nebo později vyrobilo „na severu"
+ * tam, kde má být „na sever".
+ */
+export const SMER_KAM = {
+  n: 'na sever', ne: 'na severovýchod', e: 'na východ', se: 'na jihovýchod',
+  s: 'na jih', sw: 'na jihozápad', w: 'na západ', nw: 'na severozápad',
+};
+
+/**
+ * Slabý vítr, u kterého se ale pořád vyplatí říct, odkud je.
+ *
+ * 🚨 Michal 27. 8. 2026: *„nemáš žádné hlášky k větru?"* Měl je — jenže
+ * začínaly až na dvanácti kilometrech v hodině, a pod nimi appka mlčky
+ * spadla na obecnou hlášku o ničem. Přitom právě slabý vítr je nejčastější
+ * stav: většinu dní by tak o větru nepadlo ani slovo.
+ */
+const VANEK_ODKUD = [
+  'Jen tak pofukuje {odkud}. Mistr takový vítr nazýval zdvořilým: ohlásí se a jde po svých.',
+  'Vánek {odkud}. Mistr tvrdil, že vítr, který neshodí klobouk, se počítá mezi přátele.',
+  'Slabě {odkud}. Mistr by řekl, že příroda dnes jen tak zkouší, jestli dáváme pozor.',
+];
+
 /** Šestnáct směrů na osm. „VSV" je pořád východní vítr. */
 const NA_OSM = {
   n: 'n', nne: 'n', ne: 'ne', ene: 'e', e: 'e', ese: 'e', se: 'se', sse: 's',
@@ -323,6 +357,13 @@ export function placeQuip(k, lang = 'cs') {
     return vety[otisk(otiskZ) % vety.length];
   }
 
+  // Slabý vítr: pořád se dá říct, odkud. Je to informace, kterou by
+  // obecná hláška zahodila.
+  if (vitr >= 4 && smer) {
+    const odkud = SMER_ODKUD[smer];
+    return VANEK_ODKUD[otisk(otiskZ) % VANEK_ODKUD.length].replace('{odkud}', odkud);
+  }
+
   if (vitr < 4) {
     const vety = [
       'Bezvětří. Mistr tvrdil, že v takovém tichu se nejlíp slyší vlastní výmluvy.',
@@ -351,6 +392,68 @@ export function placeQuip(k, lang = 'cs') {
     'Počasí bez překvapení. Mistr by řekl, že i to je druh zprávy.',
     'Nic zvláštního se neděje. Mistr takové dny míval nejraději — daly se naplánovat.',
   ];
+  return vety[otisk(otiskZ) % vety.length];
+}
+
+/**
+ * Kde nejblíž prší — nebo kam by se muselo za sluncem.
+ *
+ * 🚨 Michalův nápad 26. 8. 2026: *„nejbližší déšť k trase je <místo, kde fakt
+ * aktuálně nejblíže prší>"* a *„za sluncem bys musel jet až <kam>"*. Je to
+ * odpověď na otázku, kterou si člověk položí hned po té první: dobře, tady
+ * neprší — a kde teda?
+ *
+ * ⚠️ MLUVÍ SE OPATRNĚ, protože i měření je opatrné. Sondy sedí na osmi
+ * směrech a třech vzdálenostech; skutečný nejbližší déšť může být mezi nimi.
+ * Proto „nejblíž prší asi šedesát kilometrů", ne „přesně tam a tam". Věta
+ * nesmí tvrdit víc, než kolik se ví — u počasí to platí dvojnásob.
+ *
+ * ⚠️ Jméno místa je nepovinné. Když se ho nepodaří zjistit, věta pořád nese
+ * vzdálenost a směr, což je to hlavní.
+ *
+ * @param {object} k
+ * @param {'dest'|'slunce'} k.hledame  co se hledalo
+ * @param {number|null} k.km           vzdálenost v km, nebo `null` = nenašlo se
+ * @param {string} [k.dirKey]          směr (`n`, `ne`, … `nw`)
+ * @param {string} [k.misto]           jméno místa
+ * @param {number} [k.dosahKm]         jak daleko se hledalo
+ * @param {string} [lang]
+ */
+export function okoliQuip(k, lang = 'cs') {
+  if (lang !== 'cs') return '';
+  if (!k) return '';
+
+  const dosah = Number(k.dosahKm) || 120;
+  const km = Number.isFinite(k.km) ? Math.round(k.km) : null;
+  const kam = SMER_KAM[String(k.dirKey || '').toLowerCase()];
+  const misto = String(k.misto || '').trim();
+  const otiskZ = [k.hledame, km === null ? 'x' : km, kam || ''].join('|');
+
+  // Nic se nenašlo — taky odpověď, a u deště dokonce dobrá.
+  if (km === null || !kam) {
+    const vety = k.hledame === 'dest'
+      ? [
+        'Do ' + dosah + ' km kolem neprší ani nikde jinde. Mistr by v tak dobré zprávě ze zvyku hledal háček.',
+        'Ani ' + dosah + ' km daleko nikde neprší. Mistr takovým dnům říkal podezřele vydařené.',
+      ]
+      : [
+        'Jasno není ani ' + dosah + ' km kolem. Mistr by doporučil knihu a trpělivost — obojí vydrží déle než mraky.',
+        'Slunce se do ' + dosah + ' km neschovalo, ono tam prostě není. Mistr by to nazval poctivou oblohou.',
+      ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  const kde = misto ? ' (' + misto + ')' : '';
+
+  const vety = k.hledame === 'dest'
+    ? [
+      'Nejblíž prší asi ' + km + ' km ' + kam + kde + '. Mistr tvrdil, že déšť za obzorem je ze všech dešťů nejhezčí.',
+      'Do deště je to asi ' + km + ' km ' + kam + kde + '. Mistr by řekl, že na takovou dálku se dá pršení i obdivovat.',
+    ]
+    : [
+      'Za sluncem by se muselo asi ' + km + ' km ' + kam + kde + '. Mistr by v tom viděl slušný důvod k výletu.',
+      'Slunce začíná asi ' + km + ' km ' + kam + kde + '. Mistr tvrdil, že za dobrým počasím se cestovat vyplatí.',
+    ];
   return vety[otisk(otiskZ) % vety.length];
 }
 
