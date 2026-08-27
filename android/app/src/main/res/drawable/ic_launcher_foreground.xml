@@ -1,6 +1,21 @@
 <!--
-  Značka: kapka na trase. Vektor schválně — do repa nepatří binární ikony
-  v pěti velikostech, které se při každé úpravě musí generovat znovu.
+  Značka: zlaté slunce nad trasou. Vektor schválně — do repa nepatří binární
+  ikony v pěti velikostech, které se při každé úpravě musí generovat znovu.
+
+  ⚠️ MUSÍ SEDĚT s `web/icons/icon.svg`. Tam je zdroj pravdy; tohle je tentýž
+  obrázek pro plochu telefonu.
+
+  🚨 ZMENŠENO DO BEZPEČNÉ ZÓNY. Adaptivní ikona se ořezává maskou, kterou
+  si volí výrobce telefonu — kruh, čtverec se zaoblením, kapka. Jistá je jen
+  vnitřní část o průměru 72 ze 108. Kresba sahá od y=8 (horní paprsek) po
+  y=80 (trasa), takže bez zmenšení by kulatá maska paprsek uřízla a slunce
+  by na ploše vypadalo okousaně.
+
+  Měřítko 0,78 s pivotem uprostřed drží i nejvzdálenější bod uvnitř zóny.
+
+  ⚠️ A posun dolů o 7,2 je totéž vycentrování jako v `icon.svg` (tam o 9),
+  jen přepočtené na zmenšenou kresbu: ink sahá od y=4,5 po y=85, takže jeho
+  střed je nad středem plátna a bez posunu by ikona seděla moc vysoko.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -8,16 +23,56 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- trasa -->
-    <path
-        android:pathData="M30,74 C42,74 44,58 54,58 C64,58 66,74 78,74"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.78"
+        android:scaleY="0.78"
+        android:translateY="7.2">
 
-    <!-- kapka nad trasou -->
-    <path
-        android:pathData="M54,26 C54,26 42,40 42,47 A12,12 0 1,0 66,47 C66,40 54,26 54,26 Z"
-        android:fillColor="#FFFFFF" />
+        <!-- slunce: kotouč -->
+        <path
+            android:pathData="M54,23 A17,17 0 1,1 54,57 A17,17 0 1,1 54,23 Z"
+            android:fillColor="#FFC83D" />
+
+        <!-- paprsky -->
+        <path
+            android:pathData="M54,8 L54,15"
+            android:strokeColor="#FFC83D"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M28,17 L33,22"
+            android:strokeColor="#FFC83D"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M80,17 L75,22"
+            android:strokeColor="#FFC83D"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M18,40 L25,40"
+            android:strokeColor="#FFC83D"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M83,40 L90,40"
+            android:strokeColor="#FFC83D"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+
+        <!-- trasa pod sluncem -->
+        <path
+            android:pathData="M22,80 C40,80 42,58 54,58 C66,58 68,80 86,80"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="10"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+    </group>
 </vector>

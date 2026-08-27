@@ -52,7 +52,7 @@ function stranka(svg, px, zmenseni) {
   const okraj = Math.round((px * (1 - zmenseni)) / 2);
   return `<!doctype html><meta charset="utf-8">
 <style>
-  html, body { margin: 0; padding: 0; background: #1A7FD4; }
+  html, body { margin: 0; padding: 0; background: #0E5490; }
   .ram { width: ${px}px; height: ${px}px; display: grid; place-items: center; }
   svg { width: ${px - 2 * okraj}px; height: ${px - 2 * okraj}px; display: block; }
 </style>

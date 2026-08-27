@@ -1,22 +1,49 @@
 <!--
-  Ikona MeteoTrace: kapka na trase.
+  Ikona MeteoTrace: zlaté slunce nad trasou.
 
   ⚠️ TOHLE JE ZDROJ PRAVDY. PNG verze pro manifest a iPhone se z ní vyrábějí
   příkazem `npm run icons` — do repa nepatří pět ručně kreslených bitmap,
   které se při každé úpravě rozejdou.
 
-  Kresba odpovídá androidí `ic_launcher_foreground.xml` a barvě pozadí
-  `ic_launcher_background` (#1A7FD4), aby appka vypadala stejně na ploše
-  telefonu i na webu.
+  🚨 PROČ JE POZADÍ TMAVŠÍ NEŽ DŘÍV (#0E5490 místo #1A7FD4)
+
+  Michal 27. 8. 2026 chtěl slunce zlaté. Zlatá ale není tmavá, jen jinak
+  barevná — a na původní modré měla poměr jasů jen **2,7 : 1** (bílá kapka
+  měla 4,17 : 1). Na devadesáti šesti pixelech nádhera, na šestnácti v panelu
+  karty teplá skvrna. Ztmavením pozadí je z toho **5,1 : 1**, a přitom je
+  pořád vidět, že je to naše modrá.
+
+  ⚠️ Táž barva MUSÍ být i v `manifest.json`, v `theme-color` v `index.html`,
+  v `tools/icons-build.mjs` a v androidím `colors.xml`. Kdyby se rozešly,
+  bude mít appka jinou barvu lišty než ikony a bude to vypadat jako dvě
+  různé aplikace.
+
+  Kresba odpovídá androidímu `ic_launcher_foreground.xml` — tam je ale
+  zmenšená do bezpečné zóny, protože kulatá maska by uřízla horní paprsek.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
-  <rect width="108" height="108" fill="#1A7FD4"/>
+  <rect width="108" height="108" fill="#0E5490"/>
 
-  <!-- trasa -->
-  <path d="M30,74 C42,74 44,58 54,58 C64,58 66,74 78,74"
-        fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+  <!--
+    ⚠️ POSUN DOLŮ. Kresba sahá od y=4,5 (konec horního paprsku i s kulatým
+    zakončením) po y=85 (spodek trasy), takže její střed je na 44,75 — o devět
+    jednotek výš než střed plátna. Bez posunu je ikona opticky přerovnaná
+    nahoru a dole zbývá prázdná modrá; na velkých velikostech je to vidět.
+  -->
+  <g transform="translate(0,9)">
 
-  <!-- kapka nad trasou -->
-  <path d="M54,26 C54,26 42,40 42,47 A12,12 0 1,0 66,47 C66,40 54,26 54,26 Z"
-        fill="#FFFFFF"/>
+  <!-- slunce: kotouč a paprsky; tenké by se na 16 px ztratily -->
+  <circle cx="54" cy="40" r="17" fill="#FFC83D"/>
+  <g stroke="#FFC83D" stroke-width="7" stroke-linecap="round">
+    <path d="M54,8 v7"/>
+    <path d="M28,17 l5,5"/>
+    <path d="M80,17 l-5,5"/>
+    <path d="M18,40 h7"/>
+    <path d="M83,40 h7"/>
+  </g>
+
+  <!-- trasa pod sluncem -->
+  <path d="M22,80 C40,80 42,58 54,58 C66,58 68,80 86,80"
+        fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+  </g>
 </svg>

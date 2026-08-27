@@ -54,7 +54,7 @@
 
 <h1>Laboratoř ikon MeteoTrace</h1>
 <p class="lead">
-  Čtyři návrhy v jedné rodině: pořád trasa dole, mění se to, co je nad ní.
+  Devět návrhů v jedné rodině: pořád trasa dole, mění se to, co je nad ní.
   Vlevo jméno, vpravo velikosti, ve kterých je člověk uvidí — od panelu karty (16 px)
   po plochu telefonu.
 </p>
@@ -80,13 +80,22 @@ const TRASA_TLUSTA = '<path d="M22,80 C40,80 42,58 54,58 C66,58 68,80 86,80" fil
 const KAPKA_MALA = '<path d="M54,26 C54,26 42,40 42,47 A12,12 0 1,0 66,47 C66,40 54,26 54,26 Z" fill="#FFF"/>';
 const KAPKA_VELKA = '<path d="M54,12 C54,12 36,33 36,45 A18,18 0 1,0 72,45 C72,33 54,12 54,12 Z" fill="#FFF"/>';
 
-/** Slunce: kotouč a čtyři tlusté paprsky. Tenké by se na 16 px ztratily. */
-const SLUNCE = `
-  <circle cx="54" cy="40" r="17" fill="#FFF"/>
-  <g stroke="#FFF" stroke-width="7" stroke-linecap="round">
+/**
+ * Slunce: kotouč a čtyři tlusté paprsky. Tenké by se na 16 px ztratily.
+ *
+ * 🚨 Barva je parametr, protože Michal 27. 8. 2026 chtěl vidět zlaté.
+ * ⚠️ A zlatá si žádá tmavší pozadí — na naší modré má poměr jasů jen 2,7:1
+ * (bílá 4,17:1), takže by se na malé velikosti slévala. Změřeno, ne odhadnuto.
+ */
+const slunce = (barva = '#FFF') => `
+  <circle cx="54" cy="40" r="17" fill="${barva}"/>
+  <g stroke="${barva}" stroke-width="7" stroke-linecap="round">
     <path d="M54,8 v7"/><path d="M28,17 l5,5"/><path d="M80,17 l-5,5"/>
     <path d="M18,40 h7"/><path d="M83,40 h7"/>
   </g>`;
+
+const SLUNCE = slunce();
+const SLUNCE_ZLATE = slunce('#FFC83D');
 
 /**
  * Mráček.
@@ -120,12 +129,19 @@ const NAVRHY = [
   { jmeno: 'C — slunce', popis: 'nad trasou svítí', kresba: TRASA_TLUSTA + SLUNCE },
   { jmeno: 'D — mráček', popis: 'nad trasou oblak, měkké dno', kresba: TRASA_TLUSTA + MRACEK },
   { jmeno: 'E — mráček podruhé', popis: 'níž posazený, výraznější bříško', kresba: TRASA_TLUSTA + MRACEK_B },
+  { jmeno: 'F — slunce zlaté', popis: 'na dnešní modré · kontrast 2,7:1', kresba: TRASA_TLUSTA + SLUNCE_ZLATE },
+  { jmeno: 'G — zlaté na tmavší', popis: 'modrá o stupeň tmavší · 3,8:1', kresba: TRASA_TLUSTA + SLUNCE_ZLATE, pozadi: '#1567AE' },
+  { jmeno: 'H — zlaté na tmavé', popis: 'tmavá modrá · 5,1:1', kresba: TRASA_TLUSTA + SLUNCE_ZLATE, pozadi: '#0E5490' },
+  { jmeno: 'I — zlaté na noční', popis: 'noční modrá · 8,9:1', kresba: TRASA_TLUSTA + SLUNCE_ZLATE, pozadi: '#0A2E52' },
 ];
 
 const VELIKOSTI = [16, 24, 32, 48, 96];
 
-const ikona = (kresba, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"
-  width="${px}" height="${px}"><rect width="108" height="108" fill="#1A7FD4"/>${kresba}</svg>`;
+/** Pozadí je u většiny návrhů naše modrá; zlaté slunce si žádá tmavší. */
+const POZADI = '#1A7FD4';
+
+const ikona = (n, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"
+  width="${px}" height="${px}"><rect width="108" height="108" fill="${n.pozadi || POZADI}"/>${n.kresba}</svg>`;
 
 function tabulka({ nadpis, sloupce, bunka, trida = '' }) {
   return `<div class="${trida}"><table>
@@ -144,13 +160,13 @@ document.getElementById('lab').innerHTML = [
   tabulka({
     nadpis: 'Na tmavém — velikosti, ve kterých je uvidíš',
     sloupce: VELIKOSTI.map((px) => ({ popisek: `${px} px`, px })),
-    bunka: (n, s) => ikona(n.kresba, s.px),
+    bunka: (n, s) => ikona(n, s.px),
   }),
   tabulka({
     nadpis: 'Na světlém pozadí',
     trida: 'svetlo',
     sloupce: VELIKOSTI.map((px) => ({ popisek: `${px} px`, px })),
-    bunka: (n, s) => ikona(n.kresba, s.px),
+    bunka: (n, s) => ikona(n, s.px),
   }),
   tabulka({
     nadpis: 'Masky na ploše telefonu (nezmenšeno — vidíš, kolik místa kresba potřebuje)',
@@ -160,7 +176,7 @@ document.getElementById('lab').innerHTML = [
       { popisek: 'zaoblený 64', px: 64, trida: 'oblouk' },
       { popisek: 'čtverec 64', px: 64 },
     ],
-    bunka: (n, s) => ikona(n.kresba, s.px),
+    bunka: (n, s) => ikona(n, s.px),
   }),
 ].join('');
 </script>
