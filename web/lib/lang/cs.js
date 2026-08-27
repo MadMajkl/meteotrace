@@ -213,7 +213,7 @@ export default {
 
 
   pollen: {
-    title: 'Pyl',
+    title: 'Pyly',
     alder: 'Olše',
     birch: 'Bříza',
     grass: 'Trávy',
