@@ -537,7 +537,24 @@ function drawFrame() {
   // sám od sebe po vteřině, což se hledá mizerně. Proto se vkládá POD něj.
   map.addLayer({
     id: RADAR_LAYER, type: 'raster', source: RADAR_SOURCE,
-    paint: { 'raster-opacity': 0.75 },
+    paint: {
+      // 🚨 RADAR MÁ VLASTNÍ ROZLIŠENÍ A KONČÍ NA z7.
+      //
+      // Nad ním se tatáž dlaždice jen roztahuje, takže z každé srážkové
+      // buňky je čím dál větší čtverec. Michal 27. 8. 2026: *„proč jsou
+      // tam teď ty čtverce?"* — objevily se přesně tehdy, když se výchozí
+      // pohled na místo přiblížil ze sedmičky na devítku. Změřeno: při
+      // mapě na z9 si vrstva pořád říká o z7.
+      //
+      // Zvětšenina se nedá zostřit — data jemnější nejsou. Dá se ale
+      // ubrat na síle: v přiblížení, kde už jde o ulice, má radar dělat
+      // nádech, ne mozaiku. Podklad zůstává ostrý, ten je vektorový.
+      'raster-opacity': [
+        'interpolate', ['linear'], ['zoom'],
+        MAX_ZOOM, 0.75,
+        MAX_ZOOM + 3, 0.4,
+      ],
+    },
   }, podCimJeRadar());
 
   const label = frameLabel(frame, timeZone, lang);
