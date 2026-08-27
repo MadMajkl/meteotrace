@@ -31,7 +31,7 @@ import {
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
-import { isHazard } from './lib/weather-code.js';
+import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -1068,7 +1068,7 @@ async function zeptejSond(sondy, hledame, klic) {
     // ⚠️ Patra oblačnosti nejsou navíc: bez nich se slunce za vysokým
     // závojem počítá jako zataženo a appka posílá za sluncem někam,
     // kde ho člověk má nad hlavou.
-    current: 'weather_code,precipitation,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
+    current: 'weather_code,precipitation,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation,is_day',
     timezone: 'auto',
   }, { signal }));
 
@@ -1139,6 +1139,8 @@ async function vypisOkoli(a) {
       dosahKm: reachKm(sondy),
       odTrasy: !!a.odTrasy,
       siroko,
+      // Kdy to sem dorazí — jen u hledání deště a jen když to víme.
+      dorazi: a.dorazi || '',
     }, state.lang);
 
     if (!veta) return;
@@ -1156,18 +1158,41 @@ async function vypisOkoli(a) {
  *
  * ⚠️ NIKDY NESHODÍ STANICI. Je to dovětek: když se nepovede, prostě není.
  */
-async function ukazOkoli(place, c) {
+async function ukazOkoli(place, c, view) {
   const stred = [place.lat, place.lon];
 
-  // Zataženo se počítá jako „slunce tu není". Michalova věta mluví o slunci,
-  // ne o suchu — a pod souvislou oblačností je odpověď „za sluncem se musí
-  // jinam" pravdivá, i když neprší.
+  // 🚨 ROZHODUJE TO, CO ČLOVĚK VIDÍ Z OKNA, ne součet oblačnosti.
+  //
+  // Michal 27. 8. 2026: *„pokud já vidím slunce, ty mi nemůžeš radit, kam
+  // za sluncem, ale naopak kde prší."* Měl pravdu dvakrát: byla to tatáž
+  // chyba jako u popisu počasí, jen o patro výš. Celková oblačnost 100 %
+  // z vysokého cirru shodila podmínku „zataženo" — a appka radila, kam za
+  // sluncem, zatímco svítilo nad hlavou.
   const prsiTady = jeSrazka({ weather_code: c.code, precipitation: c.precipMm });
-  const zatazeno = Number(c.cloudPct) >= 80;
+  // ⚠️ Rozhoduje `jeSlunecno()`: podíl přímého záření, a teprve když ho
+  // neznáme, patra oblačnosti. Změřeno u Michala doma — v 18:45 svítilo
+  // slunce přes závoj (36 % přímého), v 19:15 už ne (5 %).
+  // Má se ještě smysl ptát „kde je slunce"? Pod padesáti watty celkového
+  // záření je soumrak a odpověď by byla k ničemu.
+  const stojiZaTo = !!c.isDay && Number(c.totalW) >= 50;
+
+  const vidimSlunce = !prsiTady && jeSlunecno({
+    code: c.code, low: c.cloudLow, mid: c.cloudMid, high: c.cloudHigh,
+    direct: c.directW, total: c.totalW, isDay: c.isDay,
+  });
 
   await vypisOkoli({
     prvek: $('now-around'),
-    hledame: (prsiTady || zatazeno) ? 'slunce' : 'dest',
+    // Vidím slunce → zajímá mě, kde prší. Nevidím → kde ho najdu.
+    //
+    // 🚨 ALE JEN DOKUD MÁ OTÁZKA SMYSL. Dvacet minut před západem Slunce
+    // je rada „za sluncem se musí tři sta kilometrů na severozápad"
+    // formálně pravdivá a prakticky k smíchu — než by tam člověk dojel,
+    // je noc i tam. Za soumraku a v noci se proto ptáme na déšť, který
+    // dává smysl v každou hodinu.
+    hledame: (stojiZaTo && !vidimSlunce) ? 'slunce' : 'dest',
+    // Vzdálenost sama neřekne, jestli se to blíží. Tohle ano.
+    dorazi: view?.rainSoon?.time || '',
     blizke: probePoints(stred),
     siroke: () => probePoints(stred, SIROKE_PRSTENCE_KM),
     klic: 'okoli',
@@ -1357,7 +1382,7 @@ function render(forecast, air) {
   zertMista.textContent = hlaskaMista;
 
   // Dovětek o okolí se dotahuje zvlášť a nikoho nezdržuje.
-  if (state.place) ukazOkoli(state.place, c);
+  if (state.place) ukazOkoli(state.place, c, view);
 
   hlidejRolovani();
   fill($('hours'), view.hourly, (h) => {

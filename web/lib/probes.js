@@ -26,7 +26,7 @@
 'use strict';
 
 import { distanceM } from './eta.js';
-import { jenZavoj } from './weather-code.js';
+import { jeSlunecno } from './weather-code.js';
 
 /** Poloměr Země v metrech (stejná hodnota jako v `eta.js`). */
 const R = 6371000;
@@ -145,13 +145,15 @@ export function jeSrazka(stav) {
  * nad hlavou.
  */
 export function jeJasno(stav) {
-  const kod = Number(stav?.weather_code);
-  if (kod === 0 || kod === 1) return true;
-  return jenZavoj({
-    code: kod,
-    low: stav?.cloud_cover_low,
-    mid: stav?.cloud_cover_mid,
-    high: stav?.cloud_cover_high,
+  if (!stav) return false;
+  return jeSlunecno({
+    code: Number(stav.weather_code),
+    low: stav.cloud_cover_low,
+    mid: stav.cloud_cover_mid,
+    high: stav.cloud_cover_high,
+    direct: stav.direct_radiation,
+    total: stav.shortwave_radiation,
+    isDay: stav.is_day == null ? true : !!stav.is_day,
   });
 }
 

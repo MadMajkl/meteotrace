@@ -150,6 +150,11 @@ export function buildStationView(a) {
     low: pick(cur.cloud_cover_low, H.cloud_cover_low?.[iNow]),
     mid: pick(cur.cloud_cover_mid, H.cloud_cover_mid?.[iNow]),
     high: pick(cur.cloud_cover_high, H.cloud_cover_high?.[iNow]),
+    // 🚨 Záření rozhoduje o tom, jestli je slunce VIDĚT. Oblačnost je
+    // jen zástupný ukazatel — sto procent cirru slunce propustí.
+    direct: pick(cur.direct_radiation, H.direct_radiation?.[iNow]),
+    total: pick(cur.shortwave_radiation, H.shortwave_radiation?.[iNow]),
+    isDay: day,
   };
 
   return {
@@ -179,6 +184,12 @@ export function buildStationView(a) {
       gustKmh: pick(cur.wind_gusts_10m, H.wind_gusts_10m?.[iNow]) ?? null,
       tempC: pick(cur.temperature_2m, H.temperature_2m?.[iNow]) ?? null,
       cloudPct: pick(cur.cloud_cover, H.cloud_cover?.[iNow]) ?? null,
+      // Patra zvlášť: podle nich se pozná, jestli je slunce vidět.
+      cloudLow: patra.low ?? null,
+      cloudMid: patra.mid ?? null,
+      cloudHigh: patra.high ?? null,
+      directW: patra.direct ?? null,
+      totalW: patra.total ?? null,
       precipMm: pick(cur.precipitation, H.precipitation?.[iNow]) ?? null,
       code,
       isDay: day,
@@ -196,6 +207,36 @@ export function buildStationView(a) {
         // předstíraly přesnost, kterou střední synodický měsíc nemá.
         lit: pct(Math.round(f.osvetleni * 100), lang),
       };
+    })(),
+
+    /**
+     * Kdy sem podle předpovědi dorazí déšť.
+     *
+     * 🚨 Michal 27. 8. 2026: *„pokud já vidím slunce, ty mi nemůžeš radit,
+     * kam za sluncem, ale naopak kde prší… například blížící se frontu."*
+     * Přesně tak. A na tuhle otázku nepotřebujeme ani jeden dotaz navíc —
+     * hodinovou předpověď pro tohle místo už máme, jen se z ní dosud
+     * nečetlo nic než pruh čísel.
+     *
+     * ⚠️ Dívá se jen dvanáct hodin dopředu. „Zaprší pozítří" není
+     * blížící se fronta, to je jiná informace a patří do denního přehledu.
+     */
+    rainSoon: (() => {
+      const DOHLED_HODIN = 12;
+      const PRAH_PROCENT = 40;      // tentýž práh jako na trase
+      for (let k = 0; k < DOHLED_HODIN; k += 1) {
+        const i = iNow + k;
+        if (i >= hourMs.length) break;
+        const pst = H.precipitation_probability?.[i];
+        const mm = H.precipitation?.[i];
+        const prsi = (Number.isFinite(pst) && pst >= PRAH_PROCENT)
+          || (Number.isFinite(mm) && mm > 0.2);
+        if (!prsi) continue;
+        // Nula hodin = prší teď; o tom se nemluví jako o příchodu.
+        if (k === 0) return null;
+        return { hours: k, time: formatClock(hourMs[i], tz, lang) };
+      }
+      return null;
     })(),
 
     sun: {
@@ -340,8 +381,8 @@ function jeZitra(ms, zacatek, offsetS) {
 }
 
 export const FORECAST_PARAMS = {
-  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
-  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
+  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
+  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
   timezone: 'auto',
   forecast_days: '7',

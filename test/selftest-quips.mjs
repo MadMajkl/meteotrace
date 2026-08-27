@@ -343,3 +343,39 @@ test('široké kolo umí i slunce a rozliší trasu od místa', () => {
   assert.ok(!/od trasy/.test(misto), misto);
   assert.match(trasa, /420 km/);
 });
+
+/* ============================================================
+   DÉŠŤ, KTERÝ SEM JDE
+
+   🚨 Michal 27. 8. 2026: „pokud já vidím slunce, ty mi nemůžeš radit, kam
+   za sluncem, ale naopak kde prší… například blížící se frontu."
+   ============================================================ */
+
+test('🚨 když déšť míří sem, věta to řekne — a řekne kdy', () => {
+  const jde = okoliQuip({ hledame: 'dest', km: 62, dirKey: 'w', misto: 'Domažlice', dorazi: '21:00' });
+  assert.match(jde, /21:00/);
+  assert.match(jde, /62 km/);
+  assert.match(jde, /na západ/);
+  assert.match(jde, /Domažlice/);
+});
+
+test('🚨 hláška o příchodu si neprotiřečí s hláškou o dálce', () => {
+  // „na takovou dálku se dá pršení i obdivovat" a „za dvě hodiny je to tady"
+  // v jedné větě je nesmysl. Proto má příchod vlastní věty, ne dovětek.
+  const jde = okoliQuip({ hledame: 'dest', km: 62, dirKey: 'w', dorazi: '21:00' });
+  const nejde = okoliQuip({ hledame: 'dest', km: 62, dirKey: 'w' });
+  assert.notEqual(jde, nejde);
+  assert.ok(!/obdivovat|za obzorem/.test(jde), jde);
+});
+
+test('široké kolo zůstává opatrné, i když déšť míří sem', () => {
+  const v = okoliQuip({ hledame: 'dest', km: 310, dirKey: 'nw', misto: 'Drážďany', siroko: true, dorazi: '23:00' });
+  assert.match(v, /víme/);
+  assert.match(v, /23:00/);
+});
+
+test('u hledání slunce se čas příchodu deště neplete', () => {
+  // Když nevidím slunce, zajímá mě slunce — ne kdy začne pršet.
+  const v = okoliQuip({ hledame: 'slunce', km: 60, dirKey: 'e', misto: 'Písek', dorazi: '21:00' });
+  assert.ok(!v.includes('21:00'), v);
+});

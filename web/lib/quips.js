@@ -419,6 +419,7 @@ export function placeQuip(k, lang = 'cs') {
  * @param {number} [k.dosahKm]         jak daleko se hledalo
  * @param {boolean} [k.odTrasy]        měří se od trasy, ne od jednoho místa
  * @param {boolean} [k.siroko]         nález je z druhého, hrubého kola (stovky km)
+ * @param {string} [k.dorazi]         čas, kdy má déšť dorazit sem (z předpovědi místa)
  * @param {string} [lang]
  */
 export function okoliQuip(k, lang = 'cs') {
@@ -453,6 +454,29 @@ export function okoliQuip(k, lang = 'cs') {
   const kde = misto ? ' (' + misto + ')' : '';
 
   const smerem = kam + odkud;
+
+  // 🚨 DÉŠŤ, KTERÝ SEM JDE, JE JINÁ ZPRÁVA NEŽ DÉŠŤ ZA OBZOREM.
+  //
+  // Michal 27. 8. 2026: *„pokud já vidím slunce… naopak kde prší, například
+  // blížící se frontu."* Vzdálenost sama neřekne, jestli se to blíží, nebo
+  // vzdaluje — čas příchodu ano, a bere se z předpovědi pro tohle místo,
+  // takže nestojí ani jeden dotaz navíc.
+  //
+  // ⚠️ Vlastní věty, ne dovětek k těm ostatním: „na takovou dálku se dá
+  // pršení i obdivovat" a „za dvě hodiny je to tady" si v jedné hlášce
+  // odporuje.
+  if (k.hledame === 'dest' && k.dorazi) {
+    // ⚠️ I tady platí opatrnost širokého kola: na pěti stech kilometrech
+    // se neříká „nejblíž prší", ale „o kterém víme".
+    const vety = k.siroko ? [
+      'Nejbližší déšť, o kterém víme, je asi ' + km + ' km ' + smerem + kde + ' — a sem má kolem ' + k.dorazi + ' dorazit taky. Mistr tvrdil, že déšť ohlášený předem je skoro zdvořilý.',
+      'Prší, pokud víme, asi ' + km + ' km ' + smerem + kde + '; sem se to chystá kolem ' + k.dorazi + '. Mistr v takovou chvíli neplánoval nic, co se nedá přeložit.',
+    ] : [
+      'Nejblíž prší asi ' + km + ' km ' + smerem + kde + ' a kolem ' + k.dorazi + ' to má být tady. Mistr tvrdil, že déšť ohlášený předem je skoro zdvořilý.',
+      'Déšť je asi ' + km + ' km ' + smerem + kde + ', sem dorazí kolem ' + k.dorazi + '. Mistr v takovou chvíli neplánoval nic, co se nedá přeložit.',
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
 
   // 🚨 Široké kolo MLUVÍ O SOBĚ JINAK. Osm směrů na pěti stech kilometrech
   // nechává mezery stovky kilometrů široké — „nejblíž prší" by tvrdilo

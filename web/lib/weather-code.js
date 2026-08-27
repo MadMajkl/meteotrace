@@ -151,7 +151,12 @@ export function jenZavoj({ code, low, mid, high }) {
  * vysoko. Jinak se chová přesně jako {@link weatherKey}.
  */
 export function weatherKeyWithClouds(a) {
-  return jenZavoj(a) ? 'veiledSun' : weatherKey(a?.code);
+  // Když víme, kolik přímého záření dopadá, rozhoduje ono — je to měření
+  // toho, na co se člověk dívá. Oblačnost je jen zástupný ukazatel.
+  const kod = Number(a?.code);
+  const zataženoNeboPolojasno = weatherKey(kod) === 'overcast' || weatherKey(kod) === 'partlyCloudy';
+  if (zataženoNeboPolojasno && slunceProsvita(a || {}) === true) return 'veiledSun';
+  return jenZavoj(a) ? 'veiledSun' : weatherKey(kod);
 }
 
 /**
@@ -162,6 +167,76 @@ export function weatherKeyWithClouds(a) {
 export function weatherIconWithClouds(a, isDay = true) {
   if (isDay && jenZavoj(a)) return ICONS.veiledSun.day;
   return weatherIcon(a?.code, isDay);
+}
+
+/**
+ * Od jakého podílu přímého záření je slunce vidět jako slunce.
+ *
+ * 🚨 ZMĚŘENO, NE ODHADNUTO. Horšovský Týn, 27. 8. 2026:
+ *
+ * ```
+ * 17:45   přímé 190 W/m²  z 300 celkem  =  63 %   slunce svítí
+ * 18:45   přímé  48 W/m²  z 135 celkem  =  36 %   slunce přes závoj (Michal ho viděl)
+ * 19:15   přímé   3 W/m²  z  63 celkem  =   5 %   slunce pryč
+ * ```
+ *
+ * Práh je proto mezi pěti a třiceti šesti procenty; čtvrtina je uprostřed
+ * s rezervou na obě strany.
+ */
+const PRIMEHO_ASPON = 0.25;
+
+/**
+ * Je slunce vidět? Pozná se to podle záření, ne podle oblačnosti.
+ *
+ * 🚨 Michal 27. 8. 2026: *„pokud já vidím slunce, ty mi nemůžeš radit, kam
+ * za sluncem, ale naopak kde prší."* Appka se do té chvíle ptala oblačnosti —
+ * a ta o viditelnosti slunce nerozhoduje. Sto procent řídkého cirru slunce
+ * propustí, třicet procent nízké kupovité oblačnosti ho zakryje úplně.
+ *
+ * **Podíl přímého záření na celkovém měří přesně tu jednu věc, o kterou jde:
+ * dopadá sem sluneční svit, nebo jen rozptýlené světlo?** Je to fyzika, ne
+ * odhad z procent — a nezávisí to na výšce Slunce nad obzorem, protože se
+ * porovnávají dvě čísla, která klesají spolu.
+ *
+ * ⚠️ V noci je odpověď vždycky NE, i kdyby čísla chyběla.
+ * ⚠️ Když záření neznáme, vrací se `null` — volající si pak pomůže patry
+ * oblačnosti. Tvrdit „slunce nesvítí" jen proto, že nám chybí údaj, by byla
+ * ta horší ze dvou možných chyb.
+ *
+ * @param {object} a
+ * @param {number} [a.direct]  přímé záření (W/m²)
+ * @param {number} [a.total]   celkové (globální) záření (W/m²)
+ * @param {boolean} [a.isDay]
+ * @returns {boolean|null}  `null` = nevíme
+ */
+export function slunceProsvita({ direct, total, isDay = true }) {
+  if (!isDay) return false;
+
+  const p = Number(direct);
+  const c = Number(total);
+  if (!Number.isFinite(p) || !Number.isFinite(c)) return null;
+
+  // Za soumraku jsou obě čísla maličká a jejich podíl začne skákat. Pod
+  // dvaceti watty už o slunečním svitu nemá smysl mluvit tak jako tak.
+  if (c < 20) return false;
+
+  return p / c >= PRIMEHO_ASPON;
+}
+
+/**
+ * Vidí člověk slunce? Nejdřív podle záření, teprve pak podle oblačnosti.
+ *
+ * Sjednocuje obě cesty na jedno místo, aby se meteostanice, trasa a sondy
+ * nemohly rozejít v tom, čemu říkají „slunečno".
+ */
+export function jeSlunecno(a) {
+  const podleZareni = slunceProsvita(a || {});
+  if (podleZareni !== null) return podleZareni;
+
+  // Záloha bez záření: jasno, skoro jasno, nebo jen vysoký závoj.
+  const kod = Number(a?.code);
+  if (kod === 0 || kod === 1) return true;
+  return jenZavoj(a || {});
 }
 
 /** Všechny klíče — pro paritní test překladů, ať se na žádný nezapomene. */
