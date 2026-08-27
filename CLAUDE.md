@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R14 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R15 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -93,6 +93,8 @@ tohle je jen shrnutí.**
 | „Jeď sem" | na trase klepnutí na uložené místo nastaví cíl + start z polohy a rovnou počítá |
 | Uložená místa v trase | pole Odkud/Kam nabízejí Domov, Práci… (bez diakritiky, první v pořadí) |
 | Hlášky | `web/lib/quips.js` — na trase i na meteostanici, v duchu Mistra, JEN česky; u nebezpečí žertují, ale jev pojmenují |
+| Kde nejblíž prší / kam za sluncem | `web/lib/probes.js` — 24 sond kolem místa jedním dotazem; jméno místa z vlastních hranic ORP (R15) |
+| Směr větru | v appce se píše **celým slovem** („severovýchodní"), ne zkratkou — bublina na telefonu neexistuje |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
@@ -108,7 +110,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**470 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**489 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -159,6 +161,11 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Práh, pod kterým se mlčí, je návrhové rozhodnutí — a když je moc vysoko,
+  vypadá hotová funkce jako chybějící.** Hlášky o větru začínaly až na 12 km/h,
+  takže se většinu dní spadlo na obecnou větu a Michal usoudil, že vítr nikdo
+  nekomentuje. **Test to nechytí:** ověřuje, že se při 15 km/h hláška objeví —
+  ne že se při 6 km/h objevit měla. U každého prahu se ptej, jak často je pod ním.
 - **🚨 Správné chování, o kterém se mlčí, se od chyby nedá odlišit.** Testy ověřují,
   co se stane, ne co se o tom uživatel dozví — a přesně tam se schovaly dvě vady
   v uložených místech: slučování podle vzdálenosti udělalo z hvězdičky past (mazala
