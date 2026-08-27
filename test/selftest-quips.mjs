@@ -304,3 +304,21 @@ test('okolí: táž situace dá tutéž větu a jiný jazyk mlčí', () => {
   assert.equal(okoliQuip(k, 'en'), '');
   assert.equal(okoliQuip(null), '');
 });
+
+test('🚨 okolí: „od trasy" a „kolem" nejsou totéž', () => {
+  // U trasy se měří od nejbližšího bodu CELÉ cesty. Kdyby to věta neřekla,
+  // vztáhne si to člověk k místu, kde zrovna stojí — a to je jiná odpověď.
+  const trasa = okoliQuip({ hledame: 'dest', km: 41, dirKey: 's', misto: 'Klatovy', odTrasy: true });
+  const misto = okoliQuip({ hledame: 'dest', km: 41, dirKey: 's', misto: 'Klatovy' });
+  assert.match(trasa, /od trasy/);
+  assert.ok(!/od trasy/.test(misto), misto);
+  assert.match(trasa, /41 km/);
+  assert.match(trasa, /Klatovy/);
+});
+
+test('okolí: i věta o nenalezení rozliší trasu od místa', () => {
+  const trasa = okoliQuip({ hledame: 'dest', km: null, dosahKm: 120, odTrasy: true });
+  const misto = okoliQuip({ hledame: 'dest', km: null, dosahKm: 120 });
+  assert.match(trasa, /od trasy/);
+  assert.ok(!/od trasy/.test(misto), misto);
+});

@@ -381,7 +381,10 @@ export function arrivalSentence(view, cas, lang) {
     casti.push(`${t('now.feelsLike', lang).toLowerCase()} ${cil.feels}`);
   }
   if (cil.wind && cil.wind !== '—') {
-    const smer = cil.windDir && cil.windDir !== '—' ? ` ${cil.windDir}` : '';
+    // Celým slovem i tady. Věta o příjezdu je to poslední, co si člověk
+    // přečte před vyjetím — zkratka „VJV" v ní nemá co dělat.
+    const smerSlovem = cil.windDirLong || (cil.windDir !== '—' ? cil.windDir : '');
+    const smer = smerSlovem ? ` ${smerSlovem}` : '';
     casti.push(`${t('now.wind', lang).toLowerCase()} ${cil.wind}${smer}`);
   }
   // Náraz jen když je citelně nad průměrem — viz `jeNarazSilny()`.

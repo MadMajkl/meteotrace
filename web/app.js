@@ -11,7 +11,9 @@
 import { t, tf, tp, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
-import { probePoints, nearestProbe, jeSrazka, jeJasno, probeDistanceM, PRSTENCE_KM } from './lib/probes.js';
+import {
+  probePoints, routeProbes, nearestProbe, jeSrazka, jeJasno, probeDistanceM, reachKm, PRSTENCE_KM,
+} from './lib/probes.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
@@ -1986,6 +1988,83 @@ async function loadRoute() {
    ============================================================ */
 
 /**
+ * Kde nejblíž prší od TRASY — a když prší na ní, tak kam za sluncem.
+ *
+ * 🚨 Michal 27. 8. 2026: *„tys to dal jen do místa, já to hledal tam, kde je
+ * to nejdůležitější, U TRASY!"* Měl pravdu. U jednoho místa je to zajímavost;
+ * u cesty je to otázka, jestli má smysl jet jinudy.
+ *
+ * ⚠️ Ptá se na TEĎ, ne na čas příjezdu. Body trasy mají počasí v čase, kdy
+ * tam dorazíš — tohle je jiná otázka („kde zrovna prší") a věta ji drží
+ * v přítomném čase. Předpověď pro osmačtyřicet sond na osmačtyřicet různých
+ * hodin by byla o řád víc dat za odpověď, kterou nikdo nechtěl.
+ *
+ * ⚠️ NIKDY NESHODÍ TRASU. Je to dovětek: když se nepovede, prostě není.
+ */
+async function ukazOkoliTrasy(view, cara) {
+  const prvek = $('route-around');
+  prvek.hidden = true;
+  prvek.textContent = '';
+
+  if (state.lang !== 'cs') return;                 // hlášky umí jen česky
+
+  // Body trasy i s počasím. Když nemáme ani je, není se od čeho odrazit.
+  const body = (view?.points || [])
+    .map((p) => p.point)
+    .filter((b) => Array.isArray(b) && Number.isFinite(b[0]));
+  const podklad = body.length ? body : (cara || []);
+
+  const sondy = routeProbes(podklad);
+  if (!sondy.length) return;
+
+  // Prší po trase → hledá se slunce. Neprší → hledá se déšť. Přesně ty dvě
+  // otázky, které si člověk položí.
+  const hledame = view.summary.rainCount > 0 ? 'slunce' : 'dest';
+
+  try {
+    const odpoved = await requests.run('okoli-trasa', (signal) => apiGet('forecast', {
+      latitude: sondy.map((s) => s.lat).join(','),
+      longitude: sondy.map((s) => s.lon).join(','),
+      current: 'weather_code,precipitation,cloud_cover',
+      timezone: 'auto',
+    }, { signal }));
+
+    const pole = Array.isArray(odpoved.data) ? odpoved.data : [odpoved.data];
+    const stavy = pole.map((x) => x?.current || null);
+
+    const nalez = nearestProbe(sondy, stavy, hledame === 'dest' ? jeSrazka : jeJasno);
+
+    let misto = '';
+    if (nalez) {
+      try {
+        const jm = await requests.run('okoli-trasa-jmeno', (signal) => apiGet('place', {
+          lat: nalez.lat, lon: nalez.lon,
+        }, { signal }));
+        misto = jm.data?.nazev || '';
+      } catch { /* bez jména to dává smysl taky */ }
+    }
+
+    const veta = okoliQuip({
+      hledame,
+      km: nalez ? nalez.distanceM / 1000 : null,
+      dirKey: nalez?.dirKey,
+      misto,
+      // 🚨 Kam se DOOPRAVDY dohlédlo, ne kam se dohlédnout mělo. Sondy se
+      // slučují a ořezávají — viz `reachKm()`.
+      dosahKm: reachKm(sondy),
+      odTrasy: true,
+    }, state.lang);
+
+    if (!veta) return;
+    prvek.textContent = veta;
+    prvek.hidden = false;
+  } catch (e) {
+    if (requests.isAbort(e)) return;
+    // Dovětek, který se nepovedl, mlčí.
+  }
+}
+
+/**
  * Rozpis úseků pod souhrnem. Ukazuje se jen u trasy se zastávkami — u cesty
  * z A do B by jen zopakoval, co je o řádek výš.
  */
@@ -2134,6 +2213,9 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   const zert = $('route-quip');
   zert.hidden = !hlaska;
   zert.textContent = hlaska;
+
+  // Dovětek o okolí trasy se dotahuje zvlášť a nikoho nezdržuje.
+  ukazOkoliTrasy(view, trasa.points);
 
   // Rada o posunu odjezdu se ukáže, JEN když má cenu (R8: `worthMoving`).
   // Rada bez užitku podkopává důvěru ve všechny ostatní.

@@ -417,6 +417,7 @@ export function placeQuip(k, lang = 'cs') {
  * @param {string} [k.dirKey]          směr (`n`, `ne`, … `nw`)
  * @param {string} [k.misto]           jméno místa
  * @param {number} [k.dosahKm]         jak daleko se hledalo
+ * @param {boolean} [k.odTrasy]        měří se od trasy, ne od jednoho místa
  * @param {string} [lang]
  */
 export function okoliQuip(k, lang = 'cs') {
@@ -427,32 +428,39 @@ export function okoliQuip(k, lang = 'cs') {
   const km = Number.isFinite(k.km) ? Math.round(k.km) : null;
   const kam = SMER_KAM[String(k.dirKey || '').toLowerCase()];
   const misto = String(k.misto || '').trim();
-  const otiskZ = [k.hledame, km === null ? 'x' : km, kam || ''].join('|');
+  // 🚨 „Od trasy" a „kolem" NENÍ totéž a nesmí se to splést. U trasy se
+  // vzdálenost měří od nejbližšího bodu CELÉ cesty — věta o tom musí mluvit,
+  // jinak si ji člověk vztáhne k místu, kde zrovna stojí.
+  const odkud = k.odTrasy ? ' od trasy' : '';
+  const otiskZ = [k.hledame, km === null ? 'x' : km, kam || '', odkud].join('|');
 
   // Nic se nenašlo — taky odpověď, a u deště dokonce dobrá.
   if (km === null || !kam) {
+    const okruh = k.odTrasy ? ' od trasy' : ' kolem';
     const vety = k.hledame === 'dest'
       ? [
-        'Do ' + dosah + ' km kolem neprší ani nikde jinde. Mistr by v tak dobré zprávě ze zvyku hledal háček.',
-        'Ani ' + dosah + ' km daleko nikde neprší. Mistr takovým dnům říkal podezřele vydařené.',
+        'Do ' + dosah + ' km' + okruh + ' neprší ani nikde jinde. Mistr by v tak dobré zprávě ze zvyku hledal háček.',
+        'Ani ' + dosah + ' km' + okruh + ' nikde neprší. Mistr takovým dnům říkal podezřele vydařené.',
       ]
       : [
-        'Jasno není ani ' + dosah + ' km kolem. Mistr by doporučil knihu a trpělivost — obojí vydrží déle než mraky.',
-        'Slunce se do ' + dosah + ' km neschovalo, ono tam prostě není. Mistr by to nazval poctivou oblohou.',
+        'Jasno není ani ' + dosah + ' km' + okruh + '. Mistr by doporučil knihu a trpělivost — obojí vydrží déle než mraky.',
+        'Slunce se do ' + dosah + ' km' + okruh + ' neschovalo, ono tam prostě není. Mistr by to nazval poctivou oblohou.',
       ];
     return vety[otisk(otiskZ) % vety.length];
   }
 
   const kde = misto ? ' (' + misto + ')' : '';
 
+  const smerem = kam + odkud;
+
   const vety = k.hledame === 'dest'
     ? [
-      'Nejblíž prší asi ' + km + ' km ' + kam + kde + '. Mistr tvrdil, že déšť za obzorem je ze všech dešťů nejhezčí.',
-      'Do deště je to asi ' + km + ' km ' + kam + kde + '. Mistr by řekl, že na takovou dálku se dá pršení i obdivovat.',
+      'Nejblíž prší asi ' + km + ' km ' + smerem + kde + '. Mistr tvrdil, že déšť za obzorem je ze všech dešťů nejhezčí.',
+      'Do deště je to asi ' + km + ' km ' + smerem + kde + '. Mistr by řekl, že na takovou dálku se dá pršení i obdivovat.',
     ]
     : [
-      'Za sluncem by se muselo asi ' + km + ' km ' + kam + kde + '. Mistr by v tom viděl slušný důvod k výletu.',
-      'Slunce začíná asi ' + km + ' km ' + kam + kde + '. Mistr tvrdil, že za dobrým počasím se cestovat vyplatí.',
+      'Za sluncem by se muselo asi ' + km + ' km ' + smerem + kde + '. Mistr by v tom viděl slušný důvod k výletu.',
+      'Slunce začíná asi ' + km + ' km ' + smerem + kde + '. Mistr tvrdil, že za dobrým počasím se cestovat vyplatí.',
     ];
   return vety[otisk(otiskZ) % vety.length];
 }

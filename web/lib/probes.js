@@ -67,7 +67,14 @@ export function probePoints(stred, prstence = PRSTENCE_KM) {
   for (const km of prstence) {
     for (const smer of SMERY) {
       const b = posunuty(lat, lon, km * 1000, smer.uhel);
-      body.push({ ...b, dirKey: smer.klic, distanceM: Math.round(km * 1000) });
+      body.push({
+        ...b,
+        dirKey: smer.klic,
+        distanceM: Math.round(km * 1000),
+        // Prstenec si sonda nese s sebou. Po sloučení a ořezu je to jediné,
+        // podle čeho se pozná, JAK DALEKO se doopravdy dohlédlo.
+        prstenecKm: km,
+      });
     }
   }
   return body;
@@ -150,4 +157,147 @@ export function nearestProbe(sondy, odpovedi, vyhovuje) {
 export function probeDistanceM(stred, sonda) {
   if (!stred || !sonda) return null;
   return Math.round(distanceM(stred, [sonda.lat, sonda.lon]));
+}
+
+/**
+ * Osm směrů podle úhlu — z čísla na klíč (`n`, `ne`, …).
+ *
+ * ⚠️ Půl výseče se přičítá PŘED dělením, jinak by sever začínal až na nule
+ * a všechno mezi 337° a 360° by spadlo na severozápad.
+ */
+export function bearingKey(z, do_) {
+  if (!z || !do_) return '';
+  const f1 = (z[0] * Math.PI) / 180;
+  const f2 = (do_[0] * Math.PI) / 180;
+  const dl = ((do_[1] - z[1]) * Math.PI) / 180;
+  const y = Math.sin(dl) * Math.cos(f2);
+  const x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
+  const uhel = (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+  return SMERY[Math.floor(((uhel + 22.5) % 360) / 45)].klic;
+}
+
+/** Nejbližší bod trasy k zadanému místu, i s odstupem. */
+function kTrase(bod, trasa) {
+  let nejlepsi = null;
+  let nejmensi = Infinity;
+  for (const t of trasa) {
+    const d = distanceM(t, bod);
+    if (d < nejmensi) { nejmensi = d; nejlepsi = t; }
+  }
+  return { bod: nejlepsi, metru: nejmensi };
+}
+
+/**
+ * Kolik sond se pošle nejvýš.
+ *
+ * ⚠️ Strop je tu proto, že u dlouhé trasy by se sondy množily s každým
+ * kotevním bodem. Sto sond by jedním dotazem prošlo taky, jenže odpověď by
+ * byla o řád větší — a na mobilních datech se to pozná.
+ */
+export const MAX_SOND = 48;
+
+/**
+ * Sondy kolem CELÉ TRASY, ne kolem jednoho místa.
+ *
+ * 🚨 Michal 27. 8. 2026: *„tys to dal jen do místa, já to hledal tam, kde je
+ * to nejdůležitější, U TRASY!"* Měl pravdu — u trasy je otázka „a kde teda
+ * prší?" mnohem naléhavější než u jednoho bodu.
+ *
+ * Postup: po trase se rozmístí kotvy, kolem každé se rozsejí sondy jako
+ * u místa, a pak se to protřídí:
+ *
+ * 1. **Sloučí se blízké sondy.** Kotvy na sebe vidí, takže se jejich věnce
+ *    překrývají; bez slučování by se na tytéž souřadnice posílalo pětkrát.
+ * 2. **Zahodí se sondy u samotné trasy.** Ty by neodpovídaly na otázku „kde
+ *    jinde", jen by zopakovaly, co už o trase víme.
+ * 3. **Vzdálenost i směr se počítají OD TRASY**, ne od kotvy. Věta zní
+ *    „40 km na jih od trasy" — a to musí sedět vůči celé cestě, ne vůči
+ *    náhodnému bodu na ní.
+ *
+ * @param {Array<[number, number]>} trasa  body trasy [šířka, délka]
+ * @param {object} [opts]
+ * @param {number} [opts.kotev]     kolik kotev po trase (výchozí 4)
+ * @param {number} [opts.odstupKm]  jak blízko k trase se sondy zahazují
+ * @param {number[]} [opts.prstence]
+ * @returns {Array<{lat, lon, dirKey, distanceM}>}
+ */
+export function routeProbes(trasa, opts = {}) {
+  const body = (trasa || []).filter(
+    (b) => Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1]),
+  );
+  if (!body.length) return [];
+
+  const kotev = Math.max(1, Math.min(opts.kotev || 4, body.length));
+  const prstence = opts.prstence || PRSTENCE_KM;
+  const odstupM = (opts.odstupKm ?? 20) * 1000;
+
+  // Kotvy rovnoměrně po trase — první a poslední vždycky, ať se nepřehlédne
+  // ani začátek, ani cíl.
+  const kotvy = [];
+  for (let i = 0; i < kotev; i += 1) {
+    const idx = kotev === 1 ? 0 : Math.round((i * (body.length - 1)) / (kotev - 1));
+    kotvy.push(body[idx]);
+  }
+
+  const videne = new Map();
+  for (const kotva of kotvy) {
+    for (const s of probePoints(kotva, prstence)) {
+      // Slučovací klíč: zaokrouhlení na desetinu stupně, tedy zhruba deset
+      // kilometrů. Jemnější mřížka by sousední věnce nesloučila vůbec.
+      const klic = `${s.lat.toFixed(1)},${s.lon.toFixed(1)}`;
+      if (videne.has(klic)) continue;
+
+      const odtrasy = kTrase([s.lat, s.lon], body);
+      if (odtrasy.metru < odstupM) continue;      // to už je prakticky trasa
+
+      videne.set(klic, {
+        lat: s.lat,
+        lon: s.lon,
+        dirKey: bearingKey(odtrasy.bod, [s.lat, s.lon]),
+        distanceM: Math.round(odtrasy.metru),
+        prstenecKm: s.prstenecKm,
+      });
+    }
+  }
+
+  // 🚨 OŘEZÁVÁ SE PO PRSTENCÍCH, ne podle vzdálenosti.
+  //
+  // Prostý „vezmi nejbližších 48" vypadá rozumně a je to past: u trasy
+  // Praha–Brno se do stropu vejdou jen dva bližší prstence a ten vzdálený
+  // vypadne CELÝ. Appka se pak nepodívá dál než na šedesát kilometrů — ale
+  // klidně napíše „do 120 km nikde neprší". To by nebyl odhad, to by byla
+  // nepravda.
+  //
+  // Proto se z každého prstence bere stejný díl a v každém nejbližší první.
+  // Kdo je uvnitř prstence blíž trase, je i užitečnější odpověď.
+  const podlePrstence = new Map();
+  for (const s of videne.values()) {
+    if (!podlePrstence.has(s.prstenecKm)) podlePrstence.set(s.prstenecKm, []);
+    podlePrstence.get(s.prstenecKm).push(s);
+  }
+
+  const prstencu = podlePrstence.size || 1;
+  const dilNaPrstenec = Math.max(1, Math.floor(MAX_SOND / prstencu));
+
+  const vybrane = [];
+  for (const [, skupina] of [...podlePrstence.entries()].sort((a, b) => a[0] - b[0])) {
+    skupina.sort((a, b) => a.distanceM - b.distanceM);
+    vybrane.push(...skupina.slice(0, dilNaPrstenec));
+  }
+
+  return vybrane.sort((a, b) => a.distanceM - b.distanceM);
+}
+
+/**
+ * Jak daleko se doopravdy dohlédlo.
+ *
+ * ⚠️ Tohle NENÍ totéž co poslední prstenec v {@link PRSTENCE_KM}. Sondy se
+ * slučují a ořezávají, takže vzdálený prstenec může být zastoupený jen
+ * chabě — nebo (kdyby se ořezávalo špatně) vůbec. Věta „do X km nikde
+ * neprší" musí mluvit o tom, kam se opravdu podívalo, jinak tvrdí víc,
+ * než kolik se ví.
+ */
+export function reachKm(sondy) {
+  if (!Array.isArray(sondy) || !sondy.length) return 0;
+  return Math.max(...sondy.map((s) => s.prstenecKm || Math.round(s.distanceM / 1000)));
 }
