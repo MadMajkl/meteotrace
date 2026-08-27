@@ -26,7 +26,8 @@ import {
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
-import { routeQuip } from './lib/quips.js';
+import { routeQuip, placeQuip } from './lib/quips.js';
+import { isHazard } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -1126,6 +1127,21 @@ function render(forecast, air) {
   $('d-sunrise').textContent = view.sun.sunrise;
   $('d-sunset').textContent = view.sun.sunset;
   $('now-updated').textContent = c.updated;
+
+  // Hláška k místu. ⚠️ Bere čísla, ne naformátované texty — z „12,5 km/h"
+  // se rozhodovat nedá.
+  const hlaskaMista = placeQuip({
+    hazard: isHazard(c.code),
+    hazardWhat: c.condition,
+    windKmh: c.windKmh,
+    windDirKey: c.windDirKey,
+    gustKmh: c.gustKmh,
+    tempC: c.tempC,
+    isDay: c.isDay,
+  }, state.lang);
+  const zertMista = $('now-quip');
+  zertMista.hidden = !hlaskaMista;
+  zertMista.textContent = hlaskaMista;
 
   hlidejRolovani();
   fill($('hours'), view.hourly, (h) => {

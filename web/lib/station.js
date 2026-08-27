@@ -159,6 +159,14 @@ export function buildStationView(a) {
       cloudCover: pct(pick(cur.cloud_cover, H.cloud_cover?.[iNow]), lang),
       uvIndex: numOrDash(H.uv_index?.[iNow], lang),
       updated: tf('now.updated', { time: formatClock(nowMs, tz, lang) }, lang),
+      // ⚠️ Čísla, ne texty. Podle nich se rozhoduje (hlášky, prahy);
+      // z „12,5 km/h" se počítat nedá.
+      windKmh: pick(cur.wind_speed_10m, H.wind_speed_10m?.[iNow]) ?? null,
+      windDirKey: windDirKey(pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow])) || '',
+      gustKmh: pick(cur.wind_gusts_10m, H.wind_gusts_10m?.[iNow]) ?? null,
+      tempC: pick(cur.temperature_2m, H.temperature_2m?.[iNow]) ?? null,
+      code,
+      isDay: day,
     },
 
     sun: {

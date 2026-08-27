@@ -251,6 +251,109 @@ export function routeQuip(k, lang = 'cs') {
     .replace(/^([a-záčďéěíňóřšťúůýž])/, (z) => z.toUpperCase());
 }
 
+/**
+ * Od jakého větru má smysl mluvit o SMĚRU.
+ *
+ * ⚠️ Na trase se o větru mluví až od 25 km/h — tam jde o celou cestu.
+ * Na jednom místě je to jinak: „odkud fouká" je zajímavé už při svěžím
+ * vánku, protože stojíš v něm. Pod dvanáct km/h už je to ale povídání
+ * o ničem.
+ */
+export const SMER_OD_KMH = 12;
+
+/**
+ * O kolik musí náraz převýšit průměr, aby to bylo sdělení, a ne šum.
+ *
+ * ⚠️ Tatáž hodnota jako v `route-view.js`. Kdyby se rozešly, tvrdila by
+ * appka na jedné obrazovce něco jiného než na druhé.
+ */
+const GUST_MARGIN_KMH = 15;
+
+/**
+ * Hláška k jednomu místu (meteostanice).
+ *
+ * 🚨 Michal 27. 8. 2026: *„ten vítr jsi ještě nijak nekomentoval."* Měl
+ * pravdu: hlášky byly jen na trase, a tam se o větru mluví až od 25 km/h.
+ * Na meteostanici tedy nebylo nic.
+ *
+ * Platí tatáž pravidla jako u trasy: **u nebezpečí se jev pojmenuje**,
+ * hláška nenahrazuje údaje, nic se nelosuje a mluví se jen česky.
+ *
+ * @param {object} k
+ * @param {boolean} [k.hazard]      je právě teď nebezpečné počasí?
+ * @param {string} [k.hazardWhat]   jméno jevu
+ * @param {number} [k.windKmh]
+ * @param {string} [k.windDirKey]   odkud fouká (`n`, `ne`, …)
+ * @param {number} [k.gustKmh]
+ * @param {number} [k.tempC]
+ * @param {boolean} [k.isDay]
+ * @param {string} [lang]
+ */
+export function placeQuip(k, lang = 'cs') {
+  if (lang !== 'cs') return '';
+  if (!k) return '';
+
+  const vitr = Number(k.windKmh) || 0;
+  const naraz = Number(k.gustKmh) || 0;
+  const teplota = Number.isFinite(k.tempC) ? k.tempC : null;
+  const smer = NA_OSM[String(k.windDirKey || '').toLowerCase()];
+  const otiskZ = `${Math.round(vitr)}|${smer || ''}|${Math.round(teplota ?? 0)}`;
+
+  // 🚨 Nebezpečí první a s pojmenovaným jevem.
+  if (k.hazard) {
+    const co = String(k.hazardWhat || '').trim().toLowerCase() || NEBEZPECI_OBECNE;
+    const vety = [
+      `Venku ${co}. Mistr učil, že s počasím se nediskutuje, počasí se přečkává.`,
+      `Právě teď ${co}. Mistr by v takové chvíli zůstal doma a tvrdil, že pracuje.`,
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  // Náraz, který se citelně liší od průměru, je zpráva sám o sobě.
+  if (naraz - vitr >= GUST_MARGIN_KMH && naraz >= 40) {
+    const vety = [
+      'Vítr v nárazech. Mistr říkal, že kdo se opře do větru, má aspoň o co se opřít.',
+      'Nárazový vítr. Mistr v něm nikdy nenosil klobouk — prý z úcty k větru.',
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  if (vitr >= SMER_OD_KMH && smer) {
+    const vety = VITR_ODKUD[smer];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  if (vitr < 4) {
+    const vety = [
+      'Bezvětří. Mistr tvrdil, že v takovém tichu se nejlíp slyší vlastní výmluvy.',
+      'Ani lístek se nehne. Mistr by řekl, že příroda dnes odpočívá — a doporučoval totéž.',
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  if (teplota !== null && teplota <= 0) {
+    const vety = [
+      'Mrzne. Mistr v mrazu psal nejlépe — prsty prý myslí rychleji, když spěchají domů.',
+      'Pod nulou. Mistr tvrdil, že zima je jen teplo, které se opozdilo.',
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  if (teplota !== null && teplota >= 30) {
+    const vety = [
+      'Třicet a výš. Mistr v takovém počasí zásadně nic neslíbil.',
+      'Pořádné vedro. Mistr by teď seděl ve stínu a nazýval to terénním výzkumem.',
+    ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
+
+  const vety = [
+    'Počasí bez překvapení. Mistr by řekl, že i to je druh zprávy.',
+    'Nic zvláštního se neděje. Mistr takové dny míval nejraději — daly se naplánovat.',
+  ];
+  return vety[otisk(otiskZ) % vety.length];
+}
+
 /** Jen pro test: kolik situací umíme okomentovat. */
 export const SITUACE_KLICE = SITUACE.map((s) => s.klic);
 

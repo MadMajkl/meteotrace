@@ -20,7 +20,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { routeQuip, SITUACE_KLICE, VSECHNY_VETY } from '../web/lib/quips.js';
+import { routeQuip, placeQuip, SITUACE_KLICE, VSECHNY_VETY } from '../web/lib/quips.js';
 
 /** Obyčejná klidná trasa. */
 const KLID = {
@@ -189,4 +189,56 @@ test('všech osm směrů má aspoň dvě věty a žádná nenese zakázané jmé
     assert.ok(veta.length <= 110, `${smer} je moc dlouhé: ${veta}`);
     assert.ok(!/cimrman/i.test(veta), `${smer}: zakázané jméno`);
   }
+});
+
+/* ============================================================
+   HLÁŠKA K MÍSTU (METEOSTANICE)
+
+   🚨 Michal 27. 8. 2026: „ten vítr jsi ještě nijak nekomentoval." Měl
+   pravdu — hlášky byly jen na trase, a tam se o větru mluví až od 25 km/h.
+   Na jednom místě je „odkud fouká" zajímavé už při svěžím vánku, protože
+   v něm stojíš.
+   ============================================================ */
+
+test('místo: vítr se komentuje podle směru už od svěžího vánku', () => {
+  const z = placeQuip({ windKmh: 15, windDirKey: 'w', tempC: 18 });
+  const s = placeQuip({ windKmh: 15, windDirKey: 'n', tempC: 18 });
+  assert.match(z, /západ/i);
+  assert.match(s, /sever/i);
+});
+
+test('🚨 pod dvanáct km/h se o směru nemluví', () => {
+  // Povídání o tom, odkud fouká vánek 5 km/h, je povídání o ničem.
+  const v = placeQuip({ windKmh: 5, windDirKey: 'w', tempC: 18 });
+  assert.ok(!/západ/i.test(v), v);
+});
+
+test('bezvětří, mráz a vedro mají svoje věty', () => {
+  const klid = placeQuip({ windKmh: 1, tempC: 18 });
+  const mraz = placeQuip({ windKmh: 6, tempC: -5 });
+  const vedro = placeQuip({ windKmh: 6, tempC: 33 });
+  assert.equal(new Set([klid, mraz, vedro]).size, 3);
+  for (const v of [klid, mraz, vedro]) assert.ok(v.length > 20, v);
+});
+
+test('🚨 nebezpečí přebíjí vše a jev je pojmenovaný', () => {
+  const v = placeQuip({ hazard: true, hazardWhat: 'Bouřka', windKmh: 20, windDirKey: 'w', tempC: 18 });
+  assert.match(v, /bouřka/i);
+});
+
+test('náraz citelně nad průměrem je zpráva sám o sobě', () => {
+  const v = placeQuip({ windKmh: 28, gustKmh: 52, tempC: 12 });
+  assert.match(v, /náraz/i);
+});
+
+test('místo: táž situace dá tutéž hlášku a jiný jazyk mlčí', () => {
+  const k = { windKmh: 15, windDirKey: 'w', tempC: 18 };
+  assert.equal(placeQuip(k), placeQuip(k));
+  assert.equal(placeQuip(k, 'en'), '');
+});
+
+test('místo: rozbitý vstup hlášku neshodí', () => {
+  assert.equal(placeQuip(null), '');
+  assert.equal(typeof placeQuip({}), 'string');
+  assert.equal(typeof placeQuip({ windKmh: 'x', tempC: NaN }), 'string');
 });
