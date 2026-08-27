@@ -160,7 +160,7 @@ export default {
   },
 
   forecast: {
-    hourly: 'Po hodinách',
+    hourly: 'Dalších 48 h po hodinách',
     daily: '7 dní',
     today: 'Dnes',
     tomorrow: 'Zítra',

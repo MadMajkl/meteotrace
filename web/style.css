@@ -236,13 +236,36 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 /* ---------- po hodinách ---------- */
 
+/* 🚨 ROLOVÁNÍ MUSÍ BÝT VIDĚT. Pruh rolovat uměl (48 dlaždic, 3514 px obsahu
+   v okně širokém 466), jenže posuvník byl schovaný — takže to nebylo poznat
+   a vypadalo to, že se předpověď „nevejde". Michal 27. 8. 2026.
+
+   Řeší to dvě věci naráz: tenký, ale VIDITELNÝ posuvník a stín na tom kraji,
+   kde ještě něco je (třídy přidává `hlidejRolovani()` v app.js). */
 .hours {
   display: flex; gap: 6px;
   overflow-x: auto;                          /* vodorovné rolování, ne zalamování */
   scroll-snap-type: x proximity;
-  margin: 0 -18px; padding: 0 18px 4px;
+  margin: 0 -18px; padding: 0 18px 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
-.hours::-webkit-scrollbar { height: 0; }
+.hours::-webkit-scrollbar { height: 6px; }
+.hours::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+.hours::-webkit-scrollbar-thumb:hover { background: var(--text-soft); }
+
+/* Stín na kraji říká „tímhle směrem pokračuje". Zmizí, jakmile tam nic není —
+   trvalý stín u konce seznamu by lhal. */
+.hours-box { position: relative; }
+.hours-box::before,
+.hours-box::after {
+  content: ''; position: absolute; top: 0; bottom: 8px; width: 28px;
+  pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.hours-box::before { left: -18px; background: linear-gradient(90deg, var(--surface), transparent); }
+.hours-box::after { right: -18px; background: linear-gradient(270deg, var(--surface), transparent); }
+.hours-box[data-vlevo="1"]::before,
+.hours-box[data-vpravo="1"]::after { opacity: 1; }
 
 .hour {
   flex: none; width: 66px;

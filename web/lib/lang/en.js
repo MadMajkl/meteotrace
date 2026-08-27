@@ -148,7 +148,7 @@ export default {
   },
 
   forecast: {
-    hourly: 'By the hour',
+    hourly: 'Next 48 hours, hour by hour',
     daily: '7 days',
     today: 'Today',
     tomorrow: 'Tomorrow',

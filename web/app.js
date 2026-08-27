@@ -1127,6 +1127,7 @@ function render(forecast, air) {
   $('d-sunset').textContent = view.sun.sunset;
   $('now-updated').textContent = c.updated;
 
+  hlidejRolovani();
   fill($('hours'), view.hourly, (h) => {
     const bunka = el('div', 'hour', [
       el('div', 't', h.time),
@@ -1342,6 +1343,41 @@ function trasaProMapu(view, trasa, pasmo) {
   ].filter(Boolean).join(" · "));
 }
 
+
+/**
+ * Hlídá, na kterou stranu ještě pruh hodin pokračuje.
+ *
+ * 🚨 Že se dá rolovat, musí být vidět. Pruh to uměl od začátku, ale
+ * s neviditelným posuvníkem to nebylo poznat — Michal 27. 8. 2026: „nevejde
+ * se celá". Stín na kraji je jediné, co o tom řekne bez klepnutí.
+ *
+ * ⚠️ Zapojí se JEDNOU. Překreslení hodin nemá zakládat další posluchače;
+ * po pár přepnutích místa by jich byly desítky.
+ */
+let rolovaniZapojeno = false;
+
+function hlidejRolovani() {
+  const pruh = $('hours');
+  const box = $('hours-box');
+  if (!pruh || !box) return;
+
+  const prepocitej = () => {
+    // ⚠️ Pruh přesahuje přes kraj karty a má vnitřní okraj, takže `scrollLeft`
+    // je na začátku 18, ne 0. Bez téhle opravy svítí levý stín hned po
+    // otevření a tvrdí, že vlevo něco je — přitom je to začátek.
+    const zleva = parseFloat(getComputedStyle(pruh).paddingLeft) || 0;
+    const zbyva = pruh.scrollWidth - pruh.clientWidth - pruh.scrollLeft;
+    box.dataset.vlevo = pruh.scrollLeft > zleva + 4 ? '1' : '0';
+    box.dataset.vpravo = zbyva > 4 ? '1' : '0';
+  };
+
+  if (!rolovaniZapojeno) {
+    pruh.addEventListener('scroll', prepocitej, { passive: true });
+    new ResizeObserver(prepocitej).observe(pruh);
+    rolovaniZapojeno = true;
+  }
+  requestAnimationFrame(prepocitej);
+}
 
 /**
  * Mapa s radarem. Načte se až teď, ne při startu appky.
