@@ -95,6 +95,8 @@ tohle je jen shrnutí.**
 | Hlášky | `web/lib/quips.js` — na trase i na meteostanici, v duchu Mistra, JEN česky; u nebezpečí žertují, ale jev pojmenují |
 | Kde nejblíž prší / kam za sluncem | `web/lib/probes.js` — **u místa i u trasy**, sondy jedním dotazem; jméno místa z vlastních hranic ORP (R15). 🚨 Strop na počet sond ořezává PO PRSTENCÍCH a `reachKm()` říká, kam se opravdu dohlédlo |
 | Směr větru | v appce se píše **celým slovem** („severovýchodní"), ne zkratkou — bublina na telefonu neexistuje |
+| Patra oblačnosti | 🚨 „zataženo" jen vysoko NENÍ zataženo — `jenZavoj()` ve `weather-code.js`; platí na stanici, na trase i u sond |
+| Fáze Měsíce | `web/lib/moon.js` — **počítá se, nestahuje**; je to astronomie, ne předpověď |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |
@@ -110,7 +112,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**501 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**508 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 

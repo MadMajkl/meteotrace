@@ -26,6 +26,7 @@
 'use strict';
 
 import { distanceM } from './eta.js';
+import { jenZavoj } from './weather-code.js';
 
 /** Poloměr Země v metrech (stejná hodnota jako v `eta.js`). */
 const R = 6371000;
@@ -134,10 +135,24 @@ export function jeSrazka(stav) {
   return Number(stav.precipitation) > 0.1;
 }
 
-/** Je tady jasno nebo skoro jasno? */
+/**
+ * Je tady jasno nebo skoro jasno?
+ *
+ * 🚨 Počítá se i „zataženo jen vysoko". Michal 27. 8. 2026 stál na slunci
+ * a appka mu nabízela, že za sluncem musí sto dvacet kilometrů — protože
+ * kód počasí říkal „zataženo", zatímco dole nebyl ani obláček. Kdyby se
+ * závoj nezapočítal, posílala by appka lidi za sluncem tam, kde ho mají
+ * nad hlavou.
+ */
 export function jeJasno(stav) {
   const kod = Number(stav?.weather_code);
-  return kod === 0 || kod === 1;
+  if (kod === 0 || kod === 1) return true;
+  return jenZavoj({
+    code: kod,
+    low: stav?.cloud_cover_low,
+    mid: stav?.cloud_cover_mid,
+    high: stav?.cloud_cover_high,
+  });
 }
 
 /**

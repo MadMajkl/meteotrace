@@ -21,6 +21,7 @@ import {
   formatTemp, formatWind, formatPrecip, formatDistance, formatDuration,
 } from '../web/lib/units.js';
 import { weatherKey, weatherIcon, isHazard, WEATHER_KEYS } from '../web/lib/weather-code.js';
+import { MOON_KEYS } from '../web/lib/moon.js';
 
 /* ============================================================
    PARITA PŘEKLADŮ
@@ -65,6 +66,17 @@ test('🚨 parita: každý kód počasí má překlad ve všech jazycích', () =
     for (const key of WEATHER_KEYS) {
       const text = t(`weather.${key}`, lang);
       assert.notEqual(text, `weather.${key}`, `${lang}: chybí překlad pro ${key}`);
+    }
+  }
+});
+
+test('🚨 parita: každá fáze Měsíce má překlad ve všech jazycích', () => {
+  // Fáze vznikají v `moon.js`, texty v jazycích — a rozejdou se stejně
+  // snadno jako kódy počasí.
+  for (const lang of Object.keys(LANGS)) {
+    for (const key of MOON_KEYS) {
+      const text = t(`moonPhase.${key}`, lang);
+      assert.notEqual(text, `moonPhase.${key}`, `${lang}: chybí překlad pro ${key}`);
     }
   }
 });

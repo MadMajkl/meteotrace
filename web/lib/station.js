@@ -22,7 +22,9 @@
 
 import { t, tf } from './i18n.js';
 import { formatTemp, formatWind, formatPrecip, windDirKey } from './units.js';
-import { weatherKey, weatherIcon } from './weather-code.js';
+import { weatherKey, weatherIcon, weatherKeyWithClouds, weatherIconWithClouds,
+} from './weather-code.js';
+import { moonPhase } from './moon.js';
 
 /**
  * Naivní čas z Open-Meteo → epoch ms.
@@ -142,12 +144,23 @@ export function buildStationView(a) {
   const cur = forecast.current || {};
   const code = pick(cur.weather_code, H.weather_code?.[iNow]);
 
+  // Oblačnost po patrech. Nízká zakrývá, vysoká jen zastírá.
+  const patra = {
+    code,
+    low: pick(cur.cloud_cover_low, H.cloud_cover_low?.[iNow]),
+    mid: pick(cur.cloud_cover_mid, H.cloud_cover_mid?.[iNow]),
+    high: pick(cur.cloud_cover_high, H.cloud_cover_high?.[iNow]),
+  };
+
   return {
     timeZone: tz,
 
     current: {
-      icon: weatherIcon(code, day),
-      condition: t(`weather.${weatherKey(code)}`, lang),
+      // 🚨 Patra oblačnosti rozhodují o SLOVĚ, ne o číslech. Zataženo jen
+      // vysoko není zataženo — viz `jenZavoj()` a Michalova stížnost
+      // z 27. 8. 2026, kdy appka psala „Zataženo" do slunečného večera.
+      icon: weatherIconWithClouds(patra, day),
+      condition: t(`weather.${weatherKeyWithClouds(patra)}`, lang),
       temp: formatTemp(pick(cur.temperature_2m, H.temperature_2m?.[iNow]), units, lang),
       feelsLike: formatTemp(pick(cur.apparent_temperature, H.apparent_temperature?.[iNow]), units, lang),
       wind: formatWind(pick(cur.wind_speed_10m, H.wind_speed_10m?.[iNow]), units, lang),
@@ -170,6 +183,20 @@ export function buildStationView(a) {
       code,
       isDay: day,
     },
+
+    // Fáze Měsíce se POČÍTÁ, nestahuje — je to astronomie, ne předpověď.
+    // Nemá výpadky, nemá kvótu a nepotřebuje k tomu nikoho dalšího.
+    moon: (() => {
+      const f = moonPhase(nowMs);
+      if (!f) return null;
+      return {
+        icon: f.ikona,
+        label: t(`moonPhase.${f.klic}`, lang),
+        // Osvětlení se zaokrouhluje na celá procenta — desetiny by
+        // předstíraly přesnost, kterou střední synodický měsíc nemá.
+        lit: pct(Math.round(f.osvetleni * 100), lang),
+      };
+    })(),
 
     sun: {
       sunrise: formatClock(sunrise[0], tz, lang),
@@ -313,8 +340,8 @@ function jeZitra(ms, zacatek, offsetS) {
 }
 
 export const FORECAST_PARAMS = {
-  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index',
+  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
+  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
   timezone: 'auto',
   forecast_days: '7',

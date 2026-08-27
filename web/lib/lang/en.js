@@ -144,6 +144,7 @@ export default {
     uvIndex: 'UV index',
     sunrise: 'Sunrise',
     sunset: 'Sunset',
+    moon: 'Moon',
     updated: 'Updated {time}',
   },
 
@@ -163,6 +164,7 @@ export default {
     mostlyClear: 'Mostly clear',
     partlyCloudy: 'Partly cloudy',
     overcast: 'Overcast',
+    veiledSun: 'Sun through high cloud',
     fog: 'Fog',
     drizzle: 'Drizzle',
     freezingRain: 'Freezing rain',
@@ -191,6 +193,17 @@ export default {
     e: 'easterly', ese: 'east-southeasterly', se: 'southeasterly', sse: 'south-southeasterly',
     s: 'southerly', ssw: 'south-southwesterly', sw: 'southwesterly', wsw: 'west-southwesterly',
     w: 'westerly', wnw: 'west-northwesterly', nw: 'northwesterly', nnw: 'north-northwesterly',
+  },
+
+  moonPhase: {
+    new: 'New moon',
+    waxingCrescent: 'Waxing crescent',
+    firstQuarter: 'First quarter',
+    waxingGibbous: 'Waxing gibbous',
+    full: 'Full moon',
+    waningGibbous: 'Waning gibbous',
+    lastQuarter: 'Last quarter',
+    waningCrescent: 'Waning crescent',
   },
 
   pollen: {

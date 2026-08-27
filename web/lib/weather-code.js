@@ -42,6 +42,8 @@ const ICONS = {
   mostlyClear:  { day: '🌤️', night: '🌙' },
   partlyCloudy: { day: '⛅', night: '☁️' },
   overcast:     { day: '☁️', night: '☁️' },
+  // Slunce za závojem vysoké oblačnosti — viz `jenZavoj()`.
+  veiledSun:    { day: '🌥️', night: '☁️' },
   fog:          { day: '🌫️', night: '🌫️' },
   drizzle:      { day: '🌦️', night: '🌧️' },
   freezingRain: { day: '🌧️', night: '🌧️' },
@@ -89,5 +91,78 @@ export function isHazard(code) {
           'thunderstorm', 'hailstorm', 'heavyRain', 'fog'].includes(weatherKey(code));
 }
 
+/**
+ * Kolik nízké a střední oblačnosti ještě znamená „slunce je vidět".
+ *
+ * ⚠️ Nízký mrak slunce zakryje, vysoký ho jen zastře. Třicet procent
+ * kupovité oblačnosti dole ještě nechá slunce většinu času svítit; víc už
+ * ne. Nad tímhle prahem se do popisu nesaháme.
+ */
+const DOLE_NEJVYS = 30;
+
+/** Od kolika vysoké oblačnosti má smysl mluvit o závoji. */
+const VYSOKO_ASPON = 50;
+
+/**
+ * Je „zataženo" jen vysokou oblačností?
+ *
+ * 🚨 TOHLE JE OPRAVA SKUTEČNÉ STÍŽNOSTI. Michal 27. 8. 2026 v 18:55:
+ * *„tady v Horšovském Týně svítí slunce a podívej, co mi to píše."*
+ * Appka psala „Zataženo". A nelhala — model hlásil 75 % oblačnosti.
+ *
+ * Jenže: **nízká 0 %, střední 16 %, vysoká 75 %.** Celková oblačnost sečte
+ * všechna patra, kód WMO se počítá z ní, a z řídkého cirru čtyři kilometry
+ * nad hlavou vyjde „zataženo" — zatímco člověk dole stojí na slunci.
+ *
+ * Číslo je správně, slovo je špatně. Vysoká oblačnost slunce **zastře, ale
+ * nezakryje**; obloha zbělá, stíny změknou, slunce je pořád vidět. Tomu se
+ * říká závoj, ne zataženo.
+ *
+ * ⚠️ Nepřepisuje se tím počasí, jen se pojmenovává poctivěji — a jen tehdy,
+ * když dole opravdu nic není. Jakmile se objeví nízká oblačnost, platí
+ * původní popis.
+ *
+ * @param {object} a
+ * @param {number} a.code   kód WMO
+ * @param {number} [a.low]  nízká oblačnost v %
+ * @param {number} [a.mid]  střední oblačnost v %
+ * @param {number} [a.high] vysoká oblačnost v %
+ * @returns {boolean}
+ */
+export function jenZavoj({ code, low, mid, high }) {
+  // Týká se to jen popisů „polojasno" a „zataženo". U deště, mlhy nebo
+  // bouřky by bylo přepisování popisu nebezpečné.
+  const klic = weatherKey(code);
+  if (klic !== 'overcast' && klic !== 'partlyCloudy') return false;
+
+  const n = Number(low);
+  const s = Number(mid);
+  const v = Number(high);
+  if (!Number.isFinite(n) || !Number.isFinite(v)) return false;
+
+  const dole = n + (Number.isFinite(s) ? s : 0);
+  return dole <= DOLE_NEJVYS && v >= VYSOKO_ASPON;
+}
+
+/**
+ * Klíč počasí s ohledem na patra oblačnosti.
+ *
+ * Vrací `veiledSun` tam, kde by holý kód řekl „zataženo", ale zatáhlo to jen
+ * vysoko. Jinak se chová přesně jako {@link weatherKey}.
+ */
+export function weatherKeyWithClouds(a) {
+  return jenZavoj(a) ? 'veiledSun' : weatherKey(a?.code);
+}
+
+/**
+ * Ikona s ohledem na patra oblačnosti.
+ *
+ * ⚠️ V noci se závoj neřeší: slunce, které není vidět, se nedá zastřít.
+ */
+export function weatherIconWithClouds(a, isDay = true) {
+  if (isDay && jenZavoj(a)) return ICONS.veiledSun.day;
+  return weatherIcon(a?.code, isDay);
+}
+
 /** Všechny klíče — pro paritní test překladů, ať se na žádný nezapomene. */
-export const WEATHER_KEYS = [...GROUPS.map((g) => g.key), 'unknown'];
+export const WEATHER_KEYS = [...GROUPS.map((g) => g.key), 'veiledSun', 'unknown'];

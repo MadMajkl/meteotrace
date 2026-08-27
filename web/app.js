@@ -1065,7 +1065,10 @@ async function zeptejSond(sondy, hledame, klic) {
   const odpoved = await requests.run(klic, (signal) => apiGet('forecast', {
     latitude: sondy.map((s) => s.lat).join(','),
     longitude: sondy.map((s) => s.lon).join(','),
-    current: 'weather_code,precipitation,cloud_cover',
+    // ⚠️ Patra oblačnosti nejsou navíc: bez nich se slunce za vysokým
+    // závojem počítá jako zataženo a appka posílá za sluncem někam,
+    // kde ho člověk má nad hlavou.
+    current: 'weather_code,precipitation,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
     timezone: 'auto',
   }, { signal }));
 
@@ -1328,6 +1331,14 @@ function render(forecast, air) {
   $('d-uv').textContent = c.uvIndex;
   $('d-sunrise').textContent = view.sun.sunrise;
   $('d-sunset').textContent = view.sun.sunset;
+
+  // Měsíc: ikona a jméno fáze, pod tím kolik kotouče svítí.
+  const mesic = $('d-moon');
+  mesic.textContent = view.moon ? `${view.moon.icon} ${view.moon.lit}` : '—';
+  if (view.moon) {
+    mesic.append(el('span', 'dir', view.moon.label));
+    mesic.setAttribute('aria-label', `${view.moon.label}, ${view.moon.lit}`);
+  }
   $('now-updated').textContent = c.updated;
 
   // Hláška k místu. ⚠️ Bere čísla, ne naformátované texty — z „12,5 km/h"

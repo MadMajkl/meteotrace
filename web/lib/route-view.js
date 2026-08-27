@@ -19,7 +19,7 @@
 
 import { t, tf, tp } from './i18n.js';
 import { formatTemp, formatWind, formatPrecip, windDirKey } from './units.js';
-import { weatherKey, weatherIcon, isHazard } from './weather-code.js';
+import { weatherKey, weatherIcon, isHazard, weatherKeyWithClouds, weatherIconWithClouds } from './weather-code.js';
 import { asLocationList } from './route-adapter.js';
 
 /** Nad kolik procent se déšť považuje za pravděpodobný. */
@@ -79,14 +79,23 @@ function describePoint(planPoint, location, lang, units) {
   const windKmh = H.wind_speed_10m?.[i] ?? null;
   const hazard = isHazard(code) || (windKmh != null && windKmh >= STRONG_WIND_KMH);
 
+  // Oblačnost po patrech. Nízká slunce zakryje, vysoká ho jen zastře —
+  // a bod trasy pod cirrem není zataženo.
+  const patra = {
+    code,
+    low: H.cloud_cover_low?.[i],
+    mid: H.cloud_cover_mid?.[i],
+    high: H.cloud_cover_high?.[i],
+  };
+
   return {
     ...planPoint,
     elevationM,
     known: true,
     code,
     key: weatherKey(code),
-    icon: weatherIcon(code, true),
-    condition: t(`weather.${weatherKey(code)}`, lang),
+    icon: weatherIconWithClouds(patra, true),
+    condition: t(`weather.${weatherKeyWithClouds(patra)}`, lang),
     temp: formatTemp(H.temperature_2m?.[i], units, lang),
     // ⚠️ Číslo, ne text: podle něj se rozhoduje (hlášky, prahy). Formátovaná
     // podoba nese jednotku a desetinnou čárku, takže se z ní počítat nedá.
@@ -234,7 +243,7 @@ export const ROUTE_FORECAST_PARAMS = {
   // ⚠️ Pocitová teplota a NÁRAZY větru nejsou navíc, jsou to ty údaje, podle
   // kterých se člověk rozhoduje. Pilotovi řekne náraz víc než průměr, cyklistovi
   // pocitovka víc než teploměr. Stojí to jeden parametr, ne jedno volání navíc.
-  hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
+  hourly: 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high',
   timezone: 'auto',
   forecast_days: '3',
 };

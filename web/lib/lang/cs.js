@@ -156,6 +156,7 @@ export default {
     uvIndex: 'UV index',
     sunrise: 'Východ',
     sunset: 'Západ',
+    moon: 'Měsíc',
     updated: 'Aktualizováno {time}',
   },
 
@@ -174,6 +175,8 @@ export default {
     mostlyClear: 'Skoro jasno',
     partlyCloudy: 'Polojasno',
     overcast: 'Zataženo',
+    // 🚨 Zataženo JEN vysoko. Slunce je vidět, jen přes závoj — viz `jenZavoj()`.
+    veiledSun: 'Slunce přes vysokou oblačnost',
     fog: 'Mlha',
     drizzle: 'Mrholení',
     freezingRain: 'Mrznoucí déšť',
@@ -211,6 +214,23 @@ export default {
     w: 'západní', wnw: 'západo-severozápadní', nw: 'severozápadní', nnw: 'severo-severozápadní',
   },
 
+
+  /**
+   * Fáze Měsíce.
+   *
+   * ⚠️ Jediný údaj v appce, který není předpověď, ale astronomie — počítá
+   * se doma, viz `lib/moon.js`.
+   */
+  moonPhase: {
+    new: 'Nov',
+    waxingCrescent: 'Dorůstající srpek',
+    firstQuarter: 'První čtvrt',
+    waxingGibbous: 'Dorůstající měsíc',
+    full: 'Úplněk',
+    waningGibbous: 'Couvající měsíc',
+    lastQuarter: 'Poslední čtvrt',
+    waningCrescent: 'Couvající srpek',
+  },
 
   pollen: {
     title: 'Pyly',
