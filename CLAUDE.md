@@ -75,6 +75,7 @@ tohle je jen shrnutí.**
 | ETA jádro | `web/lib/eta.js` |
 | Proxy vrstva | `server/proxy.js`, katalog zdrojů `web/lib/upstreams.js`, ověřená naživo |
 | i18n, jednotky, kódy počasí | `web/lib/`, referenční jazyk **en** |
+| Hodinová předpověď | 48 h, rolovací, s předělem dne |
 | Meteostanice | `web/index.html` + `app.js`, ověřená naživo |
 | Mapa se srážkovým radarem | `web/map.js`, ověřená naživo |
 | **Počasí na trase — obrazovka** | `web/app.js` (záložka Trasa), logika v `route-adapter.js` + `route-view.js`; **klíč k ORS je v `.env`**, Praha → Brno vrací 205 km / 129 min |
