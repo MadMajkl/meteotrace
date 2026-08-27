@@ -1389,10 +1389,42 @@ function hlidejRolovani() {
 
   if (!rolovaniZapojeno) {
     pruh.addEventListener('scroll', prepocitej, { passive: true });
+    kolecemDoBoku(pruh);
     new ResizeObserver(prepocitej).observe(pruh);
     rolovaniZapojeno = true;
   }
   requestAnimationFrame(prepocitej);
+}
+
+/**
+ * Kolečkem myši do boku.
+ *
+ * 🚨 Na počítači se vodorovný pruh myší roluje mizerně: kolečko hýbe
+ * stránkou, ne pruhem, a člověk musí táhnout posuvník. Michal 27. 8. 2026.
+ * Na telefonu je to prstem samozřejmé — na webu samozřejmé není.
+ *
+ * ⚠️ NEKRADE SE STRÁNCE ROLOVÁNÍ. Když je pruh na konci (nebo na začátku)
+ * a člověk točí dál, událost se nechá projít a roluje stránka. Jinak by se
+ * kurzor nad hodinami choval jako past, ve které stránka „zamrzne".
+ *
+ * ⚠️ Trackpad, který posílá vodorovný pohyb sám, se nechává být — jinak by
+ * se pohyb sečetl dvakrát a pruh by ujížděl.
+ */
+function kolecemDoBoku(pruh) {
+  pruh.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;      // vodorovný trackpad
+
+    // Kolečko hlásí posun v pixelech, řádcích nebo stránkách — sjednotit.
+    const krok = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? pruh.clientWidth : 1);
+    const posun = e.deltaY * krok;
+    const zbyva = pruh.scrollWidth - pruh.clientWidth - pruh.scrollLeft;
+
+    if (posun > 0 && zbyva <= 1) return;                      // konec → nech stránku
+    if (posun < 0 && pruh.scrollLeft <= 0) return;            // začátek → nech stránku
+
+    e.preventDefault();
+    pruh.scrollLeft += posun;
+  }, { passive: false });
 }
 
 /**
