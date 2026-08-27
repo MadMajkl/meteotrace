@@ -322,3 +322,24 @@ test('okolí: i věta o nenalezení rozliší trasu od místa', () => {
   assert.match(trasa, /od trasy/);
   assert.ok(!/od trasy/.test(misto), misto);
 });
+
+test('🚨 široké kolo netvrdí přesnost, kterou nemá', () => {
+  // Osm směrů na pěti stech kilometrech nechává mezery stovky kilometrů
+  // široké. „Nejblíž prší" by z toho dělalo měření; „o kterém víme" je
+  // poctivé — a pořád to odpovídá na otázku.
+  const siroko = okoliQuip({ hledame: 'dest', km: 310, dirKey: 'nw', misto: 'Drážďany', siroko: true });
+  const blizko = okoliQuip({ hledame: 'dest', km: 41, dirKey: 's', misto: 'Klatovy' });
+  assert.match(siroko, /víme/);
+  assert.ok(!/víme/.test(blizko), blizko);
+  // A hlavně: místo se pojmenuje v obou případech.
+  assert.match(siroko, /Drážďany/);
+  assert.match(blizko, /Klatovy/);
+});
+
+test('široké kolo umí i slunce a rozliší trasu od místa', () => {
+  const trasa = okoliQuip({ hledame: 'slunce', km: 420, dirKey: 's', misto: 'Linec', siroko: true, odTrasy: true });
+  const misto = okoliQuip({ hledame: 'slunce', km: 420, dirKey: 's', misto: 'Linec', siroko: true });
+  assert.match(trasa, /od trasy/);
+  assert.ok(!/od trasy/.test(misto), misto);
+  assert.match(trasa, /420 km/);
+});

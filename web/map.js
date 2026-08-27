@@ -76,6 +76,20 @@ const ROUTE_COLORS = {
 const PREKRYVY = [WARN_FILL, WARN_LINE, ROUTE_CASING, ROUTE_LINE, ROUTE_POINTS];
 
 let map = null;
+/**
+ * Jak blízko se mapa otevře nad jedním místem.
+ *
+ * 🚨 Michal 27. 8. 2026: *„u místa prosím o větší zoom mapy, když na něj
+ * najedeme."* Sedmička ukazovala půl republiky — na otázku „jaké je počasí
+ * TADY" odpovídala pohledem, ve kterém se vlastní obec ztrácela mezi dvěma
+ * kraji.
+ *
+ * ⚠️ Výš než devítka se jít nemá. Radarové dlaždice končí na `MAX_ZOOM`
+ * (z7) a nad ním se jen roztahují; na desítce už je ze srážkového pole
+ * barevná kaše. Devítka je kompromis: obec i s okolím, radar ještě čitelný.
+ */
+const PRIBLIZENI_MISTA = 9;
+
 let protokolZapsan = false;
 /** Poslední vykreslená trasa — po přebarvení mapy se kreslí znovu. */
 let trasaData = null;
@@ -165,7 +179,7 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       container: $('map'),
       style: styleFor(),
       center: [lon, lat],
-      zoom: 7,
+      zoom: PRIBLIZENI_MISTA,
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -261,7 +275,7 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     // ⚠️ Po výběru klepnutím se s mapou NEHÝBE. Uživatel si ji sám přiblížil
     // a ukázal do ní prstem — přeskočit mu ji zpátky na výchozí přiblížení
     // by znamenalo, že o svůj pohled přijde právě tím, že ho použil.
-    if (!keepView) map.easeTo({ center: [lon, lat], zoom: 7 });
+    if (!keepView) map.easeTo({ center: [lon, lat], zoom: PRIBLIZENI_MISTA });
   }
 
   // 🚨 Špendlík se PŘESOUVÁ, nezakládá znovu. Dřív vznikal jen při prvním

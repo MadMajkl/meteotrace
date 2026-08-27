@@ -118,6 +118,42 @@ export const UPSTREAMS = {
    * musí se dostat do klíče cache. Kdyby byly „místní" jako u výstrah, měly
    * by všechny body společný záznam a druhý tazatel by dostal jméno prvního.
    */
+  /**
+   * Jméno místa ze souřadnic — ZÁLOHA PRO CIZINU (Pelias u HeiGIT).
+   *
+   * 🚨 Volá se JEN TEHDY, když vlastní hranice ORP jméno neznají — tedy
+   * prakticky jen za hranicemi. Kvótu sdílí s hledáním adres (3 000/den),
+   * takže se nesmí ptát pro každý bod.
+   *
+   * ⚠️ Z odpovědi se bere `locality`, NE `name`. Změřeno 27. 8. 2026:
+   * `name` je adresa nebo podnik — u Drážďan „Wilsdruffer Straße 17",
+   * u Vratislavi jméno hospody. `locality` vrací „Drážďany", „Vratislav",
+   * „Linec" — a s `lang=cs` rovnou česky.
+   *
+   * ⚠️ `layers` se NEPOSÍLÁ. Filtr na `locality` vrací u tohohle
+   * poskytovatele prázdno (změřeno), takže by odřízl všechno.
+   */
+  geocodeReverse: {
+    base: 'https://api.openrouteservice.org/geocode/reverse',
+    params: ['point.lat', 'point.lon', 'size', 'lang'],
+    mapParams: ({ lat, lon, language }) => {
+      const out = {
+        'point.lat': String(lat ?? ''),
+        'point.lon': String(lon ?? ''),
+        // 🚨 Pět, ne jeden. Změřeno 27. 8. 2026: PRVNÍ výsledek často nemá
+        // obec — je to podnik nebo ulice bez vazby („Tfl kereskedelmi Bt").
+        // Teprve druhý či třetí nese „Dabas", „Budapešť", „Sárbogárd".
+        // Vybírá se pak ten první, který obec má.
+        size: '5',
+      };
+      if (language) out.lang = String(language).slice(0, 5);
+      return out;
+    },
+    normalize: 'pelias',
+    ttl: 24 * HOUR,          // vesnice se nestěhují
+    needsKey: true,
+  },
+
   place: {
     localOnly: true,
     params: ['lat', 'lon'],

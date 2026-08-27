@@ -12,7 +12,8 @@ import { t, tf, tp, detectLang, LANG_NAMES } from './lib/i18n.js';
 import { defaultUnits, SYMBOL } from './lib/units.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
 import {
-  probePoints, routeProbes, nearestProbe, jeSrazka, jeJasno, probeDistanceM, reachKm, PRSTENCE_KM,
+  probePoints, routeProbes, nearestProbe, jeSrazka, jeJasno, probeDistanceM, reachKm,
+  SIROKE_PRSTENCE_KM,
 } from './lib/probes.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
@@ -1014,75 +1015,127 @@ function locate() {
    ============================================================ */
 
 /**
- * Kde nejblíž prší — a když prší tady, tak kam za sluncem.
+ * Jméno bodu — nejdřív z našeho, teprve pak z cizího.
  *
- * 🚨 Michal 26. a 27. 8. 2026: *„nejbližší déšť k trase je <místo>"*,
- * *„za sluncem bys musel jet až <kam>"*. Odpověď „tady neprší" totiž hned
- * plodí druhou otázku: a kde teda?
+ * 🚨 Dvoustupňově, a to schválně:
  *
- * ⚠️ PTÁ SE JEN NA JEDNU VĚC. Když tady prší nebo je zataženo, hledá se
- * slunce; jinak déšť. Obojí naráz by znamenalo dvě pojmenování navíc — a to
- * jméno stojí kvótu sdílenou s hledáním (3 000/den).
+ * 1. **Vlastní hranice ORP** (`R15`) — zadarmo, bez klíče, bez kvóty. Pokrývají
+ *    ale jen Česko.
+ * 2. **Opačné hledání u Pelias** — jen když první stupeň neví, tedy prakticky
+ *    jen v cizině. Stojí kvótu sdílenou s hledáním adres, takže se nesmí ptát
+ *    zbytečně.
  *
- * ⚠️ NIKDY NESHODÍ STANICI. Je to dovětek: když se nepovede, prostě není.
- * Proto vlastní `try` a vlastní jméno v skupině dotazů (zruší se při
- * přepnutí místa, ne dřív).
+ * ⚠️ Z cizí odpovědi se bere `locality`, ne `name`. Změřeno 27. 8. 2026:
+ * `name` je adresa nebo podnik — u Drážďan „Wilsdruffer Straße 17", u Vratislavi
+ * dokonce jméno hospody. `locality` vrací „Drážďany", „Vratislav", „Linec",
+ * a rovnou česky. Když ani ta není, zbývá kraj.
  */
-async function ukazOkoli(place, c) {
-  const prvek = $('now-around');
+async function jmenoBodu(bod, klic) {
+  try {
+    const jm = await requests.run(klic, (signal) => apiGet('place', {
+      lat: bod.lat, lon: bod.lon,
+    }, { signal }));
+    if (jm.data?.nazev) return jm.data.nazev;
+  } catch { /* zkusí se cizina */ }
+
+  try {
+    const rev = await requests.run(`${klic}-cizina`, (signal) => apiGet('geocodeReverse', {
+      lat: bod.lat, lon: bod.lon, language: state.lang,
+    }, { signal }));
+    // ⚠️ Bere se první výsledek, který ZNÁ OBEC — ne prostě první. Ten bývá
+    // podnik nebo ulice bez vazby na sídlo. Když obec nezná žádný, zbývá kraj.
+    const results = rev.data?.results || [];
+    const sObci = results.find((r) => r.locality);
+    return sObci?.locality || results[0]?.admin1 || '';
+  } catch {
+    return '';                        // bez jména věta pořád nese směr a dálku
+  }
+}
+
+/**
+ * Zeptá se sond a najde nejbližší, která vyhovuje.
+ *
+ * @param {Array} sondy
+ * @param {'dest'|'slunce'} hledame
+ * @param {string} klic  jméno v skupině dotazů (ruší se při novém zadání)
+ */
+async function zeptejSond(sondy, hledame, klic) {
+  if (!sondy.length) return null;
+
+  const odpoved = await requests.run(klic, (signal) => apiGet('forecast', {
+    latitude: sondy.map((s) => s.lat).join(','),
+    longitude: sondy.map((s) => s.lon).join(','),
+    current: 'weather_code,precipitation,cloud_cover',
+    timezone: 'auto',
+  }, { signal }));
+
+  // 🚨 U seznamu souřadnic vrací Open-Meteo POLE odpovědí, u jedné souřadnice
+  // objekt. Sjednotit, jinak by se sondy přiřadily naprázdno.
+  const pole = Array.isArray(odpoved.data) ? odpoved.data : [odpoved.data];
+  const stavy = pole.map((x) => x?.current || null);
+
+  return nearestProbe(sondy, stavy, hledame === 'dest' ? jeSrazka : jeJasno);
+}
+
+/**
+ * Společné jádro dovětku o okolí — pro místo i pro trasu.
+ *
+ * 🚨 Michal 27. 8. 2026: *„chybí ti tam to, co jsem chtěl hlavně — explicitně
+ * místo, kde nejblíže prší."* Měl pravdu: appka uměla říct jen „do 120 km
+ * nikde neprší", což je odpověď na jinou otázku. Když se v blízkém okolí nic
+ * nenajde, jde se proto **na druhé, široké kolo** (200 / 320 / 500 km) — aby
+ * se dalo odpovědět „nejbližší déšť, o kterém víme, je u Drážďan".
+ *
+ * ⚠️ Široké kolo se ptá JEN KDYŽ blízké nic nenašlo. Většinu dní tedy
+ * nestojí nic.
+ *
+ * ⚠️ A mluví o sobě jinak. Osm směrů na pěti stech kilometrech jsou mezery
+ * stovky kilometrů široké — „nejblíž prší" by tvrdilo přesnost, která tam
+ * není. Odtud „nejbližší déšť, o kterém víme".
+ *
+ * @param {object} a
+ * @param {HTMLElement} a.prvek         kam se to napíše
+ * @param {'dest'|'slunce'} a.hledame
+ * @param {Array} a.blizke              sondy prvního kola
+ * @param {() => Array} a.siroke        sondy druhého kola (líně — ať se počítají jen když je třeba)
+ * @param {boolean} [a.odTrasy]         měří se od trasy
+ * @param {string} a.klic               jméno v skupině dotazů
+ * @param {(nalez: object) => number} [a.vzdalenost]  jak daleko nález je (m)
+ */
+async function vypisOkoli(a) {
+  const { prvek, hledame, blizke, klic } = a;
   prvek.hidden = true;
   prvek.textContent = '';
 
-  // Hlášky umí jen česky — viz pravidlo v `quips.js`. Bez češtiny by se
-  // zbytečně platilo za dotazy, ze kterých se nic nenapíše.
-  if (state.lang !== 'cs') return;
-
-  const stred = [place.lat, place.lon];
-  const sondy = probePoints(stred);
-  if (!sondy.length) return;
-
-  // Zataženo se počítá jako „slunce tu není". Michalova věta mluví o slunci,
-  // ne o suchu — a pod souvislou oblačností je odpověď „za sluncem se musí
-  // jinam" pravdivá, i když neprší.
-  const prsiTady = jeSrazka({ weather_code: c.code, precipitation: c.precipMm });
-  const zatazeno = Number(c.cloudPct) >= 80;
-  const hledame = (prsiTady || zatazeno) ? 'slunce' : 'dest';
+  if (state.lang !== 'cs') return;          // hlášky umí jen česky
+  if (!blizke.length) return;
 
   try {
-    const odpoved = await requests.run('okoli', (signal) => apiGet('forecast', {
-      latitude: sondy.map((s) => s.lat).join(','),
-      longitude: sondy.map((s) => s.lon).join(','),
-      current: 'weather_code,precipitation,cloud_cover',
-      timezone: 'auto',
-    }, { signal }));
+    let sondy = blizke;
+    let nalez = await zeptejSond(sondy, hledame, klic);
+    let siroko = false;
 
-    // 🚨 U seznamu souřadnic vrací Open-Meteo POLE odpovědí, u jedné
-    // souřadnice objekt. Sjednotit, jinak by se sondy přiřadily naprázdno.
-    const pole = Array.isArray(odpoved.data) ? odpoved.data : [odpoved.data];
-    const stavy = pole.map((x) => x?.current || null);
-
-    const nalez = nearestProbe(sondy, stavy, hledame === 'dest' ? jeSrazka : jeJasno);
-
-    let misto = '';
-    if (nalez) {
-      // Jméno je bonus, a bere se z VLASTNÍCH hranic ORP — žádná cizí
-      // služba, žádná kvóta. (Opačné hledání u Pelias vracelo na venkovský
-      // bod číslo popisné, viz katalog zdrojů.) Když se nepovede, věta
-      // jméno prostě neuvede.
-      try {
-        const jm = await requests.run('okoli-jmeno', (signal) => apiGet('place', {
-          lat: nalez.lat, lon: nalez.lon,
-        }, { signal }));
-        misto = jm.data?.nazev || '';
-      } catch { /* bez jména to dává smysl taky */ }
+    if (!nalez) {
+      const dalsi = a.siroke();
+      if (dalsi.length) {
+        siroko = true;
+        sondy = dalsi;
+        nalez = await zeptejSond(sondy, hledame, `${klic}-siroke`);
+      }
     }
+
+    const misto = nalez ? await jmenoBodu(nalez, `${klic}-jmeno`) : '';
+    const metru = nalez ? (a.vzdalenost ? a.vzdalenost(nalez) : nalez.distanceM) : null;
 
     const veta = okoliQuip({
       hledame,
-      km: nalez ? (probeDistanceM(stred, nalez) ?? nalez.distanceM) / 1000 : null,
+      km: Number.isFinite(metru) ? metru / 1000 : null,
       dirKey: nalez?.dirKey,
       misto,
-      dosahKm: PRSTENCE_KM[PRSTENCE_KM.length - 1],
+      // 🚨 Kam se DOOPRAVDY dohlédlo, ne kam se dohlédnout mělo.
+      dosahKm: reachKm(sondy),
+      odTrasy: !!a.odTrasy,
+      siroko,
     }, state.lang);
 
     if (!veta) return;
@@ -1090,9 +1143,68 @@ async function ukazOkoli(place, c) {
     prvek.hidden = false;
   } catch (e) {
     if (requests.isAbort(e)) return;
-    // Dovětek, který se nepovedl, se mlčí. Chybová hláška o tom, kde neprší,
+    // Dovětek, který se nepovedl, mlčí. Chybová hláška o tom, kde neprší,
     // by byla víc na obtíž než sama informace.
   }
+}
+
+/**
+ * Kde nejblíž prší od jednoho MÍSTA — a když prší tady, kam za sluncem.
+ *
+ * ⚠️ NIKDY NESHODÍ STANICI. Je to dovětek: když se nepovede, prostě není.
+ */
+async function ukazOkoli(place, c) {
+  const stred = [place.lat, place.lon];
+
+  // Zataženo se počítá jako „slunce tu není". Michalova věta mluví o slunci,
+  // ne o suchu — a pod souvislou oblačností je odpověď „za sluncem se musí
+  // jinam" pravdivá, i když neprší.
+  const prsiTady = jeSrazka({ weather_code: c.code, precipitation: c.precipMm });
+  const zatazeno = Number(c.cloudPct) >= 80;
+
+  await vypisOkoli({
+    prvek: $('now-around'),
+    hledame: (prsiTady || zatazeno) ? 'slunce' : 'dest',
+    blizke: probePoints(stred),
+    siroke: () => probePoints(stred, SIROKE_PRSTENCE_KM),
+    klic: 'okoli',
+    vzdalenost: (n) => probeDistanceM(stred, n) ?? n.distanceM,
+  });
+}
+
+/**
+ * Kde nejblíž prší od TRASY — a když prší na ní, kam za sluncem.
+ *
+ * 🚨 Michal 27. 8. 2026: *„tys to dal jen do místa, já to hledal tam, kde je
+ * to nejdůležitější, U TRASY!"* U jednoho místa je to zajímavost; u cesty je
+ * to otázka, jestli má smysl jet jinudy.
+ *
+ * ⚠️ Ptá se na TEĎ, ne na čas příjezdu. Body trasy mají počasí v čase, kdy tam
+ * dorazíš — tohle je jiná otázka („kde zrovna prší") a věta ji drží v přítomném
+ * čase. Předpověď pro osmačtyřicet sond na osmačtyřicet různých hodin by byla
+ * o řád víc dat za odpověď, kterou nikdo nechtěl.
+ *
+ * ⚠️ NIKDY NESHODÍ TRASU.
+ */
+async function ukazOkoliTrasy(view, cara) {
+  const body = (view?.points || [])
+    .map((p) => p.point)
+    .filter((b) => Array.isArray(b) && Number.isFinite(b[0]));
+  const podklad = body.length ? body : (cara || []);
+
+  await vypisOkoli({
+    prvek: $('route-around'),
+    // Prší po trase → hledá se slunce. Neprší → hledá se déšť.
+    hledame: view.summary.rainCount > 0 ? 'slunce' : 'dest',
+    blizke: routeProbes(podklad),
+    // ⚠️ U širokého kola stačí dvě kotvy a větší odstup: na pěti stech
+    // kilometrech je jedno, od kterého konce trasy se měří.
+    siroke: () => routeProbes(podklad, {
+      prstence: SIROKE_PRSTENCE_KM, kotev: 2, odstupKm: 120,
+    }),
+    odTrasy: true,
+    klic: 'okoli-trasa',
+  });
 }
 
 async function loadStation() {
@@ -1987,82 +2099,6 @@ async function loadRoute() {
    při výpočtu trasy a přepínač je jen ukazuje.
    ============================================================ */
 
-/**
- * Kde nejblíž prší od TRASY — a když prší na ní, tak kam za sluncem.
- *
- * 🚨 Michal 27. 8. 2026: *„tys to dal jen do místa, já to hledal tam, kde je
- * to nejdůležitější, U TRASY!"* Měl pravdu. U jednoho místa je to zajímavost;
- * u cesty je to otázka, jestli má smysl jet jinudy.
- *
- * ⚠️ Ptá se na TEĎ, ne na čas příjezdu. Body trasy mají počasí v čase, kdy
- * tam dorazíš — tohle je jiná otázka („kde zrovna prší") a věta ji drží
- * v přítomném čase. Předpověď pro osmačtyřicet sond na osmačtyřicet různých
- * hodin by byla o řád víc dat za odpověď, kterou nikdo nechtěl.
- *
- * ⚠️ NIKDY NESHODÍ TRASU. Je to dovětek: když se nepovede, prostě není.
- */
-async function ukazOkoliTrasy(view, cara) {
-  const prvek = $('route-around');
-  prvek.hidden = true;
-  prvek.textContent = '';
-
-  if (state.lang !== 'cs') return;                 // hlášky umí jen česky
-
-  // Body trasy i s počasím. Když nemáme ani je, není se od čeho odrazit.
-  const body = (view?.points || [])
-    .map((p) => p.point)
-    .filter((b) => Array.isArray(b) && Number.isFinite(b[0]));
-  const podklad = body.length ? body : (cara || []);
-
-  const sondy = routeProbes(podklad);
-  if (!sondy.length) return;
-
-  // Prší po trase → hledá se slunce. Neprší → hledá se déšť. Přesně ty dvě
-  // otázky, které si člověk položí.
-  const hledame = view.summary.rainCount > 0 ? 'slunce' : 'dest';
-
-  try {
-    const odpoved = await requests.run('okoli-trasa', (signal) => apiGet('forecast', {
-      latitude: sondy.map((s) => s.lat).join(','),
-      longitude: sondy.map((s) => s.lon).join(','),
-      current: 'weather_code,precipitation,cloud_cover',
-      timezone: 'auto',
-    }, { signal }));
-
-    const pole = Array.isArray(odpoved.data) ? odpoved.data : [odpoved.data];
-    const stavy = pole.map((x) => x?.current || null);
-
-    const nalez = nearestProbe(sondy, stavy, hledame === 'dest' ? jeSrazka : jeJasno);
-
-    let misto = '';
-    if (nalez) {
-      try {
-        const jm = await requests.run('okoli-trasa-jmeno', (signal) => apiGet('place', {
-          lat: nalez.lat, lon: nalez.lon,
-        }, { signal }));
-        misto = jm.data?.nazev || '';
-      } catch { /* bez jména to dává smysl taky */ }
-    }
-
-    const veta = okoliQuip({
-      hledame,
-      km: nalez ? nalez.distanceM / 1000 : null,
-      dirKey: nalez?.dirKey,
-      misto,
-      // 🚨 Kam se DOOPRAVDY dohlédlo, ne kam se dohlédnout mělo. Sondy se
-      // slučují a ořezávají — viz `reachKm()`.
-      dosahKm: reachKm(sondy),
-      odTrasy: true,
-    }, state.lang);
-
-    if (!veta) return;
-    prvek.textContent = veta;
-    prvek.hidden = false;
-  } catch (e) {
-    if (requests.isAbort(e)) return;
-    // Dovětek, který se nepovedl, mlčí.
-  }
-}
 
 /**
  * Rozpis úseků pod souhrnem. Ukazuje se jen u trasy se zastávkami — u cesty

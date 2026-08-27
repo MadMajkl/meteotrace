@@ -53,6 +53,22 @@ const SMERY = [
 export const PRSTENCE_KM = [25, 60, 120];
 
 /**
+ * Prstence druhého, ŠIROKÉHO kola.
+ *
+ * 🚨 Michal 27. 8. 2026: *„chybí ti tam to, co jsem chtěl hlavně —
+ * explicitně místo, kde nejblíže prší."* Odpověď „do 120 km nikde neprší"
+ * je odpověď na jinou otázku. Když blízké okolí nic nenajde, jde se dál.
+ *
+ * ⚠️ Tohle kolo se ptá JEN KDYŽ blízké nic nenašlo — většinu dní tedy
+ * nestojí nic.
+ *
+ * ⚠️ A je HRUBÉ: osm směrů na pěti stech kilometrech nechává mezery
+ * stovky kilometrů široké. Věta se o tom musí vyjádřit jinak („nejbližší
+ * déšť, o kterém víme"), jinak by tvrdila přesnost, kterou nemá.
+ */
+export const SIROKE_PRSTENCE_KM = [200, 320, 500];
+
+/**
  * Rozeseje sondy kolem místa.
  *
  * @param {[number, number]} stred  [šířka, délka]

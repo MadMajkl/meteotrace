@@ -418,6 +418,7 @@ export function placeQuip(k, lang = 'cs') {
  * @param {string} [k.misto]           jméno místa
  * @param {number} [k.dosahKm]         jak daleko se hledalo
  * @param {boolean} [k.odTrasy]        měří se od trasy, ne od jednoho místa
+ * @param {boolean} [k.siroko]         nález je z druhého, hrubého kola (stovky km)
  * @param {string} [lang]
  */
 export function okoliQuip(k, lang = 'cs') {
@@ -432,7 +433,7 @@ export function okoliQuip(k, lang = 'cs') {
   // vzdálenost měří od nejbližšího bodu CELÉ cesty — věta o tom musí mluvit,
   // jinak si ji člověk vztáhne k místu, kde zrovna stojí.
   const odkud = k.odTrasy ? ' od trasy' : '';
-  const otiskZ = [k.hledame, km === null ? 'x' : km, kam || '', odkud].join('|');
+  const otiskZ = [k.hledame, km === null ? 'x' : km, kam || '', odkud, k.siroko ? 's' : ''].join('|');
 
   // Nic se nenašlo — taky odpověď, a u deště dokonce dobrá.
   if (km === null || !kam) {
@@ -452,6 +453,23 @@ export function okoliQuip(k, lang = 'cs') {
   const kde = misto ? ' (' + misto + ')' : '';
 
   const smerem = kam + odkud;
+
+  // 🚨 Široké kolo MLUVÍ O SOBĚ JINAK. Osm směrů na pěti stech kilometrech
+  // nechává mezery stovky kilometrů široké — „nejblíž prší" by tvrdilo
+  // přesnost, kterou to nemá. „O kterém víme" je poctivější a pořád to
+  // odpovídá na otázku: kde teda?
+  if (k.siroko) {
+    const vety = k.hledame === 'dest'
+      ? [
+        'Nejbližší déšť, o kterém víme, je asi ' + km + ' km ' + smerem + kde + '. Mistr by podotkl, že na tuhle dálku už je to spíš zeměpis než počasí.',
+        'Nejblíž prší, pokud víme, asi ' + km + ' km ' + smerem + kde + '. Mistr tvrdil, že za takovým deštěm se nejezdí ani ze zvědavosti.',
+      ]
+      : [
+        'Nejbližší jasno, o kterém víme, je asi ' + km + ' km ' + smerem + kde + '. Mistr by řekl, že to už není výlet, to je výprava.',
+        'Slunce začíná, pokud víme, až asi ' + km + ' km ' + smerem + kde + '. Mistr by v takové chvíli doporučil smířit se s oblohou.',
+      ];
+    return vety[otisk(otiskZ) % vety.length];
+  }
 
   const vety = k.hledame === 'dest'
     ? [
