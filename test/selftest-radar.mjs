@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 import {
   radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, forecastSplit, offsetLabel,
+  KROK_ANIMACE_MS, PAUZA_SMYCKY_MS, PAUZA_TED_MS,
   TILE_SIZE, MAX_ZOOM,
 } from '../web/lib/radar.js';
 
@@ -195,4 +196,36 @@ test('🚨 odstup se počítá od SKUTEČNÉHO teď, ne od prvního snímku', ()
   const ted = Date.parse('2026-08-28T18:40:00Z');
   const stare = { timeMs: ted - 120 * 60000 };
   assert.equal(offsetLabel(stare, ted).min, 120);
+});
+
+/* ============================================================
+   TEMPO ANIMACE
+
+   Michal 28. 8. 2026: *„ty skoky mraků, tu animaci prostě, pomaleji trochu."*
+   ============================================================ */
+
+test('krok animace je pojmenovaná konstanta, ne číslo schované v kódu', () => {
+  // Tempo je věc na ladění podle oka — musí se dát změnit na jednom místě
+  // a musí být vidět v testu, jaké je.
+  assert.equal(KROK_ANIMACE_MS, 650);
+  assert.ok(PAUZA_SMYCKY_MS > KROK_ANIMACE_MS, 'na konci smyčky se čeká déle');
+});
+
+test('🚨 na „teď" se počká — je to předěl měření a předpovědi', () => {
+  // Bez zdržení proletí nejdůležitější snímek osy stejně rychle jako ostatní
+  // a není poznat, kde končí naměřené a začíná dopočtené.
+  const f = [
+    { timeMs: 1, forecast: false },
+    { timeMs: 2, forecast: false },
+    { timeMs: 3, forecast: true },
+  ];
+  assert.equal(nextFrame(f, 0).holdMs, KROK_ANIMACE_MS, 'uvnitř měření běžné tempo');
+  assert.equal(nextFrame(f, 1).holdMs, PAUZA_TED_MS, 'na posledním měření se počká');
+  assert.equal(nextFrame(f, 2).holdMs, PAUZA_SMYCKY_MS, 'na konci smyčky taky');
+});
+
+test('bez předpovědi se nikde nezdržuje, jen na konci', () => {
+  const f = [{ timeMs: 1, forecast: false }, { timeMs: 2, forecast: false }];
+  assert.equal(nextFrame(f, 0).holdMs, KROK_ANIMACE_MS);
+  assert.equal(nextFrame(f, 1).holdMs, PAUZA_SMYCKY_MS);
 });

@@ -252,11 +252,16 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .moon-icon { width: 22px; height: 22px; vertical-align: -5px; color: var(--text); }
 
 /* Nadmořská výška pod teplotou: patří k ní, tak se drží jejího sloupce. */
+/* Ikona počasí a pod ní nadmořská výška.
+
+   🚨 Sloupec s ikonou je nižší než ten s teplotou (60 px proti ~85 px),
+   takže se výška vejde do místa, které tam už bylo — karta nenaroste. */
+.now-icon-box { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
 .now-elev {
-  display: flex; align-items: center; gap: 6px;
-  margin-top: 6px;
-  font-size: 13px; color: var(--text-soft);
-  font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-soft);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .now-elev .sky-icon { width: 16px; height: 16px; opacity: 0.7; }
 

@@ -172,18 +172,21 @@
     <p id="saved-as" class="hint" hidden></p>
 
     <div class="now-main">
-      <span class="now-icon" id="now-icon" aria-hidden="true"></span>
-      <div>
-        <div class="now-temp" id="now-temp"></div>
-        <div class="now-cond" id="now-cond"></div>
-        <div class="now-feels"><span data-i18n="now.feelsLike"></span> <b id="now-feels"></b></div>
-        <!-- Nadmořská výška patří k teplotě, protože ji vysvětluje: osmnáct
-             stupňů ve čtyřech stech metrech je jiná zpráva než osmnáct
-             stupňů u moře. Michal 28. 8. 2026. -->
+      <!-- 🚨 Výška sedí POD IKONOU, ne pod pocitovou teplotou. Vedle ikony
+           je volné místo, kdežto ve sloupci s teplotou by přidala řádek
+           a karta by narostla do výšky — Michal 28. 8. 2026: „nepřidávej
+           řádky do výšky, máš tam spoustu místa vlevo!" -->
+      <div class="now-icon-box">
+        <span class="now-icon" id="now-icon" aria-hidden="true"></span>
         <div class="now-elev" id="now-elev-row" hidden>
           <span class="fact-ico" id="ico-elev" aria-hidden="true"></span>
           <span id="now-elev"></span>
         </div>
+      </div>
+      <div>
+        <div class="now-temp" id="now-temp"></div>
+        <div class="now-cond" id="now-cond"></div>
+        <div class="now-feels"><span data-i18n="now.feelsLike"></span> <b id="now-feels"></b></div>
       </div>
     </div>
 

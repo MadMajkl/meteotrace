@@ -99,6 +99,29 @@ export function frameIndexAt(frames, timeMs) {
 }
 
 /**
+ * Jak dlouho se drží jeden snímek.
+ *
+ * 🚨 Michal 28. 8. 2026: *„ty skoky mraků, tu animaci prostě, pomaleji
+ * trochu."* Bylo to 420 ms — na sledování, kudy sráženy táhnou, moc rychle;
+ * oko stihne zaznamenat, že se něco změnilo, ale ne kam se to posunulo.
+ * Osa má dnes 19 snímků (13 měření + 6 předpovědi), takže jedno kolo trvá
+ * při 650 ms zhruba 13 vteřin — pořád se to dá vydržet sledovat celé.
+ */
+export const KROK_ANIMACE_MS = 650;
+
+/** Pauza na konci smyčky, ať je poznat, že se začíná znovu. */
+export const PAUZA_SMYCKY_MS = 1900;
+
+/**
+ * Pauza na posledním NAMĚŘENÉM snímku, tedy na „teď".
+ *
+ * ⚠️ Je to nejdůležitější snímek celé osy a zároveň místo, kde končí
+ * měření a začíná předpověď. Bez zdržení proletí stejně rychle jako
+ * ostatní a ten předěl není poznat.
+ */
+export const PAUZA_TED_MS = 1300;
+
+/**
  * Další snímek v animaci (dokola).
  *
  * ⚠️ Na konci smyčky se čeká déle. Bez pauzy animace „skočí" z konce na
@@ -107,13 +130,18 @@ export function frameIndexAt(frames, timeMs) {
  * @returns {{index: number, holdMs: number}}
  */
 export function nextFrame(frames, index, opts = {}) {
-  const stepMs = opts.stepMs || 420;
-  const loopPauseMs = opts.loopPauseMs || 1400;
+  const stepMs = opts.stepMs || KROK_ANIMACE_MS;
+  const loopPauseMs = opts.loopPauseMs || PAUZA_SMYCKY_MS;
+  const nowPauseMs = opts.nowPauseMs || PAUZA_TED_MS;
   if (!frames.length) return { index: 0, holdMs: stepMs };
 
   const last = frames.length - 1;
   const next = index >= last ? 0 : index + 1;
-  return { index: next, holdMs: index >= last ? loopPauseMs : stepMs };
+
+  if (index >= last) return { index: next, holdMs: loopPauseMs };
+  // Předěl měření → předpověď: na „teď" se chvíli počká.
+  const naTed = !frames[index]?.forecast && !!frames[next]?.forecast;
+  return { index: next, holdMs: naTed ? nowPauseMs : stepMs };
 }
 
 /**
