@@ -112,7 +112,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**525 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**531 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -128,9 +128,12 @@ tohle je jen shrnutí.**
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
   nasazením přepnout na vlastní doménu a zúžit. **Chce Michalovu ruku v Cloudflare.**
 - 🟡 Ostrá doména v `BuildConfig.API_BASE` — vydané APK teď míří na vývojový počítač.
-- 🟡 Verze je `0.1.0` na třech místech (`VERZE` v `app.js`, `package.json`, Gradle
-  `versionName`). Na `1.0.0` až s vydáním na Play. `versionCode` roste při každém
-  nahrání zvlášť — teď je na 2.
+- ✅ Verze je **jedna** a v `package.json`; `VERZE` ve webu se s ní mění jedním
+  příkazem (`npm run verze -- patch|minor|major|X.Y.Z`), Android si ji čte
+  z `android/version.properties` (píše `android-sync`, `versionCode` = počet
+  commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
+  `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
+  Teď **0.2.6**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 

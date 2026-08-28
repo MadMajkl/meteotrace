@@ -42,3 +42,6 @@ tools/bin/
 Thumbs.db
 .DS_Store
 
+
+# Verzi do obalu píše android-sync z package.json — odvozený soubor.
+android/version.properties
