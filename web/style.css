@@ -377,6 +377,52 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* Dopočet musí být poznat — odhad se nesmí tvářit jako naměřený stav. */
 .radar-kind[data-forecast="true"] { background: var(--accent-soft); color: var(--accent); }
 
+/* Odstup od teď — „před 40 min". Absolutní čas sám o sobě nutí člověka
+   odečítat v hlavě, a to zrovna ve chvíli, kdy sleduje pohyb srážek. */
+.radar-offset { font-size: 13px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+
+/* ── Posuvník času radaru ───────────────────────────────────────────────
+   Dráha nese informaci: kde končí měření a začíná dopočet, mění barvu.
+   Podíl počítá JS (`forecastSplit`) a sem přijde jako proměnná — CSS
+   o snímcích nic neví a vědět nemá.
+
+   ⚠️ Když se nedopočítává, je proměnná 100 % a dráha zůstane jednobarevná.
+   Nikdy se nesmí stát, že by odhad vypadal jako měření. */
+.radar-scrub {
+  --split: 100%;
+  width: 100%; margin: 8px 0 0; padding: 0;
+  -webkit-appearance: none; appearance: none;
+  background: transparent;
+  /* Palec je 22 px, takže se do dráhy trefí i prst na telefonu. */
+  height: 26px;
+  cursor: pointer;
+}
+.radar-scrub::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right,
+    var(--accent) 0 var(--split), var(--accent-soft) var(--split) 100%);
+}
+.radar-scrub::-moz-range-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right,
+    var(--accent) 0 var(--split), var(--accent-soft) var(--split) 100%);
+}
+.radar-scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; margin-top: -8px;
+  border-radius: 50%; border: 3px solid var(--surface);
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.radar-scrub::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: 50%; border: 3px solid var(--surface);
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.radar-scrub:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.radar-scrub:disabled { opacity: 0.5; cursor: default; }
+
 /* MapLibre si nese vlastní barvy; srovnat je s motivem appky. */
 .maplibregl-ctrl-attrib { font-size: 10px; }
 .maplibregl-ctrl-group { border-radius: 10px !important; overflow: hidden; }

@@ -221,8 +221,15 @@
     <div class="radar-bar">
       <button id="radar-play" class="icon-btn" type="button" data-i18n-attr="aria-label:radar.play">▶</button>
       <span id="radar-time" class="radar-time"></span>
+      <span id="radar-offset" class="radar-offset"></span>
       <span id="radar-kind" class="radar-kind"></span>
     </div>
+    <!-- Posuvník času. Bez něj šlo animaci jen pustit a zastavit — kdo chtěl
+         vidět zrovna ten snímek před hodinou, musel čekat, až kolem proběhne.
+         Je to <input type="range">, takže šipky, Home/End i čtečka obrazovky
+         fungují samy od sebe; vlastní posuvník by to musel dohánět. -->
+    <input id="radar-scrub" class="radar-scrub" type="range" min="0" max="0" value="0" step="1"
+           data-i18n-attr="aria-label:radar.scrub">
     <!-- Bez tohohle by o výběru klepnutím nikdo nevěděl: mapa nevypadá
          jako něco, do čeho se dá ukázat. -->
     <p class="hint map-hint" id="map-hint" data-i18n="radar.pickHint"></p>

@@ -129,3 +129,45 @@ export function frameLabel(frame, timeZone, locale) {
     forecast: frame.forecast,
   };
 }
+
+/**
+ * Kde na časové ose začíná dopočet.
+ *
+ * ⚠️ Vrací **podíl 0–1**, ne pixely — kdo to kreslí, ví o své šířce sám.
+ * Osa se totiž nedělí časem, ale POŘADÍM snímků: rozestupy jsou stejné
+ * (deset minut), takže index a čas jdou ruku v ruce, a kdyby jednou
+ * nešly, je poctivější mít dílky stejně široké než osu, kde je půlka
+ * hodiny jednou dvakrát delší.
+ *
+ * ⚠️ Když dopočet chybí, vrací `null`, ne nulu nebo jedničku. Nula by
+ * kreslila celou osu jako odhad, jednička by odhad tvrdila na konci —
+ * a „nevíme" se nesmí splést s „ne". RainViewer dopočet občas nevydá
+ * (změřeno 28. 8. 2026: `nowcast` prázdný), takže to není teorie.
+ *
+ * @param {Array<{forecast: boolean}>} frames
+ * @returns {number|null} podíl 0–1, nebo null když se nedopočítává
+ */
+export function forecastSplit(frames) {
+  if (!Array.isArray(frames) || frames.length < 2) return null;
+  const prvni = frames.findIndex((f) => f?.forecast);
+  if (prvni <= 0) return null;
+  return prvni / (frames.length - 1);
+}
+
+/**
+ * O kolik je snímek daleko od teď — „před 40 min", „za 10 min", „teď".
+ *
+ * Absolutní čas na posuvníku nestačí: v 18:42 je „18:30" pro člověka
+ * nesrozumitelné, dokud si to sám neodečte. Vrací se **klíč a číslo**,
+ * větu složí až vrstva, která umí jazyk.
+ *
+ * ⚠️ Zaokrouhluje se na nejbližší minutu a rozestup snímků je deset,
+ * takže „teď" je okno ±5 minut, ne shoda na sekundu.
+ *
+ * @returns {{key: 'now'|'ago'|'in', min: number}}
+ */
+export function offsetLabel(frame, nowMs = Date.now()) {
+  const rozdil = Math.round(((frame?.timeMs ?? nowMs) - nowMs) / 60000);
+  if (Math.abs(rozdil) < 5) return { key: 'now', min: 0 };
+  return rozdil < 0 ? { key: 'ago', min: -rozdil } : { key: 'in', min: rozdil };
+}

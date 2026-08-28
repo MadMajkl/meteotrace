@@ -7,7 +7,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, TILE_SIZE, MAX_ZOOM,
+  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, forecastSplit, offsetLabel,
+  TILE_SIZE, MAX_ZOOM,
 } from '../web/lib/radar.js';
 
 /** Zmenšenina skutečné odpovědi RainVieweru (tvar ověřen 21. 8. 2026). */
@@ -146,4 +147,52 @@ test('🚨 dlaždice jsou 512px — u 256px si knihovna říká o úroveň naví
   assert.equal(TILE_SIZE, 512);
   const url = tileTemplate({ path: 'https://x/y/123' });
   assert.ok(url.includes('/512/'), url);
+});
+
+/* ============================================================
+   POSUVNÍK ČASU
+
+   Michal 28. 8. 2026: *„proč nejde vybrat čas přehrávání srážkového
+   radaru?"* Animaci šlo jen pustit a zastavit. Tyhle dvě funkce nesou
+   všechno, co posuvník potřebuje vědět — a co se dá ověřit bez stránky.
+   ============================================================ */
+
+test('dělicí bod osy je podíl, ne pixely ani index', () => {
+  const f = [
+    { timeMs: 1, forecast: false }, { timeMs: 2, forecast: false },
+    { timeMs: 3, forecast: false }, { timeMs: 4, forecast: true },
+    { timeMs: 5, forecast: true },
+  ];
+  // Dopočet začíná čtvrtým z pěti snímků: tři čtvrtiny dráhy jsou měření.
+  assert.equal(forecastSplit(f), 0.75);
+});
+
+test('🚨 když dopočet chybí, vrací se null — ne nula', () => {
+  // Změřeno 28. 8. 2026: RainViewer vrátil `nowcast` prázdný. Nula by
+  // obarvila celou osu jako odhad, tedy by lhala o naměřených snímcích.
+  const f = [{ timeMs: 1, forecast: false }, { timeMs: 2, forecast: false }];
+  assert.equal(forecastSplit(f), null);
+  assert.equal(forecastSplit([]), null);
+  assert.equal(forecastSplit(null), null);
+});
+
+test('osa z jediného snímku nemá kam dělit', () => {
+  assert.equal(forecastSplit([{ timeMs: 1, forecast: true }]), null);
+});
+
+test('odstup od teď: dozadu, dopředu a okno „teď"', () => {
+  const ted = Date.parse('2026-08-28T18:40:00Z');
+  assert.deepEqual(offsetLabel({ timeMs: ted - 40 * 60000 }, ted), { key: 'ago', min: 40 });
+  assert.deepEqual(offsetLabel({ timeMs: ted + 10 * 60000 }, ted), { key: 'in', min: 10 });
+  // Snímky chodí po deseti minutách, takže „teď" musí být okno, ne shoda
+  // na sekundu — jinak by slovo „teď" nepadlo skoro nikdy.
+  assert.equal(offsetLabel({ timeMs: ted - 2 * 60000 }, ted).key, 'now');
+});
+
+test('🚨 odstup se počítá od SKUTEČNÉHO teď, ne od prvního snímku', () => {
+  // Kdyby se počítalo od začátku osy, ukazoval by posuvník „před 0 min"
+  // u dvě hodiny staré situace — a to je horší než neukázat nic.
+  const ted = Date.parse('2026-08-28T18:40:00Z');
+  const stare = { timeMs: ted - 120 * 60000 };
+  assert.equal(offsetLabel(stare, ted).min, 120);
 });

@@ -19,9 +19,10 @@
 
 'use strict';
 
-import { t } from './lib/i18n.js';
+import { t, tf } from './lib/i18n.js';
 import {
-  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, TILE_SIZE, MAX_ZOOM,
+  radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, forecastSplit, offsetLabel,
+  TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
 import { buildStyle } from './lib/map-style.js';
@@ -217,6 +218,14 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
 
     znacka = new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
     $('radar-play').addEventListener('click', togglePlay);
+    // Sáhnutí na posuvník znamená „chci vidět tenhle snímek", ne „přehrávej
+    // odsud". Proto se animace zastaví — jinak by uživateli utekla dřív, než
+    // se stihne podívat, a vypadalo by to, že posuvník nedrží.
+    $('radar-scrub').addEventListener('input', (e) => {
+      pause();
+      index = Number(e.target.value);
+      drawFrame();
+    });
 
     // Klepnutí do mapy = výběr místa. Jméno se bere z NAŠICH popisků, ne
     // z cizí služby — dlaždice je nesou včetně české podoby (R3).
@@ -500,8 +509,17 @@ async function loadFrames() {
 
   if (!frames.length) {
     $('radar-time').textContent = t('error.failed', lang);
+    $('radar-scrub').disabled = true;
     return;
   }
+
+  // Osa se nastaví jednou, podle toho, kolik snímků opravdu přišlo. Napevno
+  // zapsaný počet by při výpadku dopočtu ukazoval do prázdna.
+  const scrub = $('radar-scrub');
+  scrub.disabled = false;
+  scrub.max = String(frames.length - 1);
+  const split = forecastSplit(frames);
+  scrub.style.setProperty('--split', split === null ? '100%' : `${(split * 100).toFixed(1)}%`);
 
   index = frameIndexAt(frames, Date.now());
   drawFrame();
@@ -559,6 +577,13 @@ function drawFrame() {
 
   const label = frameLabel(frame, timeZone, lang);
   $('radar-time').textContent = label.time;
+  // Posuvník musí jít i s animací — jinak by po pár snímcích ukazoval jinam,
+  // než co je vidět v mapě.
+  $('radar-scrub').value = String(index);
+  const off = offsetLabel(frame);
+  $('radar-offset').textContent = off.key === 'now'
+    ? t('radar.now', lang)
+    : tf(`radar.${off.key}`, { min: off.min }, lang);
   // Dopočet musí být poznat — jinak by se odhad tvářil jako naměřený stav.
   $('radar-kind').textContent = label.forecast ? t('radar.nowcast', lang) : t('radar.observed', lang);
   $('radar-kind').dataset.forecast = String(label.forecast);
