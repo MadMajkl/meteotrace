@@ -76,6 +76,8 @@ export default {
     fromPlaceholder: 'Start…',
     toPlaceholder: 'Destination…',
     swap: 'Swap start and destination',
+    edit: 'Change',
+    collapsed: '{from} → {to} · {mode}',
     via: 'Stop on the way',
     viaPlaceholder: 'Somewhere on the way…',
     addVia: '+ Add a stop',
@@ -145,6 +147,9 @@ export default {
     sunrise: 'Sunrise',
     sunset: 'Sunset',
     moon: 'Moon',
+    pressure: 'Pressure',
+    pressureLocal: 'here {value}',
+    elevation: '{value} a.s.l.',
     updated: 'Updated {time}',
   },
 

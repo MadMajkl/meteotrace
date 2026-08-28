@@ -68,6 +68,29 @@ export const convert = {
     return unit === 'in' ? mm / 25.4 : mm;
   },
 
+  /**
+   * metry nadmořské výšky → cílová jednotka
+   *
+   * ⚠️ Výška se NEŘÍDÍ jednotkou vzdálenosti. Kdo měří cestu v mílích,
+   * čte výšku ve stopách, ne v mílích — proto vlastní převod.
+   */
+  elevation(m, unit) {
+    if (m == null || !Number.isFinite(m)) return null;
+    return unit === 'mi' ? m / 0.3048 : m;
+  },
+
+  /**
+   * hektopascaly → cílová jednotka
+   *
+   * ⚠️ hPa a milibar jsou totéž číslo, jen jinak pojmenované. Palce
+   * rtuťového sloupce (inHg) používají hlavně v USA — a v letectví,
+   * takže na ně narazí i pilot v Evropě.
+   */
+  pressure(hpa, unit) {
+    if (hpa == null || !Number.isFinite(hpa)) return null;
+    return unit === 'inhg' ? hpa * 0.0295299830714 : hpa;
+  },
+
   /** metry → cílová jednotka */
   distance(m, unit) {
     if (m == null || !Number.isFinite(m)) return null;
@@ -85,6 +108,8 @@ export const SYMBOL = {
   kmh: 'km/h', ms: 'm/s', mph: 'mph',
   mm: 'mm', in: 'in',
   km: 'km', mi: 'mi',
+  m: 'm', ft: 'ft',
+  hpa: 'hPa', inhg: 'inHg',
 };
 
 /**
@@ -167,4 +192,32 @@ export function windDirKey(degrees) {
                 's', 'ssw', 'sw', 'wsw', 'w', 'wnw', 'nw', 'nnw'];
   // +11.25° posune hranici do středu dílku, takže 350° je sever, ne severoseverozápad.
   return dirs[Math.floor(((degrees % 360 + 360) % 360 + 11.25) / 22.5) % 16];
+}
+
+/**
+ * Nadmořská výška.
+ *
+ * ⚠️ Zaokrouhluje se na celé, protože jemnější to není: výška se bere
+ * z výškového modelu v mřížce, ne z měření na místě. Desetiny by
+ * slibovaly přesnost, kterou ten údaj nemá.
+ */
+export function formatElevation(meters, units, locale) {
+  const stopy = units.distance === 'mi';
+  const v = convert.elevation(meters, stopy ? 'mi' : 'm');
+  if (v == null) return '—';
+  return `${num(v, locale, 0)} ${stopy ? SYMBOL.ft : SYMBOL.m}`;
+}
+
+/**
+ * Tlak vzduchu.
+ *
+ * ⚠️ V hektopascalech celé číslo, v palcích rtuti na dvě desetiny —
+ * jinak by inHg ztratilo rozlišení (celý obor počasí se vejde mezi
+ * 28 a 31 inHg).
+ */
+export function formatPressure(hpa, units, locale) {
+  const palce = units.temp === 'f';
+  const v = convert.pressure(hpa, palce ? 'inhg' : 'hpa');
+  if (v == null) return '—';
+  return `${num(v, locale, palce ? 2 : 0)} ${palce ? SYMBOL.inhg : SYMBOL.hpa}`;
 }

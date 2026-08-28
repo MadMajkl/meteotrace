@@ -234,6 +234,33 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 /* Celý název směru větru pod hodnotou — „severovýchodní", ne „SV". */
 .details dd .dir { display: block; margin-top: 2px; font-size: 12px; color: var(--text-soft); font-variant-numeric: normal; }
 
+/* ── Piktogramy údajů ───────────────────────────────────────────────────
+   Sedí v rohu buňky, tenkou čarou a tlumeně — v duchu mapy. Jsou JEN
+   doplněk: popis i hodnota stojí vedle nich (Michal 28. 8. 2026 chtěl mít
+   jistotu, že „to je opravdu západ", ne aby ikona nesla údaj sama). */
+.details > div { position: relative; }
+
+.sky-icon {
+  width: 20px; height: 20px;
+  color: var(--accent);
+  opacity: 0.55;
+}
+.details .fact-ico { position: absolute; top: 8px; right: 10px; line-height: 0; }
+
+/* Měsíc stojí přímo v hodnotě, tak je o kousek větší a plně sytý —
+   je to údaj sám o sobě, ne značka u popisu. */
+.moon-icon { width: 22px; height: 22px; vertical-align: -5px; color: var(--text); }
+
+/* Nadmořská výška pod teplotou: patří k ní, tak se drží jejího sloupce. */
+.now-elev {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px;
+  font-size: 13px; color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.now-elev .sky-icon { width: 16px; height: 16px; opacity: 0.7; }
+
+
 .updated { margin: 12px 0 0; font-size: 12px; color: var(--text-soft); }
 
 /* ---------- po hodinách ---------- */
@@ -342,6 +369,15 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   display: grid; place-content: center; justify-items: center; gap: 12px;
   min-height: 60dvh; color: var(--text-soft); text-align: center; padding: 24px;
 }
+
+/* 🚨 `display: flex` PŘEBIJE `[hidden]`.
+   Prohlížeč skrývá `hidden` pravidlem `display: none`, jenže naše vlastní
+   pravidlo se stejnou vahou ho přepíše — a prvek zůstane vidět, i když ho
+   kód schoval. Chytlo se to 28. 8. 2026 na sbaleném formuláři trasy: pruh
+   svítil prázdný nad rozbaleným formulářem. Proto se u KAŽDÉHO flexového
+   prvku, který se schovává atributem, musí `hidden` doplnit ručně. */
+[hidden] { display: none !important; }
+
 .splash[hidden] { display: none; }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -993,3 +1029,20 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
    rozhozeně. */
 .hours { padding-top: 14px; }
 .hour-newday::before { top: -14px; }
+
+/* ── Sbalený formulář trasy ─────────────────────────────────────────────
+   Když je trasa spočítaná, formulář se srolí do jednoho řádku a plochu
+   dostane mapa (Michal 28. 8. 2026). Řádek je tlačítko a nese, co je
+   zadané — sbalené nastavení, ze kterého není nic poznat, by se nedalo
+   odlišit od nastavení ztraceného. */
+.route-collapsed {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; margin: 0; padding: 12px 14px;
+  font: inherit; text-align: left; color: var(--text);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; cursor: pointer;
+}
+.route-collapsed:hover { border-color: var(--accent); }
+.route-collapsed:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#route-collapsed-text { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.route-collapsed-akce { flex: none; font-size: 13px; color: var(--accent); }

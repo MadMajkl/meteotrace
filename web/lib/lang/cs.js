@@ -79,6 +79,8 @@ export default {
     fromPlaceholder: 'Začátek cesty…',
     toPlaceholder: 'Cíl…',
     swap: 'Prohodit start a cíl',
+    edit: 'Změnit',
+    collapsed: '{from} → {to} · {mode}',
     via: 'Mezibod',
     viaPlaceholder: 'Zastávka po cestě…',
     addVia: '+ Přidat mezibod',
@@ -157,6 +159,9 @@ export default {
     sunrise: 'Východ',
     sunset: 'Západ',
     moon: 'Měsíc',
+    pressure: 'Tlak',
+    pressureLocal: 'v místě {value}',
+    elevation: '{value} n. m.',
     updated: 'Aktualizováno {time}',
   },
 

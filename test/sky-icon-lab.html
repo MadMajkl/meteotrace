@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="cs">
+<meta charset="utf-8">
+<title>MeteoTrace — laboratoř ikon oblohy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Ukázka piktogramů z `web/lib/sky-icons.js` ve velikostech, ve kterých je
+  člověk opravdu uvidí. Fáze Měsíce se kreslí z týchž čísel, jaká appka
+  počítá — sloupec „podíl" je vstup, kotouč je výstup.
+
+  Otevřít:  http://localhost:8099/test/sky-icon-lab.html
+-->
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 24px; background: #f7f8fa; color: #1c2430; }
+  h1 { font-size: 18px; }
+  h2 { font-size: 14px; margin: 28px 0 8px; color: #5b6673; font-weight: 600; }
+  .rada { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+  .kus { text-align: center; }
+  .kus svg { display: block; margin: 0 auto 4px; color: #2a72b5; }
+  .lab-icon { display: block; }
+  .popis { font-size: 11px; color: #5b6673; }
+  .velikosti { display: flex; gap: 18px; align-items: flex-end; margin-top: 6px; }
+  .tmavy { margin-top: 28px; padding: 16px; border-radius: 12px; background: #10151c; color: #c9d4e0; }
+  .tmavy .kus svg { color: #7fb4e6; }
+  .tmavy .popis { color: #8b98a8; }
+</style>
+
+<h1>Piktogramy oblohy</h1>
+
+<h2>Východ, západ, nadmořská výška</h2>
+<div class="rada" id="slunce"></div>
+
+<h2>Ve skutečných velikostech (18 / 16 / 14 px)</h2>
+<div class="velikosti" id="mensi"></div>
+
+<h2>Tlak a větrná růžice (růžice ukazuje, ODKUD fouká)</h2>
+<div class="rada" id="vitr"></div>
+
+<h2>Fáze Měsíce — kreslené z podílu osvětlení</h2>
+<div class="rada" id="mesic"></div>
+
+<h2>Měsíc ve velkém — kontrola, na které straně svítí</h2>
+<div class="rada" id="mesicVelky"></div>
+
+<div class="tmavy">
+  <h2 style="color:#8b98a8">Totéž v tmavém motivu</h2>
+  <div class="rada" id="tma"></div>
+</div>
+
+<script type="module">
+import {
+  sunriseShape, sunsetShape, elevationShape, moonShape, pressureShape, windRoseShape,
+} from '/lib/sky-icons.js';
+import { moonPhase } from '/lib/moon.js';
+import { kresliTvar } from '/icon-draw.js';
+
+// 🚨 Kreslí se TÝMŽ kresličem, jaký používá appka (`web/icon-draw.js`).
+// Laboratoř s vlastní kopií kreslení už jednou ukázala něco jiného, než co
+// appka vykreslí — a to je horší než neověřovat vůbec.
+function svgZTvaru(tvar, px = 24, otoceni = null) {
+  const svg = kresliTvar(tvar, 'lab-icon', otoceni);
+  svg.setAttribute('width', px);
+  svg.setAttribute('height', px);
+  return svg;
+}
+
+function kus(tvar, popis, px = 40, otoceni = null) {
+  const box = document.createElement('div');
+  box.className = 'kus';
+  box.append(svgZTvaru(tvar, px, otoceni));
+  const p = document.createElement('div');
+  p.className = 'popis';
+  p.textContent = popis;
+  box.append(p);
+  return box;
+}
+
+const zakladni = [
+  [sunriseShape(), 'východ Slunce'],
+  [sunsetShape(), 'západ Slunce'],
+  [elevationShape(), 'nadmořská výška'],
+];
+
+for (const [tvar, popis] of zakladni) {
+  document.getElementById('slunce').append(kus(tvar, popis));
+  document.getElementById('tma').append(kus(tvar, popis));
+}
+
+for (const px of [18, 16, 14]) {
+  for (const [tvar, popis] of zakladni) {
+    document.getElementById('mensi').append(kus(tvar, `${popis} · ${px}px`, px));
+  }
+}
+
+for (const [deg, popis] of [[null, 'tlak']]) document.getElementById('vitr').append(kus(pressureShape(), popis));
+for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
+  document.getElementById('vitr').append(kus(windRoseShape(), `vítr od ${deg}°`, 40, deg));
+}
+
+const faze = [0, 0.12, 0.25, 0.38, 0.5, 0.63, 0.75, 0.88, 1];
+for (const f of faze) {
+  document.getElementById('mesic').append(kus(moonShape(f, true), `dorůstá ${Math.round(f * 100)} %`));
+}
+for (const f of [0.75, 0.5, 0.25]) {
+  document.getElementById('mesic').append(kus(moonShape(f, false), `couvá ${Math.round(f * 100)} %`));
+}
+
+// A ještě dnešek — přesně to, co ukáže appka.
+const dnes = moonPhase(Date.now());
+document.getElementById('mesic').append(
+  kus(moonShape(dnes.osvetleni, dnes.podil < 0.5),
+    `DNES: svítí ${Math.round(dnes.osvetleni * 100)} % ${dnes.ikona}`),
+);
+document.getElementById('tma').append(kus(moonShape(0.63, true), 'dorůstá 63 %'));
+
+// Ve velkém: dorůstající svítí VPRAVO, couvající VLEVO (severní polokoule).
+for (const [f, d, popis] of [[0.25, true, 'dorůstá 25 % → vpravo'], [0.75, true, 'dorůstá 75 % → vpravo'],
+  [0.25, false, 'couvá 25 % → vlevo'], [0.75, false, 'couvá 75 % → vlevo']]) {
+  document.getElementById('mesicVelky').append(kus(moonShape(f, d), popis, 110));
+}
+</script>
+</html>

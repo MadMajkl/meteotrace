@@ -177,21 +177,34 @@
         <div class="now-temp" id="now-temp"></div>
         <div class="now-cond" id="now-cond"></div>
         <div class="now-feels"><span data-i18n="now.feelsLike"></span> <b id="now-feels"></b></div>
+        <!-- Nadmořská výška patří k teplotě, protože ji vysvětluje: osmnáct
+             stupňů ve čtyřech stech metrech je jiná zpráva než osmnáct
+             stupňů u moře. Michal 28. 8. 2026. -->
+        <div class="now-elev" id="now-elev-row" hidden>
+          <span class="fact-ico" id="ico-elev" aria-hidden="true"></span>
+          <span id="now-elev"></span>
+        </div>
       </div>
     </div>
 
+    <!-- Piktogramy jsou v rohu buňky a jsou JEN DOPLNĚK: popis i hodnota
+         stojí vedle nich. Kdo tvar nepozná, nesmí o údaj přijít. -->
     <dl class="details">
-      <div><dt data-i18n="now.wind"></dt><dd id="d-wind"></dd></div>
+      <div><span class="fact-ico" id="ico-wind" aria-hidden="true"></span><dt data-i18n="now.wind"></dt><dd id="d-wind"></dd></div>
       <div><dt data-i18n="now.gusts"></dt><dd id="d-gusts"></dd></div>
       <div><dt data-i18n="now.humidity"></dt><dd id="d-humidity"></dd></div>
       <div><dt data-i18n="now.precipitation"></dt><dd id="d-precip"></dd></div>
       <div><dt data-i18n="now.cloudCover"></dt><dd id="d-cloud"></dd></div>
       <div><dt data-i18n="now.uvIndex"></dt><dd id="d-uv"></dd></div>
-      <div><dt data-i18n="now.sunrise"></dt><dd id="d-sunrise"></dd></div>
-      <div><dt data-i18n="now.sunset"></dt><dd id="d-sunset"></dd></div>
+      <div><span class="fact-ico" id="ico-sunrise" aria-hidden="true"></span><dt data-i18n="now.sunrise"></dt><dd id="d-sunrise"></dd></div>
+      <div><span class="fact-ico" id="ico-sunset" aria-hidden="true"></span><dt data-i18n="now.sunset"></dt><dd id="d-sunset"></dd></div>
       <!-- Fáze Měsíce. Do mřížky se vejde jako třetí do řady k východu
            a západu Slunce — a je to jediný údaj, který se nestahuje. -->
       <div><dt data-i18n="now.moon"></dt><dd id="d-moon"></dd></div>
+      <!-- Tlak zavírá mřížku. Vypisuje se přepočtený na hladinu moře
+           (letecky QNH) — jen ten se dá srovnávat mezi místy — a pod ním
+           menším písmem ten skutečný, který je tady. -->
+      <div><span class="fact-ico" id="ico-pressure" aria-hidden="true"></span><dt data-i18n="now.pressure"></dt><dd id="d-pressure"></dd></div>
     </dl>
 
     <!-- Hláška k počasí tady a teď. Dovětek pod údaji, nikdy místo nich —
@@ -260,9 +273,19 @@
 
 <main id="route" hidden>
 
-  <section class="card" aria-labelledby="h-route-form">
+  <section class="card" id="route-form-card" aria-labelledby="h-route-form">
     <h2 id="h-route-form" data-i18n="route.title"></h2>
 
+    <!-- Když je trasa spočítaná, formulář se sbalí do jednoho řádku a místo
+         na obrazovce dostane mapa (Michal 28. 8. 2026). Řádek ale MUSÍ říct,
+         co je zadané — sbalený formulář, ze kterého není poznat odkud kam,
+         by byl jen zmizelé nastavení. -->
+    <button id="route-collapsed" class="route-collapsed" type="button" hidden>
+      <span id="route-collapsed-text"></span>
+      <span class="route-collapsed-akce" data-i18n="route.edit"></span>
+    </button>
+
+    <div id="route-form-body">
     <div class="route-form">
       <label class="route-field">
         <span data-i18n="route.from"></span>
@@ -301,7 +324,16 @@
     </label>
 
     <p id="route-note" class="hint" hidden></p>
+    </div>
   </section>
+
+  <!-- Sem se mapa přesune, když je otevřená trasa.
+
+       ⚠️ Je NAD souhrnem schválně. Na obrazovce trasy je mapa hlavní věc —
+       souhrn se dá přečíst i po ní, ale mapa schovaná pod třemi kartami
+       znamená, že ji nikdo neuvidí bez rolování. Michal 28. 8. 2026:
+       „aby se dostala mapa do hlavního view." -->
+  <div id="route-map-slot"></div>
 
   <section class="card" id="route-summary-card" hidden aria-labelledby="h-route-summary">
     <h2 id="h-route-summary" class="sr-only" data-i18n="route.summary"></h2>
@@ -334,9 +366,6 @@
     <div class="departures" id="route-departures" role="group"
          data-i18n-attr="aria-label:route.departure"></div>
   </section>
-
-  <!-- Sem se mapa přesune, když je otevřená trasa. -->
-  <div id="route-map-slot"></div>
 
   <section class="card" id="route-points-card" hidden aria-labelledby="h-route-points">
     <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>

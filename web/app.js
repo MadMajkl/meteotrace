@@ -17,6 +17,10 @@ import {
 } from './lib/probes.js';
 import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
+import { kresliTvar } from './icon-draw.js';
+import {
+  sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
+} from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
@@ -46,7 +50,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.3.0';
+const VERZE = '0.4.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1357,10 +1361,40 @@ function render(forecast, air) {
   $('d-sunrise').textContent = view.sun.sunrise;
   $('d-sunset').textContent = view.sun.sunset;
 
-  // Měsíc: ikona a jméno fáze, pod tím kolik kotouče svítí.
+  // Tlak: srovnatelný (QNH) velkým, skutečný tady menším pod ním.
+  const tlak = $('d-pressure');
+  tlak.textContent = c.pressure ?? '—';
+  if (c.pressureLocal && c.pressureLocal !== c.pressure) {
+    tlak.append(el('span', 'dir', tf('now.pressureLocal', { value: c.pressureLocal }, state.lang)));
+  }
+
+  // Piktogramy. ⚠️ Růžice se natáčí podle skutečného směru — a ukazuje,
+  // ODKUD fouká, tedy totéž, co říká slovo vedle ní.
+  vlozIkonu('ico-sunrise', sunriseShape());
+  vlozIkonu('ico-sunset', sunsetShape());
+  vlozIkonu('ico-pressure', pressureShape());
+  vlozIkonu('ico-wind', windRoseShape(), c.windDeg);
+
+  // Nadmořská výška patří k teplotě: vysvětluje ji.
+  const radekVysky = $('now-elev-row');
+  radekVysky.hidden = !view.elevation;
+  if (view.elevation) {
+    $('now-elev').textContent = tf('now.elevation', { value: view.elevation }, state.lang);
+    vlozIkonu('ico-elev', elevationShape());
+  }
+
+  // Měsíc: kotouč kreslený ze skutečné fáze, vedle něj kolik svítí,
+  // pod tím jméno fáze.
+  //
+  // 🚨 Kotouč se kreslí z TÉHOŽ čísla, které je vedle napsané. Emoji by
+  // fázi zaokrouhlilo na osm stupňů a v každém systému by vypadalo jinak.
   const mesic = $('d-moon');
-  mesic.textContent = view.moon ? `${view.moon.icon} ${view.moon.lit}` : '—';
-  if (view.moon) {
+  mesic.textContent = '';
+  if (!view.moon) {
+    mesic.textContent = '—';
+  } else {
+    mesic.append(kresliTvar(moonShape(view.moon.osvetleni, view.moon.dorusta), 'moon-icon'));
+    mesic.append(document.createTextNode(` ${view.moon.lit}`));
     mesic.append(el('span', 'dir', view.moon.label));
     mesic.setAttribute('aria-label', `${view.moon.label}, ${view.moon.lit}`);
   }
@@ -1707,6 +1741,19 @@ async function showRadar(timeZone) {
 }
 
 /**
+ * Vloží piktogram do políčka. Prázdné místo je lepší než cizí tvar, takže
+ * neznámý údaj (chybí směr větru) ikonu prostě nedostane.
+ */
+function vlozIkonu(id, tvar, otoceni = null) {
+  const box = $(id);
+  if (!box) return;
+  box.textContent = '';
+  if (otoceni != null && !Number.isFinite(otoceni)) return;
+  box.append(kresliTvar(tvar, 'sky-icon', otoceni));
+}
+
+
+/**
  * Lístek alergenu. Kreslí se čárou, barvu si bere z okolí (`currentColor`),
  * takže drží semafor stejně jako odznak vedle.
  *
@@ -2019,6 +2066,38 @@ function vykresliRychlost() {
 function skryjVysledekTrasy() {
   $('route-summary-card').hidden = true;
   $('route-points-card').hidden = true;
+  // ⚠️ Bez výsledku nemá co sbalit: sbalený formulář nad prázdnou
+  // obrazovkou by vypadal, že se appka kouše.
+  sbalFormularTrasy(false);
+}
+
+/**
+ * Sbalí (nebo rozbalí) formulář trasy.
+ *
+ * Michal 28. 8. 2026: *„po tom, co si ji vybereš a navolíš, by se měla
+ * minimalizovat, schovat… aby se dostala mapa do hlavního view."*
+ *
+ * 🚨 Sbalený formulář MUSÍ říct, co je zadané. Nastavení, které zmizí
+ * a nezanechá stopu, se nedá odlišit od nastavení, které se ztratilo —
+ * proto řádek nese „odkud → kam · způsob" a chová se jako tlačítko.
+ */
+function sbalFormularTrasy(sbalit) {
+  const telo = $('route-form-body');
+  const pruh = $('route-collapsed');
+  if (!telo || !pruh) return;
+
+  const zpusob = ZPUSOBY.find((z) => z.profil === state.route.profil);
+  const lze = sbalit && state.route.from && state.route.to;
+
+  telo.hidden = !!lze;
+  pruh.hidden = !lze;
+  if (!lze) return;
+
+  $('route-collapsed-text').textContent = tf('route.collapsed', {
+    from: placeLabel(state.route.from, state.lang),
+    to: placeLabel(state.route.to, state.lang),
+    mode: zpusob ? t(zpusob.klic, state.lang) : '',
+  }, state.lang);
 }
 
 function poznamkaTrasy(text) {
@@ -2236,6 +2315,8 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   vykresliOdjezdy();
 
   $('route-summary-card').hidden = false;
+  // Trasa je spočítaná → formulář se sbalí a plochu dostane mapa.
+  sbalFormularTrasy(true);
   renderRoutes();
   $('route-summary').textContent = tf('route.result', {
     distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
@@ -2482,6 +2563,12 @@ function init() {
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
   $('route-go').addEventListener('click', loadRoute);
+  // Klepnutí na sbalený řádek vrátí formulář. ⚠️ Zaostří se rovnou pole
+  // startu — kdo formulář otvírá, chce něco změnit, ne se na něj dívat.
+  $('route-collapsed').addEventListener('click', () => {
+    sbalFormularTrasy(false);
+    $('route-from').focus();
+  });
   $('route-add-via').addEventListener('click', () => {
     // Nový mezibod je zatím prázdný — vyplní ho až výběr z nabídky.
     state.route.via.push(null);

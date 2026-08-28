@@ -21,7 +21,9 @@
 'use strict';
 
 import { t, tf } from './i18n.js';
-import { formatTemp, formatWind, formatPrecip, windDirKey } from './units.js';
+import {
+  formatTemp, formatWind, formatPrecip, formatPressure, formatElevation, windDirKey,
+} from './units.js';
 import { weatherKey, weatherIcon, weatherKeyWithClouds, weatherIconWithClouds,
 } from './weather-code.js';
 import { moonPhase } from './moon.js';
@@ -160,6 +162,18 @@ export function buildStationView(a) {
   return {
     timeZone: tz,
 
+    /**
+     * Nadmořská výška místa.
+     *
+     * ⚠️ Není to výška, kterou uživatel zadal — je to výška bodu
+     * z výškového modelu, ze kterého počítá i předpověď. Proto patří
+     * k teplotě: vysvětluje ji. Osmnáct stupňů ve 400 metrech je jiná
+     * zpráva než osmnáct stupňů u moře.
+     */
+    elevation: Number.isFinite(forecast?.elevation)
+      ? formatElevation(forecast.elevation, units, lang) : null,
+    elevationM: Number.isFinite(forecast?.elevation) ? forecast.elevation : null,
+
     current: {
       // 🚨 Patra oblačnosti rozhodují o SLOVĚ, ne o číslech. Zataženo jen
       // vysoko není zataženo — viz `jenZavoj()` a Michalova stížnost
@@ -176,6 +190,16 @@ export function buildStationView(a) {
       precip: formatPrecip(pick(cur.precipitation, H.precipitation?.[iNow]), units, lang),
       cloudCover: pct(pick(cur.cloud_cover, H.cloud_cover?.[iNow]), lang),
       uvIndex: numOrDash(H.uv_index?.[iNow], lang),
+      // Tlak přepočtený na hladinu moře (letecky QNH). Jen tenhle se dá
+      // srovnávat mezi místy — údaj naměřený ve 400 m n. m. je vždycky
+      // nižší, aniž by to o počasí něco říkalo.
+      pressure: formatPressure(pick(cur.pressure_msl, H.pressure_msl?.[iNow]), units, lang),
+      // ⚠️ A vedle toho tlak, který je opravdu tady. Rozdíl je při 400 m
+      // skoro 45 hPa, takže bez rozlišení by jedno z čísel muselo lhát.
+      pressureLocal: formatPressure(pick(cur.surface_pressure, H.surface_pressure?.[iNow]), units, lang),
+      pressureHpa: pick(cur.pressure_msl, H.pressure_msl?.[iNow]) ?? null,
+      // Stupně, ne text — podle nich se natáčí větrná růžice.
+      windDeg: pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow]) ?? null,
       updated: tf('now.updated', { time: formatClock(nowMs, tz, lang) }, lang),
       // ⚠️ Čísla, ne texty. Podle nich se rozhoduje (hlášky, prahy);
       // z „12,5 km/h" se počítat nedá.
@@ -203,6 +227,12 @@ export function buildStationView(a) {
       return {
         icon: f.ikona,
         label: t(`moonPhase.${f.klic}`, lang),
+        // Čísla pro kreslený kotouč: kolik svítí a jestli dorůstá.
+        // ⚠️ `podil` je poloha v cyklu (0 nov, 0,5 úplněk), `osvetleni`
+        // je osvětlená část kotouče. Splést je znamená nakreslit úplněk
+        // v novu — proto se sem předává obojí pojmenovaně.
+        osvetleni: f.osvetleni,
+        dorusta: f.podil < 0.5,
         // Osvětlení se zaokrouhluje na celá procenta — desetiny by
         // předstíraly přesnost, kterou střední synodický měsíc nemá.
         lit: pct(Math.round(f.osvetleni * 100), lang),
@@ -381,7 +411,7 @@ function jeZitra(ms, zacatek, offsetS) {
 }
 
 export const FORECAST_PARAMS = {
-  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
+  current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation,pressure_msl,surface_pressure',
   hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
   timezone: 'auto',
