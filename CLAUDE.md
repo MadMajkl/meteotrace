@@ -112,7 +112,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server |
 
-**520 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**525 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
