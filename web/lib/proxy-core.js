@@ -104,6 +104,10 @@ export function planRequest(req) {
       dropped: droppedOf(service, prelozene),
       // Kam sáhnout, když tenhle zdroj selže nebo nic nenajde.
       fallback: UPSTREAMS[service].fallback || null,
+      // Služby, u kterých nestačí odpověď propustit: musí se zkusit víc
+      // adres, nebo se odpověď skládá z archivu (nowcast ČHMÚ). Skládá je
+      // pojmenovaný stavitel na serveru — katalog říká jen KTERÝ.
+      builder: UPSTREAMS[service].builder || null,
     };
   } catch (e) {
     // Chybějící klíč je chyba NAŠEHO nasazení, ne uživatelova dotazu → 500.

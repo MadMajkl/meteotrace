@@ -231,6 +231,29 @@ export const UPSTREAMS = {
     local: ['lang', 'lat', 'lon', 'geo'],
     ttl: 5 * MINUTE,
   },
+
+  /**
+   * Radarová PŘEDPOVĚĎ ČHMÚ (nowcast) — +10 až +60 minut po deseti.
+   *
+   * Michal 28. 8. 2026: *„nemá tu budoucnost nějaký meteoradar český
+   * dostupný zdarma?"* Má. Data jsou pod **CC BY 4.0**, nový běh každých
+   * 5 minut, jeden běh je `.tar` se šesti PNG (~200 kB).
+   *
+   * 🚨 **Přes proxy to musí jít, i kdyby se nechtělo.** Ověřeno 28. 8. 2026:
+   * `opendata.chmi.cz` neposílá žádnou hlavičku CORS, takže z prohlížeče se
+   * ten soubor stáhnout NEDÁ. Navíc se musí zkusit několik běhů zpět (ten
+   * poslední ještě nemusí být nahraný) a archiv rozbalit — to není prostý
+   * průchod, proto `builder`.
+   *
+   * ⚠️ Platnost 4 minuty: kratší než rozestup běhů, ať se nowcast nezasekne
+   * o jednu generaci pozadu.
+   */
+  nowcast: {
+    base: 'https://opendata.chmi.cz/meteorology/weather/radar/composite/fct_maxz/png/',
+    params: [],
+    builder: 'chmiNowcast',
+    ttl: 4 * MINUTE,
+  },
 };
 
 /**

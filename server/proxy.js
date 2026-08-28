@@ -179,7 +179,14 @@ export async function serveProxy(req, deps) {
       }
     }
 
-    if (pouzity === plan) {
+    // Služba se stavitelem si odpověď skládá sama — víc dotazů, archiv,
+    // vlastní tvar. Cache, platnost i záloha při výpadku se na ni ale
+    // vztahují stejně jako na kohokoli jiného.
+    if (plan.builder) {
+      const stavitel = deps.builders?.[plan.builder];
+      if (!stavitel) throw new Error(`Chybí stavitel ${plan.builder} pro službu ${plan.service}.`);
+      body = await stavitel({ fetchImpl, base: plan.url, nowMs: ted, log });
+    } else if (pouzity === plan) {
       try {
         body = await fetchUpstream(fetchImpl, plan);
         // Odpověděl → paměť selhání je neplatná. Zapomenout hned, ne čekat,

@@ -22,6 +22,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { serveProxy } from '../server/proxy.js';
+import { stavNowcast } from '../server/chmi-nowcast.js';
 import { createCache } from '../web/lib/ttl-cache.js';
 import { unpackAreas } from '../web/lib/orp.js';
 import { ORP_DATA } from '../web/data/orp-boundaries.js';
@@ -67,6 +68,8 @@ const server = createServer(async (req, res) => {
     }, {
       cache,
       areas,
+      // Služby, které si odpověď skládají samy (víc dotazů, archiv).
+      builders: { chmiNowcast: stavNowcast },
       log: (msg, detail) => console.log(`  [proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
     });
     res.writeHead(status, headers).end(JSON.stringify(body, null, 2));

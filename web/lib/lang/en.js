@@ -236,6 +236,7 @@ export default {
     ago: '{min} min ago',
     in: 'in {min} min',
     nowcast: 'Forecast',
+    nowcastChmi: 'ČHMI forecast',
     pickHint: 'Tap the map to pick a place.',
     disabled: 'The map is switched off by ?nomap=1 in the address.',
     mapFailed: 'The map could not be loaded. Check the connection and try again.',

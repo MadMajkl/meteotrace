@@ -28,6 +28,7 @@ import { apiGet } from './lib/api.js';
 import { buildStyle, fontsUrlFrom } from './lib/map-style.js';
 import { tilesUrl } from './lib/tiles-config.js';
 import { placeFromMap } from './lib/map-pick.js';
+import { spojOsu, jeVeVyrezu, rohy as vyrezRohy } from './lib/nowcast.js';
 
 /** Jak dlouho se čeká, než se mapa vzdá a řekne to nahlas. */
 const MAP_LOAD_TIMEOUT_MS = 12000;
@@ -114,6 +115,9 @@ let vystrahaTrida = 'unknown';
 /** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
 let styleReady = false;
 let frames = [];
+/** Rohy obrázku předpovědi (ČHMÚ dodává hotový výřez, ne dlaždice). */
+let nowcastRohy = null;
+let nowcastZdroj = '';
 let index = 0;
 let timer = 0;
 let playing = false;
@@ -304,7 +308,7 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
   // byl — mapa ukazovala Brno a špendlík trčel v Praze.
   if (znacka) znacka.setLngLat([lon, lat]);
 
-  await loadFrames();
+  await loadFrames(lat, lon);
 }
 
 /**
@@ -538,13 +542,43 @@ export function refreshMap() {
   if (map) map.resize();
 }
 
-async function loadFrames() {
+/**
+ * Stáhne osu: naměřené snímky z radaru a předpověď na hodinu dopředu.
+ *
+ * ⚠️ Předpověď se tahá ZVLÁŠŤ a její selhání nesmí shodit radar. Je to
+ * přídavek — bez něj osa jen končí přítomností, což je stav, ve kterém
+ * appka žila do 28. 8. 2026.
+ *
+ * ⚠️ A ptáme se na ni jen tam, kde platí: nowcast ČHMÚ pokrývá Česko
+ * a kus okolí. Pro Berlín nebo Vídeň by to byl dotaz zadarmo pro nikoho.
+ */
+async function loadFrames(lat, lon) {
+  let radarove = [];
   try {
     const { data } = await apiGet('radar');
-    frames = radarFrames(data);
+    radarove = radarFrames(data);
   } catch {
-    frames = [];
+    radarove = [];
   }
+
+  let predpoved = [];
+  nowcastRohy = null;
+  if (jeVeVyrezu(lat, lon)) {
+    try {
+      const { data } = await apiGet('nowcast');
+      predpoved = (data?.snimky || []).map((s) => ({
+        timeMs: s.timeMs, obrazek: s.obrazek, minut: s.minut, chmi: true,
+      }));
+      if (predpoved.length) {
+        nowcastRohy = data.rohy || vyrezRohy();
+        nowcastZdroj = `© ${data.zdroj} (${data.licence})`;
+      }
+    } catch {
+      predpoved = [];   // přídavek, ne podmínka
+    }
+  }
+
+  frames = spojOsu(radarove, predpoved);
 
   if (!frames.length) {
     $('radar-time').textContent = t('error.failed', lang);
@@ -575,7 +609,14 @@ async function loadFrames() {
 function drawFrame() {
   if (!styleReady) return;
   const frame = frames[index];
-  const url = tileTemplate(frame);
+  if (!frame) return;
+
+  // Předpověď ČHMÚ chodí jako HOTOVÝ OBRÁZEK s pevnými rohy, ne jako
+  // dlaždice: je to jeden výřez 680 × 460 px ve webovém Mercatoru.
+  // Zdroj se proto podle druhu snímku zakládá jinak — ale pod týmž
+  // jménem, aby zbytek (pořadí vrstev, mizení v přiblížení) platil pro
+  // obojí stejně.
+  const url = frame.chmi ? frame.obrazek : tileTemplate(frame);
   if (!url) return;
 
   if (map.getLayer(RADAR_LAYER)) map.removeLayer(RADAR_LAYER);
@@ -586,7 +627,11 @@ function drawFrame() {
   // Not Supported" — přes celou mapu. A pozor na velikost: u 256px dlaždic si
   // MapLibre říká o úroveň VYŠŠÍ, než je přiblížení mapy (jeho vnitřní dlaždice
   // má 512), takže mapa otevřená na zoomu 7 sahala rovnou na z8, tedy za strop.
-  map.addSource(RADAR_SOURCE, {
+  map.addSource(RADAR_SOURCE, frame.chmi ? {
+    // 🚨 Popiska není zdvořilost, ale podmínka licence: data ČHMÚ jsou
+    // CC BY 4.0, tedy zdarma, ale s uvedením zdroje.
+    type: 'image', url, coordinates: nowcastRohy, attribution: nowcastZdroj,
+  } : {
     type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM,
   });
   // ⚠️ Radar se zakládá znovu při KAŽDÉM snímku animace. Kdyby se přidával
@@ -624,7 +669,10 @@ function drawFrame() {
     ? t('radar.now', lang)
     : tf(`radar.${off.key}`, { min: off.min }, lang);
   // Dopočet musí být poznat — jinak by se odhad tvářil jako naměřený stav.
-  $('radar-kind').textContent = label.forecast ? t('radar.nowcast', lang) : t('radar.observed', lang);
+  // A když je to naše česká předpověď, řekne se rovnou čí: uživatel má
+  // právo vědět, že za tím číslem stojí ČHMÚ, ne odhad z obrázků.
+  const druh = frame.chmi ? 'radar.nowcastChmi' : (label.forecast ? 'radar.nowcast' : 'radar.observed');
+  $('radar-kind').textContent = t(druh, lang);
   $('radar-kind').dataset.forecast = String(label.forecast);
 }
 
