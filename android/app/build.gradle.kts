@@ -23,6 +23,26 @@ val keystoreProps = Properties().apply {
  */
 val apiBase = (project.findProperty("meteotrace.apiBase") as String?) ?: "http://192.168.1.150:8099"
 
+/**
+ * Verzi si Android NEDRŽÍ, jen ji čte.
+ *
+ * Zdroj pravdy je `package.json` (spolu s `VERZE` ve webu); soubor
+ * `android/version.properties` z něj píše `android-sync.mjs` při každém
+ * sestavení. Dokud verze žila i tady, rozešla se — appka hlásila jiné číslo
+ * než balíček.
+ *
+ * 🚨 `versionCode` je POČET COMMITŮ, ne ručně psané číslo. Google Play
+ * nepřijme dvakrát tentýž kód a nižší už vůbec; počet commitů roste sám
+ * a nikdy neklesá, takže na to není na co zapomenout.
+ */
+val verze = Properties().apply {
+    val f = rootProject.file("version.properties")
+    if (!f.exists()) {
+        throw GradleException("Chybí android/version.properties — sestavuj přes `npm run android`, ne přímo gradlew.")
+    }
+    f.inputStream().use { stream -> this.load(stream) }
+}
+
 android {
     namespace = "com.meteotrace"
     compileSdk {
@@ -35,8 +55,8 @@ android {
         applicationId = "com.meteotrace"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.0"    // držet synchronně s verzí webu
+        versionCode = verze.getProperty("versionCode").toInt()
+        versionName = verze.getProperty("versionName")
 
         buildConfigField("String", "API_BASE", "\"$apiBase\"")
     }

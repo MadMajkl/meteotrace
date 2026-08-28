@@ -19,6 +19,7 @@
 'use strict';
 
 import { cpSync, rmSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 
@@ -59,7 +60,47 @@ function velikost(dir) {
   return [bajtu, souboru];
 }
 
+/**
+ * Napíše `android/version.properties`, ze kterého si Gradle vezme verzi.
+ *
+ * ⚠️ `versionName` se NEOPISUJE ručně — bere se z `package.json`, tedy
+ * z téhož místa jako `VERZE` ve webu. Dokud si verzi držel i Gradle,
+ * rozešly se: appka hlásila 0.1.0 ještě týden po tom, co ji přerostla.
+ *
+ * 🚨 `versionCode` je POČET COMMITŮ. Google Play nepřijme dvakrát tentýž
+ * kód a nižší už vůbec — počet commitů roste sám, nikdy neklesá a nedá se
+ * na něj zapomenout. Když git není po ruce (stažený archiv), použije se
+ * hodnota z minule zvýšená o jedna; nikdy se nezačíná znovu od jedničky,
+ * protože nižší kód by Play odmítl.
+ */
+function zapisVerzi() {
+  const pkg = JSON.parse(readFileSync(join(KOREN, 'package.json'), 'utf8'));
+  const cesta = join(KOREN, 'android', 'version.properties');
+
+  let code = 0;
+  try {
+    code = Number(execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+      cwd: KOREN, encoding: 'utf8',
+    }).trim());
+  } catch {
+    const stary = existsSync(cesta) ? readFileSync(cesta, 'utf8') : '';
+    code = Number(/versionCode=(\d+)/.exec(stary)?.[1] || 0) + 1;
+  }
+  if (!Number.isFinite(code) || code < 1) code = 1;
+
+  writeFileSync(cesta, [
+    '# Píše tools/android-sync.mjs — RUČNĚ NEUPRAVOVAT.',
+    '# Verze je v package.json, versionCode je počet commitů.',
+    `versionName=${pkg.version}`,
+    `versionCode=${code}`,
+    '',
+  ].join('\n'));
+
+  console.log(`Verze do obalu: ${pkg.version} (versionCode ${code})`);
+}
+
 function main() {
+  zapisVerzi();
   const argTiles = process.argv.find((a) => a.startsWith('--tiles='));
   const tiles = argTiles ? argTiles.slice('--tiles='.length) : '';
 
