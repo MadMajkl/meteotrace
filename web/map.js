@@ -25,7 +25,7 @@ import {
   TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
-import { buildStyle } from './lib/map-style.js';
+import { buildStyle, fontsUrlFrom } from './lib/map-style.js';
 import { tilesUrl } from './lib/tiles-config.js';
 import { placeFromMap } from './lib/map-pick.js';
 
@@ -137,7 +137,13 @@ function jeTma() {
   return matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-const styleFor = () => buildStyle({ tilesUrl: tilesUrl(), dark: jeTma(), lang });
+const styleFor = () => buildStyle({
+  tilesUrl: tilesUrl(),
+  // Písma leží vedle appky, ať sedí i v obalu pro Android (`…/assets/www/`).
+  fontsUrl: fontsUrlFrom(document.baseURI),
+  dark: jeTma(),
+  lang,
+});
 
 /** Přebarví mapu po ruční změně vzhledu. Volá obrazovka, viz `zmenVzhled()`. */
 export function refreshTheme() {
@@ -199,7 +205,13 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       const duvod = e?.error?.message || 'neznámá chyba';
       console.warn('[MeteoTrace] mapa:', duvod, e?.sourceId ? `(zdroj ${e.sourceId})` : '');
       // Radar smí selhat sám o sobě — bez podkladu ale není co ukázat.
-      if (e?.sourceId && e.sourceId !== RADAR_SOURCE) zpravaVMape(t('radar.mapFailed', lang));
+      if (e?.sourceId && e.sourceId !== RADAR_SOURCE) {
+        // 🚨 „Nepodařilo se načíst" je konec hledání, ne začátek. Michal
+        // 28. 8. 2026 hlásil přesně tuhle větu z telefonu — a nedalo se
+        // z ní poznat, jestli je to síť, adresa podkladu, nebo písma.
+        // Do konzole se na telefon nikdo nepodívá, tak to musí být vidět.
+        zpravaVMape(`${t('radar.mapFailed', lang)}\n${zkratit(duvod)}`, { pruh: true });
+      }
     });
     await Promise.race([
       new Promise((res) => map.on('load', res)),
@@ -455,16 +467,43 @@ export function mapMessage(text) {
  * ⚠️ Píše se DO plochy mapy, ne do pruhu pod ní. Kdo se dívá na prázdný
  * obdélník, hledá vysvětlení v něm — ne o dva řádky níž.
  */
-function zpravaVMape(text) {
+/**
+ * Zkrátí technickou hlášku na to, co se vejde do mapy a co něco říká.
+ *
+ * ⚠️ Nechává adresu, protože právě ta je poznávací znamení: podle ní se
+ * pozná podklad od písem a naše doména od cizí. Uřízne se zprostředka,
+ * ať zůstane začátek i konec.
+ */
+function zkratit(hlaska, strop = 120) {
+  const s = String(hlaska).replace(/s+/g, ' ').trim();
+  if (s.length <= strop) return s;
+  const pul = Math.floor((strop - 1) / 2);
+  return `${s.slice(0, pul)}…${s.slice(-pul)}`;
+}
+
+/**
+ * Napíše zprávu do plochy mapy.
+ *
+ * 🚨 DVĚ PODOBY, A TEN ROZDÍL JE PODSTATNÝ. Přes celou plochu se píše
+ * jen tehdy, když mapa NENÍ — prázdný obdélník musí být vysvětlený.
+ * Když mapa je a selhal jen některý zdroj, patří zpráva do pruhu dole:
+ * neprůhledná deska přes celou mapu totiž vypadá jako že se nenačetlo
+ * vůbec nic. Přesně to hlásil Michal z telefonu 28. 8. 2026 („APK
+ * nezobrazuje mapu") — mapa pod tou deskou přitom mohla být v pořádku.
+ *
+ * @param {string|null} text  `null` zprávu odstraní
+ * @param {{pruh?: boolean}} [jak]
+ */
+function zpravaVMape(text, { pruh = false } = {}) {
   const box = $('map');
   if (!box) return;
   let p = box.querySelector('.map-zprava');
   if (!text) { p?.remove(); return; }
   if (!p) {
     p = document.createElement('p');
-    p.className = 'map-zprava';
     box.append(p);
   }
+  p.className = pruh ? 'map-zprava map-zprava--pruh' : 'map-zprava';
   p.textContent = text;
 }
 

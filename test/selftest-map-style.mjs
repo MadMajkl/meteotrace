@@ -31,7 +31,10 @@ test('🚨 styl si nikam jinam nesahá — dlaždice ani písma', () => {
   // mířit na nás.
   const s = styl();
   assert.ok(s.sources.meteotrace.url.startsWith(`pmtiles://${TILES}`), s.sources.meteotrace.url);
-  assert.ok(s.glyphs.startsWith('/fonts/'), s.glyphs);
+  // ⚠️ Cesta k písmům je RELATIVNÍ (`fonts/…`), ne od kořene. V obalu pro
+  // Android appka nesedí v kořeni domény a `/fonts/…` by ji minulo — viz
+  // selftest-obal.mjs. Pro tenhle test je podstatné, že to není cizí doména.
+  assert.ok(s.glyphs.startsWith('fonts/'), s.glyphs);
   assert.equal(s.sprite, undefined, 'ikony nemáme, a cizí sadu si tahat nebudeme');
 });
 

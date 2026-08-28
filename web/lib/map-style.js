@@ -74,6 +74,29 @@ const PALETA = {
   },
 };
 
+/**
+ * Kde leží písma.
+ *
+ * 🚨 RELATIVNĚ, ne od kořene. Appka neběží vždycky v kořeni domény: v obalu
+ * pro Android sedí na `…/assets/www/`, takže `/fonts/…` by mířilo mimo ni
+ * a podklad by se nenačetl. Michal 28. 8. 2026: *„APK nezobrazuje mapu,
+ * píše, že se nepodařilo načíst."* Přesně tohle to bylo.
+ *
+ * ⚠️ Složené závorky se do `new URL()` dávat nesmí — zakóduje je na `%7B`
+ * a MapLibre pak `{fontstack}` nenajde. Proto se absolutně počítá jen
+ * SLOŽKA a šablona se k ní přilepí (viz `fontsUrlFrom`).
+ */
+export const PISMA_VYCHOZI = 'fonts/';
+
+/**
+ * Adresa složky s písmy odvozená od adresy stránky.
+ * @param {string} [base]  `document.baseURI`
+ */
+export function fontsUrlFrom(base) {
+  if (!base) return PISMA_VYCHOZI;
+  return new URL(PISMA_VYCHOZI, base).href;
+}
+
 /** Písma. Leží u nás (`web/fonts/`), takže mapa nesahá na cizí doménu. */
 const PISMO = ['Noto Sans Regular'];
 const PISMO_VYRAZNE = ['Noto Sans Medium'];
@@ -94,11 +117,12 @@ function popisek(lang) {
  *
  * @param {object} a
  * @param {string} a.tilesUrl  adresa archivu `.pmtiles` (naše doména)
+ * @param {string} [a.fontsUrl] adresa složky s písmy (viz `PISMA_VYCHOZI`)
  * @param {boolean} [a.dark]
  * @param {string} [a.lang]
  * @returns {object} styl pro MapLibre
  */
-export function buildStyle({ tilesUrl, dark = false, lang = 'en' }) {
+export function buildStyle({ tilesUrl, fontsUrl = PISMA_VYCHOZI, dark = false, lang = 'en' }) {
   const c = dark ? PALETA.dark : PALETA.light;
   const jmeno = popisek(lang);
 
@@ -107,7 +131,7 @@ export function buildStyle({ tilesUrl, dark = false, lang = 'en' }) {
     name: 'MeteoTrace',
     // ⚠️ Obě adresy míří na NÁS. Styl je jediné místo, kde by se dala do mapy
     // propašovat cizí doména, takže se to hlídá testem (R2, R12).
-    glyphs: '/fonts/{fontstack}/{range}.pbf',
+    glyphs: `${fontsUrl}{fontstack}/{range}.pbf`,
     sources: {
       [ZDROJ]: {
         type: 'vector',

@@ -4,6 +4,19 @@
     <!-- Appka si tahá data z našeho serveru přes nativní potrubí (R13). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Poloha: appka ji potřebuje na tlačítko „kde jsem". Ptá se o ni web
+      (`navigator.geolocation`), ale ve WebView musí povolit i ANDROID —
+      bez těchhle dvou řádků se systémový dialog nikdy neukáže a poloha
+      mlčky nefunguje. Hrubá stačí; appka ukazuje počasí, ne navigaci.
+      Obojí je nepovinné: appka bez polohy funguje, jen se místo hledá ručně.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

@@ -828,6 +828,17 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   background: var(--surface);
 }
 
+/* Zpráva o dílčí chybě sedí DOLE a mapu nepřekrývá — pod ní je co vidět.
+   `pre-line` proto, že druhý řádek nese technický důvod (adresu, stav). */
+.map-zprava--pruh {
+  inset: auto 0 0 0;
+  padding: 8px 12px;
+  font-size: 12px; line-height: 1.35;
+  white-space: pre-line; word-break: break-word;
+  color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-top: 1px solid var(--border);
+}
+
 /* Mezibody trasy. Vznikají až na vyžádání — většina cest je z A do B. */
 .route-via { display: flex; flex-direction: column; gap: 8px; }
 .route-via:not(:empty) { margin-bottom: 10px; }

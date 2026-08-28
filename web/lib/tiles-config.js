@@ -29,7 +29,7 @@
 'use strict';
 
 /** Když se nic nenastaví, jede se ze souboru vedle appky (vývoj). */
-export const VYCHOZI_DLAZDICE = '/data/cz.pmtiles';
+export const VYCHOZI_DLAZDICE = 'data/cz.pmtiles';
 
 /**
  * Přečte adresu podkladu z hlavičky stránky.

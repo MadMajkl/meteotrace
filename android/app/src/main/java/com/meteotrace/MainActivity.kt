@@ -1,6 +1,10 @@
 package com.meteotrace
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.webkit.GeolocationPermissions
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -8,7 +12,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewAssetLoader
 
 /**
@@ -24,12 +30,35 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
 
     /**
+     * Kdo zrovna čeká na odpověď, jestli smí znát polohu.
+     *
+     * 🚨 Web se ptá přes `navigator.geolocation`, jenže ve WebView to nestačí:
+     * povolení musí dát ANDROID (systémový dialog) a teprve pak WebView.
+     * Bez obojího se `getCurrentPosition` nikdy neozve — ani chybou.
+     * Michal 28. 8. 2026: *„neumí to pracovat s polohou na mobilu… takže
+     * si to zapomíná říct o povolení?"* Přesně tak.
+     */
+    private var cekaNaPolohu: ((Boolean) -> Unit)? = null
+
+    private val zadostOPolohu = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { vysledky ->
+        val povoleno = vysledky.values.any { it }
+        cekaNaPolohu?.invoke(povoleno)
+        cekaNaPolohu = null
+    }
+
+    private fun maPolohu(): Boolean = POLOHA.any {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
      * Stránka běží na stabilním `https` původu, ne na `file://`.
      *
      * Bez toho by neplatilo úložiště prohlížeče mezi verzemi (uložená místa!)
      * a řada webových rozhraní by byla zakázaná.
      */
-    private val startUrl = "https://appassets.androidplatform.net/assets/www/index.html"
+    private val startUrl = "$PUVOD/assets/www/index.html"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,8 +96,40 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest,
-            ): Boolean = request.url.host != "appassets.androidplatform.net"
+            ): Boolean = request.url.host != HOSTITEL
         }
+
+
+        /**
+         * Poloha: dvoje dveře, ne jedny.
+         *
+         * ⚠️ Ptá se JEN naše stránka. `origin` se proto porovnává — kdyby
+         * appka někdy načetla cizí obsah, nesmí se jím dát vydat za nás.
+         *
+         * ⚠️ `retain = true` znamená „pamatuj si to pro tenhle původ", takže
+         * se člověk neptá znovu při každém klepnutí na tlačítko polohy.
+         */
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String,
+                callback: GeolocationPermissions.Callback,
+            ) {
+                if (!origin.startsWith(PUVOD)) {
+                    callback.invoke(origin, false, false)
+                    return
+                }
+                if (maPolohu()) {
+                    callback.invoke(origin, true, true)
+                    return
+                }
+                cekaNaPolohu = { povoleno -> callback.invoke(origin, povoleno, povoleno) }
+                zadostOPolohu.launch(POLOHA)
+            }
+        }
+
+        // Ladění WebView z počítače (chrome://inspect) — jen v ladicím sestavení.
+        // Ve vydání by to byla otevřená okna do appky uživatele.
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -96,5 +157,17 @@ class MainActivity : AppCompatActivity() {
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         webView.restoreState(savedInstanceState)
+    }
+
+    companion object {
+        /** Stabilní původ, na kterém appka běží (viz `startUrl`). */
+        private const val HOSTITEL = "appassets.androidplatform.net"
+        private const val PUVOD = "https://$HOSTITEL"
+
+        /** Hrubá poloha stačí — appka ukazuje počasí, ne navigaci po metrech. */
+        private val POLOHA = arrayOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
     }
 }
