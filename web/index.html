@@ -96,6 +96,73 @@
   </div><!-- /#top-menu -->
 </header>
 
+<!-- ══ UVÍTÁNÍ PŘI PRVNÍM SPUŠTĚNÍ ══════════════════════════════════════
+     Čtyři kroky: domov → oblíbený cíl → ukázka meteostanice → ukázka trasy.
+     Po nich má appka uložený domov, cíl i trasu — není prázdná.
+
+     🚨 Poslední dva kroky ukazují ŽIVOU APPKU, ne obrázky. Snímek by se za
+     měsíc rozešel s tím, co appka doopravdy dělá, a nikdo by si toho
+     nevšiml — uvítání nikdo znovu neotevře. Proto je to jen proužek
+     přes skutečnou obrazovku.
+
+     🚨 „Přeskočit" je vidět na každém kroku. Někdo si appku otevře
+     v obchodě; uvítání, ze kterého se nedá utéct, je past.
+
+     Rozhodování (komu se ukáže, kolik má kroků) je v `lib/onboarding.js`. -->
+<div id="uvitani" class="uvitani" hidden role="dialog" aria-modal="true"
+     aria-labelledby="uvitani-nadpis">
+
+  <div class="uvitani-list" id="uvitani-list">
+    <div class="uvitani-hlava">
+      <!-- Značka je tu poprvé a naposledy takhle velká — je to jediné
+           místo, kde má smysl se představit. -->
+      <div class="uvitani-znacka" id="uvitani-znacka" hidden>
+        <span class="brand-mark big" aria-hidden="true">◈</span>
+        <span class="uvitani-jmeno" data-i18n="app.name">MeteoTrace</span>
+      </div>
+      <button id="uvitani-skip" class="link-btn uvitani-skip" type="button"
+              data-i18n="onboarding.skip"></button>
+    </div>
+
+    <h2 id="uvitani-nadpis"></h2>
+    <p id="uvitani-text" class="uvitani-text"></p>
+
+    <!-- Hledání. Vlastní pole, ne to z hlavičky: hlavička je v tuhle
+         chvíli schovaná za překryvem a sdílet jedno pole mezi dvěma
+         obrazovkami by znamenalo, že si vzájemně mažou rozepsaný text. -->
+    <div class="uvitani-hledani" id="uvitani-hledani" hidden>
+      <label class="sr-only" id="uvitani-popisek" for="uvitani-input"></label>
+      <div class="uvitani-pole">
+        <input id="uvitani-input" type="search" autocomplete="off">
+        <!-- ⚠️ Poloha je DRUHÁ možnost, ne první. Žádost o polohu hned na
+             uvítací obrazovce lidé často odmítnou — a zpátky se pak
+             dostává těžko. -->
+        <button id="uvitani-locate" class="icon-btn" type="button"
+                data-i18n-attr="title:onboarding.homeLocate|aria-label:onboarding.homeLocate">⌖</button>
+      </div>
+      <ul id="uvitani-vysledky" class="results inline" hidden></ul>
+      <p id="uvitani-vybrano" class="uvitani-vybrano" hidden></p>
+    </div>
+
+    <p id="uvitani-poznamka" class="hint" hidden></p>
+
+    <div class="uvitani-paticka">
+      <span class="uvitani-tecky" id="uvitani-tecky" aria-hidden="true"></span>
+      <button id="uvitani-zpet" class="link-btn" type="button" data-i18n="onboarding.back"></button>
+      <button id="uvitani-dal" class="primary" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Proužek přes živou appku pro poslední dva kroky. -->
+<div id="uvitani-pruh" class="uvitani-pruh" hidden>
+  <div class="uvitani-pruh-text">
+    <strong id="uvitani-pruh-nadpis"></strong>
+    <span id="uvitani-pruh-text"></span>
+  </div>
+  <button id="uvitani-pruh-dal" class="primary" type="button"></button>
+</div>
+
 <!-- Potažení dolů = načíst znovu. Pruh visí pod hlavičkou a vytahuje ho prst;
      🚨 každý stav má SVOJE SLOVO — samotné kolečko neřekne, jestli se něco
      stalo, nebo jestli appka jen zamrzla. `aria-live` to řekne i nahlas. -->

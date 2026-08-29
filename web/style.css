@@ -1322,3 +1322,92 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
 .route-collapsed:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #route-collapsed-text { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .route-collapsed-akce { flex: none; font-size: 13px; color: var(--accent); }
+
+/* ══ UVÍTÁNÍ PŘI PRVNÍM SPUŠTĚNÍ ═══════════════════════════════════════
+   Michal 29. 8. 2026. Čtyři kroky, ve kterých si člověk vybere domov
+   a oblíbený cíl — a appka mu pak na jeho vlastních datech ukáže, co umí.
+
+   ⚠️ Počasové motivy jsou ZÁMĚRNĚ jen dva měkké přechody na pozadí, žádná
+   animovaná obloha. Uvítání, které se rozjíždí, je horší než strohé
+   a rychlé: první dojem z appky má být „tohle je svižné", ne „tohle
+   se načítá". */
+.uvitani {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(120% 80% at 15% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%),
+    var(--bg);
+  overflow-y: auto;
+}
+.uvitani[hidden] { display: none; }
+
+.uvitani-list {
+  width: min(460px, 100%);
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.uvitani-hlava { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.uvitani-znacka { display: flex; align-items: center; gap: 10px; flex: 1; }
+.uvitani-jmeno { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+/* „Přeskočit" drží pravý kraj i tehdy, když značka není vidět. */
+.uvitani-skip { margin-left: auto; }
+
+.uvitani h2 { margin: 0 0 6px; font-size: 20px; }
+.uvitani-text { margin: 0 0 16px; color: var(--text-soft); line-height: 1.5; }
+
+.uvitani-pole { display: flex; gap: 8px; }
+.uvitani-pole input {
+  flex: 1; min-width: 0;
+  padding: 11px 14px;
+  font: inherit; color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.uvitani-hledani { position: relative; }
+
+/* Co je vybrané. ⚠️ Musí být vidět: bez potvrzení by člověk nevěděl,
+   jestli se klepnutí na nabídku vůbec počítalo. */
+.uvitani-vybrano {
+  margin: 10px 0 0; padding: 9px 12px;
+  font-size: 14px; font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 10px;
+}
+
+.uvitani-paticka { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.uvitani-paticka .primary { margin-left: auto; }
+
+/* Tečky pořadí. ⚠️ Počet se mění za běhu — kdo přeskočí cíl, má o krok
+   míň (viz `lib/onboarding.js`). */
+.uvitani-tecky { display: flex; gap: 6px; }
+.uvitani-tecky i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--line);
+}
+.uvitani-tecky i.je { background: var(--accent); }
+
+/* ── Proužek přes živou appku (poslední dva kroky) ──────────────────── */
+.uvitani-pruh {
+  position: fixed; z-index: 55;
+  left: 12px; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.uvitani-pruh[hidden] { display: none; }
+.uvitani-pruh-text { flex: 1; min-width: 0; font-size: 14px; line-height: 1.45; }
+.uvitani-pruh-text strong { display: block; margin-bottom: 2px; font-size: 15px; }
+.uvitani-pruh-text span { color: var(--text-soft); }
+.uvitani-pruh .primary { flex: none; }

@@ -39,6 +39,7 @@ import { createPull } from './lib/pull-refresh.js';
 import { noveVystrahy, textUpozorneni } from './lib/warn-notify.js';
 import { kamMiri, coRict } from './lib/drift.js';
 import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
+import { maSeSpustit, createOnboarding } from './lib/onboarding.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
@@ -55,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.8.2';
+const VERZE = '0.9.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -92,6 +93,9 @@ const state = {
   notify: '',
   // O čem se už upozornilo, aby se o téže výstraze nezvonilo pořád dokola.
   oznameno: [],
+  // Prošel už uvítáním? 🚨 Vlastní příznak, NE prázdnota seznamu míst —
+  // kdo si místa smaže, nechce být vítán znovu jako nováček.
+  onboardingHotovo: false,
   // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
   // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
   // `via` jsou mezibody v pořadí, jak se má jet. Prázdné pole = cesta z A do B.
@@ -123,6 +127,7 @@ function load() {
     if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;
+    if (saved.onboardingHotovo === true) state.onboardingHotovo = true;
     if (typeof saved.langManual === 'string') {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
@@ -139,6 +144,7 @@ function save() {
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary,
       notify: state.notify, oznameno: state.oznameno,
+      onboardingHotovo: state.onboardingHotovo,
     }));
   } catch { /* nevadí */ }
 }
@@ -3280,7 +3286,263 @@ function init() {
     ? 'route'
     : 'station';
   prepniObrazovku(zacniNa);
+
+  // Uvítání až úplně nakonec, kdy je appka pod ním hotová. Kdyby se
+  // spustilo dřív, ukázaly by poslední dva kroky rozestavěnou obrazovku.
+  zapojUvitani();
+  mozneUvitani();
 }
+
+/* ============================================================
+   UVÍTÁNÍ PŘI PRVNÍM SPUŠTĚNÍ
+
+   Čtyři kroky: domov → oblíbený cíl → ukázka meteostanice → ukázka trasy.
+   Po nich má appka uložený domov, cíl i trasu — není prázdná, a to je ten
+   hlavní důvod, proč uvítání vůbec je.
+
+   ⚠️ Rozhodování (komu se ukáže, kolik má kroků) je v `lib/onboarding.js`
+   a má samotest. Tady je jen kreslení a dotazy.
+   ============================================================ */
+
+let uvitani = null;
+const uvitaniVyber = { domov: null, cil: null };
+
+/** Spustí uvítání, pokud na něj tenhle člověk má nárok. */
+function mozneUvitani() {
+  if (!maSeSpustit({ hotovo: state.onboardingHotovo, pocetMist: state.places.places.length })) {
+    return false;
+  }
+  uvitani = createOnboarding({ maCil: false });
+  vykresliUvitani();
+  return true;
+}
+
+/**
+ * Zavře uvítání a zapamatuje si to.
+ *
+ * 🚨 Příznak se ukládá VŽDYCKY, i při přeskočení. Kdo uvítání odmítl, ho
+ * nechce dostat znovu při příštím spuštění — z pomůcky pro nováčky by se
+ * stala otrava, která se nedá vypnout.
+ */
+function ukonciUvitani() {
+  uvitani?.ukonci();
+  $('uvitani').hidden = true;
+  $('uvitani-pruh').hidden = true;
+  state.onboardingHotovo = true;
+  save();
+}
+
+/** Vykreslí právě aktuální krok. */
+function vykresliUvitani() {
+  const krok = uvitani?.krok;
+  if (!krok) { ukonciUvitani(); return; }
+
+  // Poslední dva kroky se dívají na ŽIVOU APPKU, takže se překryv sundá
+  // a zbude jen proužek dole.
+  if (krok.zivaAppka) {
+    $('uvitani').hidden = true;
+    $('uvitani-pruh').hidden = false;
+    ukazZivyKrok(krok);
+    return;
+  }
+
+  $('uvitani-pruh').hidden = true;
+  $('uvitani').hidden = false;
+
+  // Značka jen na prvním kroku — je to jediné místo, kde se má appka
+  // představit. Na dalších by jen ubírala místo textu.
+  $('uvitani-znacka').hidden = krok.klic !== 'domov';
+
+  const { kolikaty, celkem } = uvitani.poradi;
+  $('uvitani-nadpis').textContent = t(`onboarding.${krok.text}Title`, state.lang);
+  $('uvitani-text').textContent = t(`onboarding.${krok.text}Text`, state.lang);
+  $('uvitani-popisek').textContent = t(`onboarding.${krok.text}Label`, state.lang);
+  $('uvitani-input').placeholder = t(`onboarding.${krok.text}Label`, state.lang);
+  $('uvitani-hledani').hidden = !krok.potrebujeVyber;
+  $('uvitani-zpet').hidden = kolikaty === 1;
+
+  // Tečky pořadí. ⚠️ Počet se mění za běhu: kdo přeskočí cíl, má o krok míň.
+  const tecky = $('uvitani-tecky');
+  tecky.replaceChildren();
+  for (let i = 1; i <= celkem; i += 1) {
+    const b = document.createElement('i');
+    if (i === kolikaty) b.className = 'je';
+    tecky.append(b);
+  }
+
+  // Vybrané místo tohohle kroku, ať je po návratu vidět, co už je hotové.
+  const vybrano = krok.klic === 'domov' ? uvitaniVyber.domov : uvitaniVyber.cil;
+  $('uvitani-vybrano').hidden = !vybrano;
+  $('uvitani-vybrano').textContent = vybrano ? `★ ${vybrano.name}` : '';
+  $('uvitani-input').value = '';
+
+  // 🚨 Krok s cílem jde přeskočit ZVLÁŠŤ. Spousta lidí chce meteostanici pro
+  // jedno místo a trasy je nezajímají; nutit je k výběru cíle by znamenalo,
+  // že si vymyslí nesmysl, jen aby se dostali dál.
+  const dal = $('uvitani-dal');
+  dal.textContent = (krok.lzePreskocit && !vybrano)
+    ? t('onboarding.goalSkip', state.lang)
+    : t('onboarding.next', state.lang);
+  // Bez domova nemá uvítání co ukázat — jediné místo, kde se nedá jít dál.
+  dal.disabled = krok.klic === 'domov' && !vybrano;
+}
+
+/**
+ * Kroky nad živou appkou.
+ *
+ * ⚠️ Nikdy se tu NEČEKÁ NA SÍŤ. Kdyby se proužek ukázal až po načtení
+ * počasí, vypadalo by uvítání v metru jako zaseknuté — a je to první dojem,
+ * který se neopakuje. Chybějící spojení hlásí `loadStation` vlastní hláškou;
+ * uvítání jede dál.
+ */
+function ukazZivyKrok(krok) {
+  $('uvitani-pruh-dal').textContent = uvitani.poradi.kolikaty === uvitani.poradi.celkem
+    ? t('onboarding.done', state.lang)
+    : t('onboarding.next', state.lang);
+
+  if (krok.klic === 'misto') {
+    $('uvitani-pruh-nadpis').textContent = t('onboarding.placeTitle', state.lang);
+    $('uvitani-pruh-text').textContent = tf('onboarding.placeText',
+      { place: uvitaniVyber.domov?.name || '' }, state.lang);
+    prepniObrazovku('station');
+    return;
+  }
+
+  $('uvitani-pruh-nadpis').textContent = t('onboarding.routeTitle', state.lang);
+  $('uvitani-pruh-text').textContent = tf('onboarding.routeText', {
+    from: uvitaniVyber.domov?.name || '',
+    to: uvitaniVyber.cil?.name || '',
+  }, state.lang);
+  prepniObrazovku('route');
+  // ⚠️ Trasa se počítá JEDNOU. Bez téhle podmínky by každý nový uživatel
+  // spálil dva dotazy z kvóty ORS místo jednoho (`R4`).
+  if (!state.routeResult) loadRoute();
+}
+
+/** Zapíše vybrané místo do kroku a rovnou ho uloží mezi oblíbená. */
+function uvitaniVyberMisto(misto) {
+  const krok = uvitani?.krok;
+  if (!krok || !misto) return;
+
+  if (krok.klic === 'domov') {
+    uvitaniVyber.domov = misto;
+    state.place = misto;
+    state.route.from = misto;
+    $('route-from').value = misto.name;
+  } else {
+    uvitaniVyber.cil = misto;
+    state.route.to = misto;
+    $('route-to').value = misto.name;
+    uvitani.nastavCil(true);
+  }
+
+  // 🚨 Ukládá se HNED, ne až na konci. Kdo uvítání opustí uprostřed, nesmí
+  // přijít o to, co už zadal — jinak by ho příští spuštění vítalo s prázdnou
+  // appkou a jeho práce by přišla vniveč.
+  //
+  // ⚠️ `savePlace` vrací OBÁLKU `{store, place, changed, full}`, ne rovnou
+  // úložiště. Napoprvé jsem si do `state.places` přiřadil celou obálku —
+  // seznam míst se tím rozbil („store.places is not iterable") a výběr
+  // v uvítání tiše nefungoval: klik prošel, ale nic se nezapsalo.
+  const ulozeno = savePlace(state.places, misto, Date.now());
+  state.places = ulozeno.store;
+  persistPlaces();
+  renderSaved();
+  save();
+
+  vykresliUvitani();
+}
+
+/**
+ * Hledání uvnitř uvítání.
+ *
+ * ⚠️ Vlastní pole, ne to z hlavičky. Hlavička je pod překryvem schovaná
+ * a sdílet jedno pole mezi dvěma obrazovkami by znamenalo, že si vzájemně
+ * mažou rozepsaný text.
+ */
+function zapojUvitaniHledani() {
+  const input = $('uvitani-input');
+  const results = $('uvitani-vysledky');
+  let timer = 0;
+
+  const skryj = () => { results.hidden = true; results.replaceChildren(); };
+
+  const ukaz = (list) => {
+    results.hidden = false;
+    const radky = list.length ? list : [{ zprava: t('search.noResults', state.lang) }];
+    fill(results, radky, (r) => {
+      const li = document.createElement('li');
+      if (r.zprava) { li.className = 'empty'; li.textContent = r.zprava; return li; }
+      const btn = el('button', '', [
+        el('span', 'r-name', r.name),
+        el('span', 'r-meta', placeMeta(r)),
+      ]);
+      btn.type = 'button';
+      btn.addEventListener('click', () => {
+        skryj();
+        uvitaniVyberMisto({ name: r.name, country: r.country, lat: r.latitude, lon: r.longitude });
+      });
+      li.append(btn);
+      return li;
+    });
+  };
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { skryj(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const { data } = await requests.run('uvitani-hledani', (signal) =>
+          apiGet('geocode', { name: q, count: 6, language: state.lang, ...odkudSeDivam() }, { signal }));
+        ukaz(data?.results || []);
+      } catch (e) {
+        // ⚠️ I neúspěch musí něco říct. Prázdná nabídka po napsání textu
+        // vypadá jako „takové místo neexistuje", což je něco jiného než
+        // „zrovna není spojení".
+        if (!requests.isAbort(e)) ukaz([]);
+      }
+    }, 280);
+  });
+
+  input.addEventListener('blur', () => setTimeout(skryj, 150));
+}
+
+/** Obsluha tlačítek uvítání. Volá se jednou při startu. */
+function zapojUvitani() {
+  zapojUvitaniHledani();
+  $('uvitani-skip').addEventListener('click', ukonciUvitani);
+  $('uvitani-zpet').addEventListener('click', () => { uvitani?.zpet(); vykresliUvitani(); });
+  $('uvitani-dal').addEventListener('click', () => { uvitani?.dalsi(); vykresliUvitani(); });
+  $('uvitani-pruh-dal').addEventListener('click', () => { uvitani?.dalsi(); vykresliUvitani(); });
+
+  // ⌖ Poloha jako DRUHÁ možnost. Používá tutéž cestu jako tlačítko
+  // v hlavičce, takže se chová stejně — včetně toho, co dělá při odmítnutí.
+  $('uvitani-locate').addEventListener('click', () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        if (!isUsablePoint(bod)) return;
+        state.fix = bod;
+        uvitaniVyberMisto({
+          name: `${bod.lat.toFixed(2)}, ${bod.lon.toFixed(2)}`, ...bod,
+        });
+        // Jméno místa se doplní, až dorazí — čekat na něj by uvítání
+        // zdrželo kvůli kosmetice.
+        jmenoBodu(bod, 'uvitani-jmeno').then((jmeno) => {
+          if (!jmeno || !uvitaniVyber.domov) return;
+          uvitaniVyber.domov.name = jmeno;
+          state.place = { ...uvitaniVyber.domov };
+          $('uvitani-vybrano').textContent = `★ ${jmeno}`;
+        }).catch(() => {});
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    );
+  });
+}
+
 
 /**
  * Service worker — jen na webu.

@@ -25,6 +25,39 @@ export default {
     menuHide: 'Schovat nabídku',
   },
 
+  /* První spuštění. Čtyři kroky, ve kterých si člověk vybere domov
+     a oblíbený cíl — a appka mu pak na jeho vlastních datech ukáže, co umí.
+     ⚠️ Nejdelší souvislý text v appce; o to víc ho drž zkrátka. Nikdo sem
+     nepřišel číst. */
+  onboarding: {
+    skip: 'Přeskočit',
+    next: 'Dál',
+    back: 'Zpět',
+    done: 'Jdeme na to',
+    step: 'Krok {n} ze {total}',
+
+    homeTitle: 'Vítej v MeteoTrace',
+    homeText: 'Počasí na trase — v každém bodě cesty v čase, kdy tam doopravdy dorazíš. Začneme tím, kde bydlíš.',
+    homeLabel: 'Najdi svůj domov',
+    homeLocate: 'Použít moji polohu',
+
+    goalTitle: 'A kam jezdíš nejčastěji?',
+    goalText: 'Práce, babička, kamarádi. Cestu tam ti pak podržíme.',
+    goalLabel: 'Najdi cíl cesty',
+    goalSkip: 'Trasy nepotřebuju',
+
+    placeTitle: 'Tohle je tvoje meteostanice',
+    placeText: 'Jedno místo a všechno o něm — teď, po hodinách, radar i výstrahy. Takhle vypadá {place}.',
+
+    routeTitle: 'A takhle vypadá trasa',
+    routeText: 'Počasí v každém bodě cesty v čase, kdy tam dorazíš — ne v čase, kdy vyjíždíš. {from} → {to}.',
+
+    /* ⚠️ Ukáže se, když se při prvním spuštění nepovede načíst předpověď.
+       Bez toho by uvítání vypadalo rozbitě hned na první dojem — a ten
+       se neopakuje. */
+    offline: 'Zrovna není spojení, tak chybí počasí. Naskočí, jakmile bude signál — appka je nastavená tak jako tak.',
+  },
+
   /* Upozornění na výstrahu.
      ⚠️ Tón je věcný. Hlášky si smějí rýpnout, upozornění na bouřku ne —
      platí pravidlo z 26. 8. 2026: u výstrah a nebezpečí se nežertuje. */

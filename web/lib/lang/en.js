@@ -22,6 +22,38 @@ export default {
     menuHide: 'Hide the menu',
   },
 
+  /* First run. Four steps in which you pick a home and a favourite
+     destination — and the app then shows what it can do on your own data.
+     ⚠️ The longest continuous text in the app; keep it short anyway.
+     Nobody came here to read. */
+  onboarding: {
+    skip: 'Skip',
+    next: 'Next',
+    back: 'Back',
+    done: 'Start using it',
+    step: 'Step {n} of {total}',
+
+    homeTitle: 'Welcome to MeteoTrace',
+    homeText: 'Weather along your route — at every point, at the time you actually get there. Start with where you live.',
+    homeLabel: 'Find your home',
+    homeLocate: 'Use my location',
+
+    goalTitle: 'And where do you go often?',
+    goalText: 'Work, grandma, friends. We will keep the route there for you.',
+    goalLabel: 'Find the destination',
+    goalSkip: 'I do not need routes',
+
+    placeTitle: 'This is your weather station',
+    placeText: 'One place, everything about it — right now, hour by hour, radar and warnings. This is {place}.',
+
+    routeTitle: 'And this is the route',
+    routeText: 'Weather at every point of the way at the time you get there, not the time you set off. {from} → {to}.',
+
+    /* ⚠️ Shown when the forecast cannot be loaded during the first run.
+       Without it the welcome looks broken on the very first impression. */
+    offline: 'No connection right now, so the weather is missing. It will appear as soon as there is a signal — the app is set up either way.',
+  },
+
   /* Warning notifications.
      ⚠️ Plain tone. Quips may be playful; a storm alert may not. */
   notify: {
