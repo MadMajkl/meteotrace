@@ -35,6 +35,7 @@ import {
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
+import { noveVystrahy, textUpozorneni } from './lib/warn-notify.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
@@ -51,7 +52,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.5.2';
+const VERZE = '0.6.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -81,6 +82,13 @@ const state = {
   places: emptyStore(), // uložená místa a trasy
   banner: null,         // trvalé sdělení o stavu appky, viz notice()
   screen: 'station',    // 'station' | 'route'
+  // Od jaké závažnosti upozorňovat na výstrahy. Prázdné = neupozorňovat.
+  // ⚠️ Výchozí je VYPNUTO. Zapnout něco, co vyrušuje, si musí uživatel vybrat
+  // sám; appka, která začne zvonit hned po instalaci, skončí s vypnutými
+  // upozorněními — a pak nezvoní ani na bouřku.
+  notify: '',
+  // O čem se už upozornilo, aby se o téže výstraze nezvonilo pořád dokola.
+  oznameno: [],
   // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
   // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
   // `via` jsou mezibody v pořadí, jak se má jet. Prázdné pole = cesta z A do B.
@@ -107,6 +115,8 @@ function load() {
     // a jazyk se odhadne znovu.
     if (typeof saved.theme === 'string') state.theme = saved.theme;
     if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
+    if (typeof saved.notify === 'string') state.notify = saved.notify;
+    if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;
     if (typeof saved.langManual === 'string') {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
@@ -122,6 +132,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary,
+      notify: state.notify, oznameno: state.oznameno,
     }));
   } catch { /* nevadí */ }
 }
@@ -666,8 +677,165 @@ function openSettings() {
       state.units[osa]);
   }
 
+  // Stupně jdou od nejmírnějšího po nejpřísnější, protože tak se čte otázka
+  // „od čeho mě vyrušovat".
+  fillOptions($('set-notify'), [
+    { value: '', text: t('notify.off', state.lang) },
+    ...['Minor', 'Moderate', 'Severe', 'Extreme'].map((s) => ({
+      value: s, text: t(`warnings.severity.${s.toLowerCase()}`, state.lang),
+    })),
+  ], state.notify || '');
+  vypisStavUpozorneni();
+
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
+}
+
+/* ============================================================
+   UPOZORNĚNÍ NA VÝSTRAHY
+
+   Karta výstrah se od 29. 8. 2026 při klidu schovává, takže výstraha se
+   dá přehlédnout. Michal: *„pokud jsou, musí i notifikovat."*
+
+   ⚠️ Rozhodování (co je nové, od jaké závažnosti) je v `lib/warn-notify.js`
+   a `lib/severity.js` — tady je jen zapojení.
+   ============================================================ */
+
+/**
+ * Most do androidího obalu. `null` v prohlížeči.
+ *
+ * 🚨 Jen obal umí hlídat, když appka neběží. V prohlížeči by to znamenalo
+ * push server a service worker s vlastní cache — a ten je v obalu schválně
+ * vypnutý (servíruje se z balíčku). Prohlížeč proto upozorní jen tehdy,
+ * když je appka otevřená, a **musí se to říct**: slíbené hlídání, které
+ * nehlídá, je horší než žádné.
+ */
+function obal() {
+  const m = window.MeteoTraceObal;
+  return m && typeof m.umiUpozorneni === 'function' && m.umiUpozorneni() ? m : null;
+}
+
+/** Co se o hlídání napíše do nastavení. */
+function vypisStavUpozorneni() {
+  const p = $('notify-note');
+  if (!p) return;
+
+  const most = obal();
+  let text = '';
+
+  if (!state.notify) {
+    text = '';                                   // vypnuto: není co vysvětlovat
+  } else if (!most) {
+    // 🚨 Prohlížeč umí upozornit, ale JEN když je appka otevřená — na pozadí
+    // by k tomu potřeboval push server, který nemáme. Slíbit hlídání, které
+    // nehlídá, je horší než přiznat mez.
+    text = typeof Notification !== 'function'
+      ? t('notify.unsupported', state.lang)
+      : t('notify.browserOnly', state.lang);
+  } else if (!most.majiPovoleni()) {
+    text = t('notify.denied', state.lang);
+  } else if (!state.place) {
+    text = t('notify.watchingNone', state.lang);
+  } else {
+    text = tf('notify.watching', { place: state.place.name }, state.lang);
+  }
+
+  p.textContent = text;
+  p.hidden = !text;
+}
+
+/**
+ * Řekne obalu, co má hlídat — nebo že nemá hlídat nic.
+ *
+ * ⚠️ Volá se při KAŽDÉ změně místa, jazyka i prahu. Hlídání bodu, který si
+ * uživatel dávno přepnul, je horší než žádné: upozornění by chodila na
+ * cizí město a vypadalo by to jako vada.
+ */
+function zapisHlidani() {
+  const most = obal();
+  if (!most) return;
+
+  if (!state.notify || !state.place) {
+    most.nehlidejVystrahy();
+    return;
+  }
+
+  // ⚠️ Nadpis se skládá TADY, v jazyce appky. `strings.xml` v obalu se řídí
+  // jazykem systému — kdo má appku česky a telefon anglicky, dostal by
+  // českou appku a anglické upozornění.
+  const { nadpis } = textUpozorneni({
+    nove: [{ event: '' }], misto: state.place.name, lang: state.lang,
+  }) || { nadpis: '' };
+
+  most.hlidejVystrahy(state.place.lat, state.place.lon, nadpis, state.lang, state.notify);
+}
+
+/**
+ * Zapnutí a vypnutí upozornění z nastavení.
+ *
+ * 🚨 Povolení se žádá AŽ TEĎ, při zapnutí — ne při startu appky. Dialog,
+ * o který si nikdo neřekl, se odklikne pryč a podruhé už Android nenabídne.
+ */
+function zmenUpozorneni(hodnota) {
+  state.notify = hodnota || '';
+  save();
+
+  const most = obal();
+  if (state.notify) {
+    if (most) {
+      if (!most.majiPovoleni()) most.zadejOPovoleni();
+    } else if (typeof Notification === 'function' && Notification.permission === 'default') {
+      // V prohlížeči se ptá prohlížeč. ⚠️ Až teď, při zapnutí — dialog,
+      // o který si nikdo neřekl, se odklikne pryč a podruhé se nenabídne.
+      Notification.requestPermission().then(vypisStavUpozorneni).catch(() => {});
+    }
+  }
+
+  zapisHlidani();
+  // ⚠️ Android odpovídá na dialog až po chvíli a most výsledek nevrací —
+  // stav se proto přečte znovu, ne odhadne.
+  setTimeout(vypisStavUpozorneni, 800);
+  vypisStavUpozorneni();
+}
+
+/**
+ * Upozorní na novou výstrahu, když je appka zrovna otevřená.
+ *
+ * ⚠️ Není to zdvojení s obalem, ale jeho doplněk: obal kontroluje jednou za
+ * čtvrt hodiny, takže by se člověk s otevřenou appkou dozvěděl o bouřce
+ * později než ten, kdo ji má zavřenou. Paměť (`state.oznameno`) je společná,
+ * takže se to samo nepřekřikuje.
+ *
+ * ⚠️ Paměť se ukládá i tehdy, když se nezvoní. Jinak by první zapnutí
+ * upozornění zazvonilo na všechno, co zrovna platí — tedy na věci, které
+ * uživatel dávno zná.
+ */
+function upozorniPokudNove(payload) {
+  const { nove, klice } = noveVystrahy({
+    warnings: payload?.warnings,
+    jizOznameno: state.oznameno,
+    nowMs: Date.now(),
+    prah: state.notify || undefined,
+  });
+
+  const prvniPohled = !state.oznameno.length;
+  state.oznameno = klice;
+  save();
+
+  if (!state.notify || !nove.length) return;
+  // 🚨 Při prvním pohledu se MLČÍ. Zapnout upozornění a hned dostat pět
+  // zpráv o tom, co platí od včerejška, je způsob, jak si je člověk vypne.
+  if (prvniPohled) return;
+
+  const text = textUpozorneni({ nove, misto: state.place?.name || '', lang: state.lang });
+  if (!text) return;
+
+  // V obalu zvoní systém, ne stránka — jinak by přišly dvě zprávy o téže věci.
+  if (obal()) return;
+  if (typeof Notification !== 'function' || Notification.permission !== 'granted') return;
+  try {
+    new Notification(text.nadpis, { body: text.telo, tag: 'meteotrace-vystrahy' });
+  } catch { /* prohlížeč to odmítl; karta výstrah zůstává */ }
 }
 
 function fillOptions(select, items, selected) {
@@ -1318,6 +1486,12 @@ function renderWarnings(payload) {
   state.warningArea = view.polozky.length && payload?.geometrie
     ? { geometrie: payload.geometrie, trida: view.polozky[0].trida }
     : null;
+
+  // Co obal hlídá, se řídí právě prohlíženým místem — a to se mění.
+  zapisHlidani();
+  // A když appka zrovna běží, umí upozornit sama: obal by o nové výstraze
+  // věděl až při příští kontrole, tedy klidně za čtvrt hodiny.
+  upozorniPokudNove(payload);
 
   const list = $('warnings-list');
   list.replaceChildren();
@@ -2832,6 +3006,7 @@ function init() {
   $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));
   $('set-theme').addEventListener('change', (e) => { state.theme = e.target.value; save(); pouzijVzhled(); });
   $('set-primary').addEventListener('change', (e) => { state.primary = e.target.value; save(); pouzijPoradi(); });
+  $('set-notify').addEventListener('change', (e) => zmenUpozorneni(e.target.value));
   for (const osa of Object.keys(JEDNOTKY)) {
     $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
   }

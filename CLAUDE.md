@@ -9,7 +9,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 
 | Soubor | Co v něm je |
 |---|---|
-| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R15 i s důvody. Čti jako první.** |
+| `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R17 i s důvody. Čti jako první.** |
 | `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
@@ -109,13 +109,16 @@ tohle je jen shrnutí.**
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
 | Hledání místa | patří METEOSTANICI: na trase se schová (`prepniObrazovku`), aby nad poli Odkud a Kam nestála volba, která se trasy netýká |
 | Sbalitelná hlavička | hledání, záložky a uložené věci sedí v `#top-menu` a rozbaluje je klepnutí na značku (`nabidka()`); sbalí se sama, jakmile je co ukazovat. 🚨 Sbalený řádek nese **jméno záložky a k němu to konkrétní** („Místo · Praha"), protože záložky jsou schované |
+| Karta výstrah | při klidu se schová celá. 🚨 JEN ve stavu „nic nehrozí" — při výpadku a mimo pokrytí zůstane, jinak by appka mlčky tvrdila klid o něčem, o čem nic neví. Že je klid, říká tichý řádek u „aktualizováno" |
+| Upozornění na výstrahy (R17) | hlídá androidí obal (`Vystrahy.kt`, WorkManager, 15 min), web jen když běží. Rozhodování: server + `lib/severity.js` + `lib/warn-notify.js`; **obal jen porovnává řetězce**. Práh jde serveru jako `minSeverity`. Výchozí VYPNUTO, práh `Moderate` |
+| Most do obalu | `MostDoWebu.kt` / `window.MeteoTraceObal`. ⚠️ Zůstane úzký — je to jediné okno z webu do telefonu |
 | Potažení dolů = načíst znovu | logika v `web/lib/pull-refresh.js` (čistá, se samotestem), dotyk v `app.js` (`zapojPotazeni`). Obnovuje i osu radaru (`refreshRadar()` v `map.js`) |
 | Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**588 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**615 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
 
 ### 🔑 Klíče
 
@@ -136,7 +139,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.5.1**; na `1.0.0` až s vydáním na Play.
+  Teď **0.6.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -221,6 +224,15 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   výpočtu výřezu.
 - **🚨 Vrstva nad radarem musí být v `PREKRYVY`.** Radar se zakládá znovu při každém
   snímku a vkládá se pod nejnižší z nich; co v seznamu není, po vteřině zmizí samo.
+- **🚨 Text notifikace NESMÍ být z `strings.xml`.** Ten se řídí jazykem SYSTÉMU,
+  kdežto jazyk appky je volba uživatele (R10) — kdo má appku česky a telefon anglicky,
+  dostal by českou appku a anglické upozornění. Nadpis skládá web a posílá ho mostem
+  hotový. V `strings.xml` patří jen jméno notifikačního kanálu: to se ukazuje
+  v nastavení Androidu, kam jazyk systému patří.
+- **🚨 Klíč výstrahy se skládá z JEDNÉ jazykové verze, ne po kouskách.** MeteoAlarm
+  dává každé verzi vlastní `area` i časy a neshodují se; klíč pak kolísá podle jazyka
+  a při přepnutí by se zazvonilo na všechno, co dávno platí. A nikdy CAP `identifier` —
+  mění se při každém vydání i beze změny obsahu.
 - **🚨 Prohlížeč má vlastní potažení dolů a to naše přebije.** Chrome na Androidu
   na přetažení nahoře stránku CELOU ZNOVU NAČTE — a s ní zmizí i rozdělaná trasa.
   Vypíná to `overscroll-behavior-y: contain` na `html` **i** `body`; prohlížeče se

@@ -22,6 +22,21 @@ export default {
     menuHide: 'Hide the menu',
   },
 
+  /* Warning notifications.
+     ⚠️ Plain tone. Quips may be playful; a storm alert may not. */
+  notify: {
+    title: 'Weather warning',
+    titleFor: 'Weather warning — {place}',
+    setting: 'Warning notifications',
+    off: 'Off',
+    level: 'From severity',
+    watching: 'Watching {place}. Notifications arrive even when the app is closed.',
+    watchingNone: 'Nothing to watch yet — pick a place first.',
+    denied: 'Android has blocked notifications. You can allow them in system settings.',
+    unsupported: 'This browser cannot show notifications. They work in the app from Play.',
+    browserOnly: 'In the browser we can only notify while the app is open. The app from Play does it in the background.',
+  },
+
   /* Pull down at the top of the page and the data reloads. Each state has
      its own words — a spinner alone never says whether anything happened. */
   refresh: {

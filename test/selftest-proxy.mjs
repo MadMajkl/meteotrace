@@ -22,7 +22,7 @@ import {
   trimWarnings,
   fromPelias, mapParams,
 } from '../web/lib/upstreams.js';
-import { planRequest } from '../web/lib/proxy-core.js';
+import { planRequest, filterByPlace } from '../web/lib/proxy-core.js';
 
 /* ============================================================
    SEZNAM SLUŽEB
@@ -368,6 +368,29 @@ test('🚨 místní parametry: souřadnice NESMÍ být v klíči cache', () => {
   );
 });
 
+test('🚨 práh závažnosti NESMÍ být v klíči cache', () => {
+  // Táž past jako u souřadnic: v cache leží feed společný všem a teprve
+  // odpověď se krájí. Kdyby práh vstoupil do klíče, dostal by tazatel
+  // s nižším prahem uloženou odpověď toho s vyšším — a přišel by
+  // o výstrahy, aniž by to šlo poznat.
+  assert.equal(
+    cacheKey('warnings', { minSeverity: 'Severe' }),
+    cacheKey('warnings', {}),
+  );
+});
+
+test('🚨 práh závažnosti se ven NEPOSÍLÁ', () => {
+  // MeteoAlarm o žádném prahu neví. Kdyby prošel, byl by to cizí parametr
+  // v dotazu na cizí službu — přesně to, čemu katalog brání.
+  //
+  // ⚠️ Chová se přesně jako `lat`/`lon`/`lang`: je to místní parametr,
+  // zpracuje se u nás a ven nejde. Ověřeno i v běžícím serveru.
+  assert.ok(!buildUrl('warnings', { minSeverity: 'Severe' }, '').includes('minSeverity'));
+  for (const p of ['lat', 'lon', 'lang', 'minSeverity']) {
+    assert.ok(UPSTREAMS.warnings.local.includes(p), `${p} musí být místní`);
+  }
+});
+
 test('místní parametry: cizí parametr se pořád hlásí jako zahozený', () => {
   const { dropped } = filterParams('warnings', { lat: '50.5', vymysl: '1' });
   assert.deepEqual(dropped, ['vymysl']);
@@ -448,4 +471,36 @@ test('bez jazyka se nic nevymýšlí', () => {
 test('jazyk se ořízne — do cizí služby nepatří nic dlouhého', () => {
   const p = mapParams('geocode', { name: 'Praha', language: 'cs-CZ-x-nesmysl' });
   assert.equal(p.lang.length <= 5, true);
+});
+
+/* ============================================================
+   PRÁH ZÁVAŽNOSTI (kvůli upozorňování z obalu)
+   ============================================================ */
+
+const VYSTRAHY_RUZNE = {
+  warnings: [
+    { id: 'a', event: 'Silné bouřky', severity: 'Severe', expires: null, areas: [] },
+    { id: 'b', event: 'Vysoké teploty', severity: 'Moderate', expires: null, areas: [] },
+    { id: 'c', event: 'Riziko požárů', severity: 'Minor', expires: null, areas: [] },
+    { id: 'd', event: 'Cosi', severity: 'Unknown', expires: null, areas: [] },
+  ],
+};
+
+test('práh ořeže mírné výstrahy, přísnější nechá', () => {
+  const out = filterByPlace('warnings', VYSTRAHY_RUZNE, { minSeverity: 'Moderate' });
+  assert.deepEqual(out.warnings.map((w) => w.id).sort(), ['a', 'b', 'd']);
+});
+
+test('🚨 bez prahu se neořezává nic — obrazovka musí vidět všechno', () => {
+  // Karta výstrah ukazuje i drobnosti; práh je JEN pro upozorňování.
+  // Kdyby platil vždycky, appka by mlčela o výstraze, která platí.
+  const out = filterByPlace('warnings', VYSTRAHY_RUZNE, {});
+  assert.equal(out.warnings.length, 4);
+});
+
+test('🚨 neznámá závažnost projde i nejpřísnějším prahem', () => {
+  // Neznámá závažnost není nízká závažnost. Odfiltrovat ji by znamenalo
+  // mlčet právě tam, kde nevíme, oč jde.
+  const out = filterByPlace('warnings', VYSTRAHY_RUZNE, { minSeverity: 'Extreme' });
+  assert.ok(out.warnings.some((w) => w.id === 'd'), 'Unknown musí projít');
 });

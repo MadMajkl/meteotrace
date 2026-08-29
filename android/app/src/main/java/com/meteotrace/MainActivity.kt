@@ -2,6 +2,7 @@ package com.meteotrace
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
@@ -47,6 +48,22 @@ class MainActivity : AppCompatActivity() {
         cekaNaPolohu?.invoke(povoleno)
         cekaNaPolohu = null
     }
+
+    /**
+     * Povolení k upozorněním.
+     *
+     * 🚨 Od Androidu 13 (API 33) ho uživatel dává ručně a bez něj `notify()`
+     * TIŠE selže — appka by tvrdila „hlídám", telefon by nic neukázal a přišlo
+     * by se na to až tím, že by nedorazila výstraha.
+     *
+     * ⚠️ Výsledek se nikam nevrací: web si stav zjistí sám příštím dotazem
+     * na most. Předávat ho zpátky by znamenalo držet rozdělaný callback přes
+     * otočení displeje — a to je zbytečná složitost tam, kde stačí zeptat se
+     * znovu.
+     */
+    private val zadostOUpozorneni = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* stav si web přečte z `majiPovoleni()` */ }
 
     private fun maPolohu(): Boolean = POLOHA.any {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
@@ -126,6 +143,28 @@ class MainActivity : AppCompatActivity() {
                 zadostOPolohu.launch(POLOHA)
             }
         }
+
+        /**
+         * Most do nativní vrstvy — hlídání výstrah na pozadí.
+         *
+         * 🚨 Připojuje se JEN k naší stránce. `addJavascriptInterface`
+         * zpřístupní objekt všemu, co se ve WebView načte, a navigace mimo
+         * vlastní původ je proto zakázaná výš (`shouldOverrideUrlLoading`).
+         */
+        webView.addJavascriptInterface(
+            MostDoWebu(applicationContext) {
+                // ⚠️ Most volá WebView z vlastního vlákna; dialog o povolení
+                // patří na UI vlákno, jinak se neukáže vůbec.
+                runOnUiThread {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        zadostOUpozorneni.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    // Na starším Androidu se o nic žádat nemusí — povolení
+                    // se dávalo instalací a `majiPovoleni()` už vrací pravdu.
+                }
+            },
+            "MeteoTraceObal",
+        )
 
         // Ladění WebView z počítače (chrome://inspect) — jen v ladicím sestavení.
         // Ve vydání by to byla otevřená okna do appky uživatele.

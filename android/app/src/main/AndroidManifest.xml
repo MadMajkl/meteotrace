@@ -14,6 +14,22 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!--
+      Upozornění na výstrahy. Od Androidu 13 se o povolení MUSÍ požádat za
+      běhu — bez něj `notify()` tiše selže a appka by tvrdila „hlídám",
+      zatímco by se nic neukázalo.
+      ⚠️ Nepovinné: kdo upozornění nechce, appku používá dál beze změny.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Kontrola výstrah má přežít restart telefonu. WorkManager si periodickou
+      práci obnoví sám, ale jen když k tomu má tohle povolení — jinak by
+      hlídání po restartu tiše skončilo a nikdo by si toho nevšiml, dokud by
+      nepřišla bouřka.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 

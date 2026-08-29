@@ -17,6 +17,7 @@ import {
   mapParams, fromPelias, UPSTREAMS, isLocalService,
 } from './upstreams.js';
 import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
+import { staciNa } from './severity.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -185,17 +186,25 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
     })
     : vsechny;
 
+  // Práh závažnosti pro upozorňování. ⚠️ Filtruje se AŽ TADY, za cache —
+  // stejně jako výřez podle místa. V cache leží feed společný všem; kdyby
+  // se ukládal už profiltrovaný, dostal by tazatel s nižším prahem odpověď
+  // toho s vyšším a přišel by o výstrahy, aniž by se to dalo poznat.
+  const podlePrahu = params.minSeverity
+    ? vystrahy.filter((w) => staciNa(w.severity, params.minSeverity))
+    : vystrahy;
+
   // Bez souřadnic se nefiltruje podle místa — appka může chtít i celý přehled.
   // Prošlé se ale vyhazují tak jako tak: jsou k ničemu v obou případech.
   const lat = Number(params.lat);
   const lon = Number(params.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { ...body, warnings: vystrahy };
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { ...body, warnings: podlePrahu };
 
   // Hranice nejsou po ruce (nezapojený obal, ořezané nasazení). Vrátit všechno
   // je lepší než zamlčet bouřku — ale MUSÍ to být poznat, jinak by se odhad
   // tvářil jako výběr. Od toho je `filtrovano`.
   if (!opts.areas || !opts.areas.length) {
-    return { warnings: vystrahy, misto: null, pokryto: false, filtrovano: false };
+    return { warnings: podlePrahu, misto: null, pokryto: false, filtrovano: false };
   }
 
   const misto = findArea([lat, lon], opts.areas);
@@ -205,7 +214,7 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // `pokryto: false` dovolí klientovi říct, jak to je.
   if (!misto) return { warnings: [], misto: null, pokryto: false, filtrovano: true };
 
-  const vybrane = matchWarningAreas(vystrahy, [misto]);
+  const vybrane = matchWarningAreas(podlePrahu, [misto]);
   const out = {
     warnings: vybrane,
     misto: { nazev: misto.nazev, kraj: misto.kraj },

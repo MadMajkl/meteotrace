@@ -152,6 +152,19 @@
     <select id="set-theme"></select>
   </div>
 
+  <!-- Upozornění na výstrahy. Karta výstrah se při klidu schovává, takže
+       tohle je jediná cesta, jak se o bouřce dozvědět, aniž by člověk
+       appku sám otevřel. -->
+  <div class="setting">
+    <label for="set-notify" data-i18n="notify.setting"></label>
+    <select id="set-notify"></select>
+  </div>
+  <!-- ⚠️ MUSÍ být poznat, CO se hlídá a jestli to vůbec může fungovat.
+       Přepínač, který tvrdí „zapnuto", zatímco Android upozornění zahazuje,
+       se od funkčního nedá odlišit — a přijde se na to až tím, že nedorazí
+       výstraha. -->
+  <p class="hint" id="notify-note" hidden></p>
+
   <h3 data-i18n="settings.units"></h3>
   <p class="hint" data-i18n="settings.unitsNote"></p>
 

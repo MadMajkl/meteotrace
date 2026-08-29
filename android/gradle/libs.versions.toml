@@ -5,6 +5,7 @@ coreKtx = "1.15.0"
 appcompat = "1.7.0"
 activityKtx = "1.10.1"
 webkit = "1.12.1"
+work = "2.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -12,6 +13,9 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
 # Kvůli WebViewAssetLoader: dává webu ve WebView stabilní https původ místo file://
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+# Periodická kontrola výstrah na pozadí. Systémový plánovač, ne vlastní budík:
+# Android by vlastní službu stejně uspal a upozornění by nechodila.
+androidx-work = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

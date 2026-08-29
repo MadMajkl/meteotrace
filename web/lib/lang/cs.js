@@ -25,6 +25,24 @@ export default {
     menuHide: 'Schovat nabídku',
   },
 
+  /* Upozornění na výstrahu.
+     ⚠️ Tón je věcný. Hlášky si smějí rýpnout, upozornění na bouřku ne —
+     platí pravidlo z 26. 8. 2026: u výstrah a nebezpečí se nežertuje. */
+  notify: {
+    title: 'Meteo výstraha',
+    titleFor: 'Meteo výstraha — {place}',
+    setting: 'Upozorňovat na výstrahy',
+    off: 'Neupozorňovat',
+    level: 'Od závažnosti',
+    // ⚠️ Musí být poznat, že hlídané místo je JEDNO a které. Bez toho by
+    // člověk čekal upozornění i tam, kam se zrovna chystá.
+    watching: 'Hlídá se {place}. Upozornění chodí, i když je appka zavřená.',
+    watchingNone: 'Zatím není co hlídat — vyber si místo.',
+    denied: 'Android upozornění zakázal. Povolit se dá v nastavení systému.',
+    unsupported: 'Tenhle prohlížeč upozornění neumí. V appce z Play fungují.',
+    browserOnly: 'V prohlížeči upozorníme, jen když je appka otevřená. Na pozadí to umí appka z Play.',
+  },
+
   /* Potažení dolů nahoře na stránce data natáhne znovu. Každý stav má svoje
      slovo — samotné kolečko neřekne, jestli se vůbec něco stalo. */
   refresh: {

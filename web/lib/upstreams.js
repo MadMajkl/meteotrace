@@ -228,7 +228,11 @@ export const UPSTREAMS = {
     // výřez, dostal by druhý tazatel výstrahy prvního — a nepoznal by to.
     // `lang` vybírá jazykovou verzi z feedu (nese obě), `lat`/`lon` výřez podle místa.
     // `geo=1` navíc přiloží hranici území, aby ji mapa uměla vykreslit.
-    local: ['lang', 'lat', 'lon', 'geo'],
+    //
+    // ⚠️ `minSeverity` je tu kvůli upozorňování z androidího obalu. Filtr
+    // patří SEM, ne do Kotlinu: tabulka stupňů závažnosti tak zůstává na
+    // jednom místě a obal jen porovnává řetězce (viz `Vystrahy.kt`).
+    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity'],
     ttl: 5 * MINUTE,
   },
 

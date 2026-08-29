@@ -1,4 +1,15 @@
 <resources>
     <!-- ⚠️ Značka „MeteoTrace" se NESKLOŇUJE a nepřekládá (R9). -->
     <string name="app_name">MeteoTrace</string>
+
+    <!--
+        Jméno a popis notifikačního kanálu.
+
+        ⚠️ Tohle je JEDINÝ text obalu, který smí být z `strings.xml`, protože
+        se ukazuje v NASTAVENÍ ANDROIDU — a tam patří jazyk systému, ne jazyk
+        appky. Text samotné notifikace naopak dodává web, který jazyk appky
+        zná (viz `Vystrahy.Hlidane`).
+    -->
+    <string name="kanal_vystrahy">Meteo výstrahy</string>
+    <string name="kanal_vystrahy_popis">Upozornění na výstrahy pro hlídané místo.</string>
 </resources>
