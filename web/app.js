@@ -20,7 +20,7 @@ import { pollenIcon } from './lib/pollen-icons.js';
 import { kresliTvar } from './icon-draw.js';
 import {
   sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
-  uvShape, moonTrendShape,
+  uvShape, moonTrendShape, noteShape,
 } from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
@@ -55,7 +55,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.8.0';
+const VERZE = '0.8.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1294,9 +1294,10 @@ async function zeptejSond(sondy, hledame, klic) {
  * @param {(nalez: object) => number} [a.vzdalenost]  jak daleko nález je (m)
  */
 async function vypisOkoli(a) {
-  const { prvek, hledame, blizke, klic } = a;
+  const { prvek, hledame, blizke, klic, dlazdice } = a;
   prvek.hidden = true;
   prvek.textContent = '';
+  srovnejDlazdiciHlasek(dlazdice);
 
   if (state.lang !== 'cs') return;          // hlášky umí jen česky
   if (!blizke.length) return;
@@ -1350,6 +1351,7 @@ async function vypisOkoli(a) {
     if (!veta) return;
     prvek.textContent = veta;
     prvek.hidden = false;
+    srovnejDlazdiciHlasek(dlazdice);
   } catch (e) {
     if (requests.isAbort(e)) return;
     // Dovětek, který se nepovedl, mlčí. Chybová hláška o tom, kde neprší,
@@ -1387,6 +1389,7 @@ async function ukazOkoli(place, c, view) {
 
   await vypisOkoli({
     prvek: $('now-around'),
+    dlazdice: 'now-quips',
     // Vidím slunce → zajímá mě, kde prší. Nevidím → kde ho najdu.
     //
     // 🚨 ALE JEN DOKUD MÁ OTÁZKA SMYSL. Dvacet minut před západem Slunce
@@ -1433,6 +1436,7 @@ async function ukazOkoliTrasy(view, cara) {
 
   await vypisOkoli({
     prvek: $('route-around'),
+    dlazdice: 'route-quips',
     // Prší po trase → hledá se slunce. Neprší → hledá se déšť.
     hledame: view.summary.rainCount > 0 ? 'slunce' : 'dest',
     blizke: routeProbes(podklad),
@@ -1626,6 +1630,8 @@ function render(forecast, air) {
   vlozIkonu('ico-pressure', pressureShape());
   vlozIkonu('ico-wind', windRoseShape(), c.windDeg);
   vlozIkonu('ico-uv', uvShape());
+  vlozIkonu('ico-note-now', noteShape());
+  vlozIkonu('ico-note-route', noteShape());
   obarviDlazdice(view, c);
 
   // Nadmořská výška patří k teplotě: vysvětluje ji.
@@ -1672,6 +1678,7 @@ function render(forecast, air) {
   const zertMista = $('now-quip');
   zertMista.hidden = !hlaskaMista;
   zertMista.textContent = hlaskaMista;
+  srovnejDlazdiciHlasek('now-quips');
 
   // Dovětek o okolí se dotahuje zvlášť a nikoho nezdržuje.
   if (state.place) ukazOkoli(state.place, c, view);
@@ -2255,6 +2262,23 @@ function obarviDlazdice(view, c) {
       b.style.removeProperty('--zar');
     }
   }
+}
+
+/**
+ * Dlaždice hlášek se ukáže, jen když v ní něco je.
+ *
+ * ⚠️ Obě hlášky uvnitř přicházejí V JINOU CHVÍLI: jedna hned s počasím,
+ * druhá až se doptají sondy na okolí. Proto se to nedá rozhodnout jednou —
+ * volá se to po každé změně a dívá se na skutečný stav, ne na to, co se
+ * zrovna zapisovalo.
+ *
+ * ⚠️ Prázdný rámeček s ikonou by vypadal, že se hláška nepovedla načíst.
+ */
+function srovnejDlazdiciHlasek(idDlazdice) {
+  const box = $(idDlazdice);
+  if (!box) return;
+  const jeCo = [...box.querySelectorAll('.route-quip')].some((p) => !p.hidden && p.textContent.trim());
+  box.hidden = !jeCo;
 }
 
 function vlozIkonu(id, tvar, otoceni = null) {
@@ -2972,6 +2996,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   const zert = $('route-quip');
   zert.hidden = !hlaska;
   zert.textContent = hlaska;
+  srovnejDlazdiciHlasek('route-quips');
 
   // Dovětek o okolí trasy se dotahuje zvlášť a nikoho nezdržuje.
   ukazOkoliTrasy(view, trasa.points);

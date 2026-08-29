@@ -116,6 +116,7 @@ tohle je jen shrnutí.**
 | Most do obalu | `MostDoWebu.kt` / `window.MeteoTraceObal`. ⚠️ Zůstane úzký — je to jediné okno z webu do telefonu |
 | Potažení dolů = načíst znovu | logika v `web/lib/pull-refresh.js` (čistá, se samotestem), dotyk v `app.js` (`zapojPotazeni`). Obnovuje i osu radaru (`refreshRadar()` v `map.js`) |
 | Vzhled | světlý / tmavý / **růžový** / **tmavě růžový** / podle zařízení (⚙); jedna značka `data-theme` na kořeni, seznam je `MOTIVY` v app.js. 🚨 `color-scheme` zná JEN light/dark — jméno motivu se tam poslat nesmí; a mapa pozná tmu podle toho, jestli jméno obsahuje `dark` |
+| Dlaždice hlášek | `.quips` u místa i na trase, piktogram `noteShape()`. 🚨 Schová se celá, když není co říct — a rozhoduje se po KAŽDÉ změně (`srovnejDlazdiciHlasek`), protože obě hlášky uvnitř přicházejí v jinou chvíli |
 | Semafor dlaždic | `web/lib/tile-tone.js` — prahy pro vítr, UV, tlak a soumrak. 🚨 Barva NIKDY nenese údaj sama; „nevíme" a „je klid" se nebarví obojí stejně, nebarví se vůbec |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
@@ -136,6 +137,10 @@ tohle je jen shrnutí.**
 
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
   nasazením přepnout na vlastní doménu a zúžit. **Chce Michalovu ruku v Cloudflare.**
+- ✅ **Nasazeno: `https://meteotrace.com` (Netlify).** Ověřeno naživo včetně ORS klíče
+  a ochrany proti vylezení z cesty. APK pro terén: `npm run android -- --api=https://meteotrace.com`.
+  ⚠️ `ORS_API_KEY` je v Netlify označený jako tajný — díky tomu se k němu nedostane
+  nasazení z cizího forku (repo je VEŘEJNÉ). Zamčené rozsahy a kontexty jsou záměr, ne vada.
 - 🟡 **Ostrá doména v `BuildConfig.API_BASE` — bez ní je APK použitelné jen doma.**
   V terénu appka nastartuje, ukáže podkladovou mapu (ta jde napřímo z R2) a u všeho
   ostatního napíše „Data se nepodařilo načíst" i s tou lokální adresou.
@@ -148,7 +153,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.8.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.8.1**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 

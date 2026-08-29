@@ -200,6 +200,36 @@ export function uvShape() {
 }
 
 /**
+ * Poznámka: lísteček s ohnutým rohem a řádky.
+ *
+ * Michal 29. 8. 2026: *„ty chytré hlášky asi dát do extra dlaždice a nějak
+ * označit piktogramem poznámky."* Hlášky dosud visely pod mřížkou údajů jako
+ * dva kurzívou psané odstavce a splývaly s ní — přitom to není údaj, ale
+ * komentář k němu.
+ *
+ * ⚠️ Ohnutý roh je to, co dělá z obdélníku papír. Bez něj je to jen rámeček
+ * s čárami a v šestnácti pixelech to vypadá jako tabulka.
+ *
+ * ⚠️ Řádky jsou tři a nestejně dlouhé — poslední kratší, jako když text
+ * nedojde na konec. Stejně dlouhé by vypadaly jako linkovaný sešit.
+ *
+ * @returns {{plocha: string, cara: string[]}}
+ */
+export function noteShape() {
+  return {
+    // List s uříznutým rohem vpravo nahoře a přehyb toho rohu.
+    plocha: '',
+    cara: [
+      'M5.5 3h8.2L19 8.3V21H5.5z',
+      'M13.7 3v5.3H19',
+      'M8.4 12.4h7.2',
+      'M8.4 15.4h7.2',
+      'M8.4 18.4h4.3',
+    ],
+  };
+}
+
+/**
  * Šipka trendu Měsíce: dorůstá, nebo couvá.
  *
  * Michal 29. 8. 2026: *„měsíc doplnit o piktogram šipky nahoru při rostoucím

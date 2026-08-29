@@ -1157,6 +1157,30 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
   font-size: 13px; font-style: italic; line-height: 1.45;
   color: var(--text-soft);
 }
+/* První hláška v dlaždici nemá co odsazovat — nad ní je okraj dlaždice. */
+.quips-text .route-quip:first-child { margin-top: 0; }
+
+/* ── Dlaždice hlášek ────────────────────────────────────────────────────
+   Michal 29. 8. 2026: *„ty chytré hlášky asi dát do extra dlaždice a nějak
+   označit piktogramem poznámky."* Dosud visely pod mřížkou údajů jako dva
+   odstavce kurzívou a splývaly s ní — přitom to není údaj, ale komentář
+   k němu, a čte se jinak.
+
+   ⚠️ Tlumené pozadí a **žádný plný rámeček**: kdyby dlaždice křičela jako
+   karta s daty, přetahovala by pozornost od údajů, ke kterým se vyjadřuje.
+   Proužek u levého kraje stačí říct „tohle je jiný druh textu". */
+.quips {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 16px 0 0; padding: 12px 14px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px 12px 12px 4px;
+}
+.quips-text { flex: 1; min-width: 0; }
+
+/* Piktogram poznámky. Drží se vršku, ať u delší hlášky neplave uprostřed. */
+.quips-ico { flex: none; line-height: 0; margin-top: 1px; }
+.quips-ico .sky-icon { width: 18px; height: 18px; opacity: 0.7; }
 
 
 /* ── Uložené věci ve dvou pojmenovaných skupinách ────────────────────────

@@ -254,13 +254,22 @@
       <div id="cell-pressure"><span class="fact-ico" id="ico-pressure" aria-hidden="true"></span><dt data-i18n="now.pressure"></dt><dd id="d-pressure"></dd></div>
     </dl>
 
-    <!-- Hláška k počasí tady a teď. Dovětek pod údaji, nikdy místo nich —
-         a u nebezpečí pojmenuje jev (viz lib/quips.js). -->
-    <p id="now-quip" class="route-quip" hidden></p>
+    <!-- Hlášky ve VLASTNÍ dlaždici s piktogramem poznámky.
+         Michal 29. 8. 2026: dosud visely pod mřížkou údajů jako dva odstavce
+         kurzívou a splývaly s ní — přitom to není údaj, ale komentář k němu.
 
-    <!-- Kde nejblíž prší, nebo kam za sluncem. Dotahuje se až po vykreslení
-         a když se nepovede, prostě tu nic není (viz ukazOkoli v app.js). -->
-    <p id="now-around" class="route-quip" hidden></p>
+         ⚠️ Celá dlaždice se schová, když není co říct. Prázdný rámeček
+         s ikonou by vypadal, že se hláška nepovedla načíst.
+
+         · now-quip   — hláška k počasí tady a teď; u nebezpečí pojmenuje jev
+         · now-around — kde nejblíž prší / kam za sluncem; dotahuje se později -->
+    <div class="quips" id="now-quips" hidden>
+      <span class="quips-ico" id="ico-note-now" aria-hidden="true"></span>
+      <div class="quips-text">
+        <p id="now-quip" class="route-quip" hidden></p>
+        <p id="now-around" class="route-quip" hidden></p>
+      </div>
+    </div>
     <!-- ⚠️ Že je klid, se říct MUSÍ — jen tiše, jedním řádkem, ne kartou.
          Karta výstrah se při klidu schovává celá (Michal 29. 8. 2026), ale
          appka, která o výstrahách MLČÍ, se nedá odlišit od appky, které se
@@ -401,13 +410,18 @@
     <p id="route-arrival" class="route-arrival" hidden></p>
     <p id="route-advice" class="route-advice" hidden></p>
 
-    <!-- Hláška k trase. Dovětek pod údaji, nikdy místo nich — a u nebezpečného
-         počasí se neukáže vůbec (viz lib/quips.js). -->
-    <p id="route-quip" class="route-quip" hidden></p>
+    <!-- Táž dlaždice hlášek jako u místa — na trase je to totéž sdělení
+         a nemá důvod vypadat jinak.
 
-    <!-- Kde nejblíž prší od trasy, nebo kam za sluncem. Dotahuje se až po
-         vykreslení; když se nepovede, prostě tu nic není. -->
-    <p id="route-around" class="route-quip" hidden></p>
+         · route-quip   — hláška k trase; u nebezpečného počasí se neukáže
+         · route-around — kde nejblíž prší od trasy / kam za sluncem -->
+    <div class="quips" id="route-quips" hidden>
+      <span class="quips-ico" id="ico-note-route" aria-hidden="true"></span>
+      <div class="quips-text">
+        <p id="route-quip" class="route-quip" hidden></p>
+        <p id="route-around" class="route-quip" hidden></p>
+      </div>
+    </div>
 
     <!-- Rozpis úseků. Jen u trasy se zastávkami — u cesty z A do B by jen
          zopakoval, co je v souhrnu. -->
