@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.9.0';
+const VERZE = '0.9.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3148,7 +3148,15 @@ function init() {
   if (q.get('units') === 'imperial') state.units = defaultUnits('en-US');
   if (q.get('units') === 'metric') state.units = defaultUnits('cs-CZ');
 
-  if (!state.lang || !LANG_NAMES[state.lang]) state.lang = detectLang(navigator.languages || []);
+  // ⚠️ `languages` I `language`. Množné číslo je seznam podle pořadí
+  // preferencí, jednotné je hlavní volba — a nemusí v tom seznamu být:
+  // některé prohlížeče `languages` nevyplní vůbec. Bez téhle zálohy by
+  // appka spadla na angličtinu i tam, kde prohlížeč češtinu hlásí, jen
+  // jiným polem. A jednotky se o řádek níž řídily `language` už dřív, takže
+  // se to dvojí čtení mohlo i rozejít: mluvit anglicky a měřit metricky.
+  if (!state.lang || !LANG_NAMES[state.lang]) {
+    state.lang = detectLang([...(navigator.languages || []), navigator.language].filter(Boolean));
+  }
   if (!state.units) state.units = defaultUnits(navigator.language || '');
 
   pouzijVzhled();

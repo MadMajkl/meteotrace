@@ -376,3 +376,17 @@ test('🚨 každý jazyk má všechny tvary, které jeho gramatika vyžaduje', (
       problemy.map((p) => `${p.lang}: ${p.path} nemá ${p.missing.join(', ')}`).join(' · '));
   }
 });
+
+test('🚨 odhad jazyka bere i jednotné `navigator.language`', () => {
+  // Některé prohlížeče `navigator.languages` nevyplní. Bez zálohy by appka
+  // spadla na angličtinu i tam, kde prohlížeč češtinu hlásí, jen jiným
+  // polem — a jednotky se přitom `language` řídily už dřív, takže se to
+  // dvojí čtení mohlo rozejít: mluvit anglicky a měřit metricky.
+  assert.equal(detectLang([]), 'en', 'bez ničeho zůstává referenční jazyk');
+  assert.equal(detectLang(['cs-CZ']), 'cs');
+  // Takhle to skládá app.js: seznam a za ním hlavní volba.
+  const jako = (languages, language) => detectLang([...(languages || []), language].filter(Boolean));
+  assert.equal(jako(undefined, 'cs-CZ'), 'cs', 'chybějící seznam nesmí shodit odhad');
+  assert.equal(jako([], 'cs'), 'cs');
+  assert.equal(jako(['de', 'cs'], 'de'), 'cs', 'první ZNÁMÝ jazyk vyhrává');
+});
