@@ -9,6 +9,13 @@
   # Žádný build krok - appka je vanilla JS s ES moduly (R1).
   command = ""
 
+[build.environment]
+  # ⚠️ Verze Node se zapisuje, nenechává na Netlify. Jejich výchozí se čas
+  # od času posune a proxy by se rozešla s tím, na čem je odzkoušená —
+  # a projevilo by se to až chybou ve funkci, tedy „appka nenačte data",
+  # což vypadá jako výpadek cizí služby. `package.json` chce >= 22.
+  NODE_VERSION = "22"
+
 [functions]
   node_bundler = "esbuild"
 
