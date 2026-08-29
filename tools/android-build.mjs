@@ -77,8 +77,43 @@ async function main() {
   const tiles = process.argv.find((a) => a.startsWith('--tiles=')) || '';
   await spust(process.execPath, [join(zde, 'android-sync.mjs'), tiles].filter(Boolean), process.env);
 
+  /**
+   * Kam má appka chodit pro data.
+   *
+   * 🚨 BEZ TOHOHLE PŘEPÍNAČE JE APK POUŽITELNÉ JEN DOMA. Výchozí adresa
+   * míří na vývojový počítač v místní síti (`192.168.1.150:8099`), takže
+   * v terénu appka nastartuje, ukáže podkladovou mapu — ta jde napřímo
+   * z Cloudflare R2 — a u všeho ostatního napíše „Data se nepodařilo
+   * načíst" i s tou lokální adresou. Michal 29. 8. 2026: *„vidím
+   * v chybovce lokální IP."*
+   *
+   *     npm run android -- --api=https://meteotrace.netlify.app
+   *
+   * ⚠️ Adresa se zapéká do balíčku (`BuildConfig.API_BASE`), nedá se změnit
+   * za běhu. Je to schválně: kdyby ji šlo přepsat v nastavení, dal by se
+   * appce podstrčit cizí server — a s ním i cizí předpověď.
+   */
+  const api = (process.argv.find((a) => a.startsWith('--api=')) || '').slice('--api='.length);
+  if (api) {
+    if (!/^https?:\/\//i.test(api)) throw new Error(`--api musí být celá adresa včetně http(s): ${api}`);
+    // ⚠️ Nešifrované spojení projde jen na adresy vyjmenované v
+    // `network_security_config.xml`. Jinak Android dotaz zahodí a v appce
+    // z toho bude „Data se nepodařilo načíst" bez dalšího vysvětlení.
+    if (/^http:\/\//i.test(api)) {
+      console.warn(`⚠️  ${api} je bez šifrování — musí být v network_security_config.xml, jinak to Android zahodí.`);
+    }
+    console.log(`API: ${api}`);
+  } else {
+    console.log('API: (výchozí z build.gradle.kts — POUZE MÍSTNÍ SÍŤ)');
+  }
+
   const env = { ...process.env, JAVA_HOME: jdk, ANDROID_HOME: sdk };
-  await spust('cmd.exe', ['/c', join(ANDROID, 'gradlew.bat'), vydani ? 'assembleRelease' : 'assembleDebug', '--console=plain'], env);
+  await spust('cmd.exe', [
+    '/c', join(ANDROID, 'gradlew.bat'),
+    vydani ? 'assembleRelease' : 'assembleDebug',
+    ...(api ? [`-Pmeteotrace.apiBase=${api}`] : []),
+    '--console=plain',
+  ], env);
 
   const apk = join(ANDROID, 'app', 'build', 'outputs', 'apk', vydani ? 'release' : 'debug',
     vydani ? 'app-release.apk' : 'app-debug.apk');

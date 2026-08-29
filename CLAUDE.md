@@ -136,7 +136,13 @@ tohle je jen shrnutí.**
 
 - 🟡 Podklad jede z vývojové adresy `r2.dev` (rate-limited) a CORS je `*` — před ostrým
   nasazením přepnout na vlastní doménu a zúžit. **Chce Michalovu ruku v Cloudflare.**
-- 🟡 Ostrá doména v `BuildConfig.API_BASE` — vydané APK teď míří na vývojový počítač.
+- 🟡 **Ostrá doména v `BuildConfig.API_BASE` — bez ní je APK použitelné jen doma.**
+  V terénu appka nastartuje, ukáže podkladovou mapu (ta jde napřímo z R2) a u všeho
+  ostatního napíše „Data se nepodařilo načíst" i s tou lokální adresou.
+  Sestavení pro terén: `npm run android -- --api=https://…` (ověřeno, že se adresa
+  zapéká do `classes3.dex`). **Chce Michalovu ruku:** nasadit `netlify/functions/api.js`
+  a nastavit tam `ORS_API_KEY`. Funkce sama je hotová a ověřená lokálním spuštěním.
+  🚨 Veřejná proxy je bez ochrany — kdo zná adresu, čerpá kvótu ORS (2 000/den).
 - ✅ Verze je **jedna** a v `package.json`; `VERZE` ve webu se s ní mění jedním
   příkazem (`npm run verze -- patch|minor|major|X.Y.Z`), Android si ji čte
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
@@ -167,6 +173,7 @@ npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje 
 npm run tiles:upload        # nahraje podklad do Cloudflare R2 (klíče z .env)
 npm run tiles:check <url>   # umí daný hosting sloužit podklad? (Range, CORS, odezva)
 npm run android             # nasype web do obalu a sestaví APK (JDK z Android Studia)
+npm run android -- --api=https://…   # APK pro TERÉN: bez toho míří na místní síť
 npm run dev                 # (v něm i laboratoř ikon: /test/icon-lab.html)
 npm run icons               # ikony z web/icons/icon.svg (jednorázově, kreslí Chrome)
 npm run docx                # dokumentace do Wordu
