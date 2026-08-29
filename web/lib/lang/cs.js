@@ -308,8 +308,8 @@ export default {
 
   warnings: {
     title: 'Výstrahy',
-    none: 'Žádné výstrahy neplatí. Zatím klid.',
-    noneFor: 'Pro {place} žádné výstrahy neplatí.',
+    none: 'Aktuálně nemáme žádné meteo výstrahy.',
+    noneFor: 'Pro {place} aktuálně nemáme žádné meteo výstrahy.',
     // ⚠️ NE „výstrahy se nevydávají" — pro New York se vydávají, jen my
     // sledujeme evropský systém. Tvrdit uživateli klid, o kterém nic nevíme,
     // je horší než přiznat mezeru.

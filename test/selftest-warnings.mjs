@@ -181,11 +181,17 @@ test('výstraha bez jména dostane náhradní nadpis', () => {
 });
 
 test('anglický pohled nevrací české texty', () => {
-  const v = buildWarningsView({
-    payload: { warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true },
-    lang: 'en', nowMs: TEĎ,
-  });
-  assert.ok(/No warnings/i.test(v.zprava), v.zprava);
+  const payload = { warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true };
+  const en = buildWarningsView({ payload, lang: 'en', nowMs: TEĎ });
+  const cs = buildWarningsView({ payload, lang: 'cs', nowMs: TEĎ });
+
+  // ⚠️ Neporovnává se konkrétní věta, ale to, na čem záleží. Test navázaný
+  // na formulaci padá při každé úpravě textu, aniž by se cokoli pokazilo —
+  // a přesně to se stalo 29. 8. 2026 při přepisu na „aktuálně nemáme".
+  assert.notEqual(en.zprava, cs.zprava, 'jazyky se musí lišit');
+  assert.ok(/warning/i.test(en.zprava), en.zprava);
+  assert.ok(!/výstrah/i.test(en.zprava), en.zprava);
+  assert.ok(en.zprava.includes('Litoměřice'), 'jméno místa se nepřekládá');
 });
 
 /* ============================================================

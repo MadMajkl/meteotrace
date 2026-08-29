@@ -242,6 +242,11 @@
     <!-- Kde nejblíž prší, nebo kam za sluncem. Dotahuje se až po vykreslení
          a když se nepovede, prostě tu nic není (viz ukazOkoli v app.js). -->
     <p id="now-around" class="route-quip" hidden></p>
+    <!-- ⚠️ Že je klid, se říct MUSÍ — jen tiše, jedním řádkem, ne kartou.
+         Karta výstrah se při klidu schovává celá (Michal 29. 8. 2026), ale
+         appka, která o výstrahách MLČÍ, se nedá odlišit od appky, které se
+         výstrahy rozbily. Tenhle řádek je ten rozdíl. -->
+    <p class="updated" id="warnings-quiet" hidden></p>
     <p class="updated" id="now-updated"></p>
   </section>
 

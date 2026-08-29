@@ -283,6 +283,53 @@ test('výstrahy: vytáhne se název oblasti i kód ORP', () => {
   assert.deepEqual(first.areas[0].codes, ['1100']);
 });
 
+/* ── totožnost výstrahy (kvůli upozorňování) ───────────────────────────── */
+
+test('🚨 klíč výstrahy se NEMĚNÍ s jazykem appky', () => {
+  // Kdyby v klíči byl přeložený název jevu, přepnutí do angličtiny by ze
+  // všech platných výstrah naráz udělalo „nové" a telefon by zazvonil na
+  // něco, co uživatel dávno zná.
+  const cs = trimWarnings(FEED, 'cs');
+  const en = trimWarnings(FEED, 'en');
+  assert.deepEqual(cs.map((w) => w.id), en.map((w) => w.id));
+  assert.notDeepEqual(cs.map((w) => w.event), en.map((w) => w.event),
+    'texty se lišit MUSÍ — jinak by test neověřoval nic');
+});
+
+test('klíč rozliší jiný jev, jiný čas i jiné území', () => {
+  const zaklad = (zmena) => trimWarnings({
+    warnings: [{ alert: { info: [{
+      language: 'en-GB', event: 'Severe thunderstorms', severity: 'Severe',
+      onset: '2026-08-21T10:00:00Z', expires: '2026-08-21T20:00:00Z',
+      area: [{ areaDesc: 'Vysočina', geocode: [{ value: '6100' }] }],
+      ...zmena,
+    }] } }],
+  }, 'en')[0].id;
+
+  const puvodni = zaklad({});
+  assert.notEqual(zaklad({ event: 'High temperatures' }), puvodni, 'jiný jev');
+  assert.notEqual(zaklad({ severity: 'Extreme' }), puvodni, 'jiná závažnost');
+  assert.notEqual(zaklad({ onset: '2026-08-22T10:00:00Z' }), puvodni, 'jiný začátek');
+  assert.notEqual(zaklad({ expires: '2026-08-22T20:00:00Z' }), puvodni, 'jiný konec');
+  assert.notEqual(
+    zaklad({ area: [{ areaDesc: 'Vysočina', geocode: [{ value: '6200' }] }] }),
+    puvodni, 'jiné území',
+  );
+});
+
+test('🚨 klíč nekolísá s pořadím kódů území', () => {
+  // Feed pořadí nezaručuje. Kdyby na něm klíč závisel, tatáž výstraha by
+  // se při každém stažení tvářila jako nová a upozorňovalo by se pořád.
+  const sKody = (kody) => trimWarnings({
+    warnings: [{ alert: { info: [{
+      language: 'en-GB', event: 'Wind', severity: 'Moderate',
+      area: [{ areaDesc: 'X', geocode: kody.map((v) => ({ value: v })) }],
+    }] } }],
+  }, 'en')[0].id;
+
+  assert.equal(sKody(['6100', '1100', '3200']), sKody(['3200', '6100', '1100']));
+});
+
 test('výstrahy: ořez odpověď výrazně zmenší', () => {
   const before = JSON.stringify(FEED).length;
   const after = JSON.stringify(trimWarnings(FEED, 'cs')).length;

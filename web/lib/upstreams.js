@@ -444,7 +444,7 @@ export function ttlFor(service) {
  *
  * @param {object} feed  rozparsovaná odpověď MeteoAlarmu
  * @param {string} lang  'cs' | 'en' …
- * @returns {Array<{event: string, severity: string, onset: string|null,
+ * @returns {Array<{id: string, event: string, severity: string, onset: string|null,
  *                  expires: string|null, areas: Array<{name: string, codes: string[]}>}>}
  */
 export function trimWarnings(feed, lang = 'cs') {
@@ -457,6 +457,7 @@ export function trimWarnings(feed, lang = 'cs') {
     if (isNonWarning(info.event)) continue;
 
     out.push({
+      id: warningId(infos),
       event: info.event,
       severity: info.severity || 'Unknown',
       onset: info.onset || null,
@@ -468,6 +469,46 @@ export function trimWarnings(feed, lang = 'cs') {
     });
   }
   return out;
+}
+
+/**
+ * Stabilní totožnost výstrahy — aby se o téže věci neupozorňovalo pořád dokola.
+ *
+ * 🚨 SKLÁDÁ SE JEN Z JAZYKOVĚ NEZÁVISLÝCH ČÁSTÍ. Kdyby v klíči byl přeložený
+ * název jevu, přepnutí appky do angličtiny by ze všech platných výstrah
+ * naráz udělalo „nové" a telefon by zazvonil na něco, co uživatel dávno zná.
+ * Anglická verze se proto bere z feedu vždycky (je dvojjazyčný), bez ohledu
+ * na to, v jakém jazyce appka zrovna mluví.
+ *
+ * ⚠️ Samotný název jevu nestačí ani jazykově: `severity` a časy rozlišují
+ * dnešní bouřku od zítřejší. A `codes` proto, že tentýž jev na jiném území
+ * je jiná výstraha.
+ *
+ * 🚨 CELÝ KLÍČ SE BERE Z JEDNÉ A TÉŽE JAZYKOVÉ VERZE, ne po kouskách.
+ * Napoprvé jsem vzal název z anglické a časy s územím z té, kterou appka
+ * zrovna chtěla — a chytil to vlastní test: **MeteoAlarm dává každé jazykové
+ * verzi vlastní `area` i časy** a nezaručuje, že se shodují. Klíč pak kolísal
+ * podle jazyka přesně tak, jak se to nemělo stát.
+ *
+ * ⚠️ Nepoužívá se CAP `identifier`. Ten se mění při KAŽDÉM vydání, i když se
+ * obsah nezměnil — telefon by pak zvonil při každé aktualizaci téže výstrahy.
+ * Klíč z obsahu naopak mlčí, dokud se obsah opravdu nezmění.
+ */
+function warningId(infos) {
+  // Referenční verze: anglická, a když ta chybí, první v pořadí. Nezávisí
+  // na tom, jaký jazyk si appka vyžádala — o to tu celou dobu jde.
+  const ref = infos.find((i) => (i.language || '').toLowerCase().startsWith('en')) || infos[0] || {};
+  const kody = (ref.area || [])
+    .flatMap((a) => (a.geocode || []).map((g) => g.value))
+    .sort()
+    .join(',');
+  return [
+    (ref.event || '').trim().toLowerCase(),
+    ref.severity || 'Unknown',
+    ref.onset || '',
+    ref.expires || '',
+    kody,
+  ].join('|');
 }
 
 /**

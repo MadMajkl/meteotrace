@@ -51,7 +51,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.5.1';
+const VERZE = '0.5.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1291,7 +1291,22 @@ async function loadStation() {
 function renderWarnings(payload) {
   const view = buildWarningsView({ payload, lang: state.lang, nowMs: Date.now() });
 
-  $('warnings-card').hidden = false;
+  // 🚨 Karta zmizí, JEN KDYŽ VÍME, ŽE NIC NEHROZÍ. Michal 29. 8. 2026:
+  // *„když nejsou výstrahy… dlaždici zcela schovat!"* — a má pravdu, devět
+  // dní z deseti je to prázdná dlaždice za devadesát pixelů.
+  //
+  // ⚠️ Nesmí zmizet, když se výstrahy NEPODAŘILO NAČÍST (`nedostupne`) ani
+  // když tuhle oblast nesledujeme (`mimo`). Po schování vypadají oba stavy
+  // úplně stejně jako klid — appka by mlčky tvrdila „nic nehrozí" o něčem,
+  // o čem nic neví. A právě u výstrah je to ten nejdražší možný omyl.
+  const klid = view.stav === 'zadne';
+  $('warnings-card').hidden = klid;
+
+  // ⚠️ Že je klid, se říct MUSÍ — jen tiše, jedním řádkem u „aktualizováno".
+  // Sledovaný klid se jinak nedá odlišit od appky, které se výstrahy rozbily.
+  const tise = $('warnings-quiet');
+  tise.textContent = klid ? view.zprava : '';
+  tise.hidden = !klid;
 
   const note = $('warnings-note');
   note.textContent = view.zprava;
