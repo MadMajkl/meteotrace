@@ -107,6 +107,7 @@ tohle je jen shrnutí.**
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
+| Hledání místa | patří METEOSTANICI: na trase se schová (`prepniObrazovku`), aby nad poli Odkud a Kam nestála volba, která se trasy netýká |
 | Sbalitelná hlavička | hledání, záložky a uložené věci sedí v `#top-menu` a rozbaluje je klepnutí na značku (`nabidka()`); sbalí se sama, jakmile je co ukazovat. 🚨 Sbalený řádek nese **jméno záložky a k němu to konkrétní** („Místo · Praha"), protože záložky jsou schované |
 | Potažení dolů = načíst znovu | logika v `web/lib/pull-refresh.js` (čistá, se samotestem), dotyk v `app.js` (`zapojPotazeni`). Obnovuje i osu radaru (`refreshRadar()` v `map.js`) |
 | Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
@@ -135,7 +136,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.5.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.5.1**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -154,7 +155,7 @@ Běží na výchozím portu **8099** (`package.json`).
 ```bash
 npm run selftest            # čistá logika: bez prohlížeče, bez sítě, ~1 s
 npm run dev                 # appka + testy + proxy na jednom portu (8099)
-npm run selftest:layout     # rozvržení na 5 šířkách displeje (server musí běžet)
+npm run selftest:layout     # rozvržení na 5 šířkách × obě obrazovky: přetečení i překryv (server musí běžet)
 npm run orp                 # znovu stáhne hranice ORP z ČÚZK (ruční krok, ne za běhu)
 npm run tiles               # vyrobí vlastní podklad mapy (1,4 GB, potřebuje tools/bin/pmtiles.exe)
 npm run tiles:upload        # nahraje podklad do Cloudflare R2 (klíče z .env)
@@ -229,6 +230,13 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   Napevno zapsané číslo sedí vždycky nanejvýš v jednom stavu — pruh potažení se
   kvůli tomu schoval za hlavičku a vykukovalo z něj 7 px. Logika přitom byla
   v pořádku a samotest zelený; vidět z toho nebylo nic.
+- **🚨 Přetečení z okna je jen POLOVINA vad rozvržení.** Ta druhá je překryv:
+  pruh způsobů dopravy se nezalomil, ale smrskl (`flex: 1` = `1 1 0%` položku
+  zmenší místo zalomení), a „Vzdušnou čarou" vylezlo POD tlačítko vedle. Z okna
+  nepřeteklo nic, test hlásil ✓ — a volba nešla přečíst ani trefit. `layout.html`
+  teď měří obojí, a **na obou obrazovkách**; do 29. 8. 2026 znal jen meteostanici.
+  ⚠️ Překryv se hledá mezi OVLÁDACÍMI PRVKY, ne mezi dětmi pruhu: obálka má šířku
+  od flexboxu a její obsah leze ven mimo ni, takže se sama s ničím nepřekryje.
 - **⚠️ Kdo sbalí hlavičku, musí ji rozbalit v layoutovém testu.** Nejširší obsah
   appky je řádek uložených míst a tras — a ten je teď schovaný. `test/layout.html`
   ho proto před měřením rozbalí (`rozbalNabidku`), jinak by test mlčky přestal

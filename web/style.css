@@ -804,10 +804,18 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .results.inline { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 4px; }
 
 .route-controls { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
-.modes { display: flex; gap: 6px; flex: 1; min-width: 0; }
+
+/* 🚨 ZPŮSOBY SE ZALAMUJÍ, NESMRSKÁVAJÍ. Čtyři volby potřebují 313 px, ale
+   vedle tlačítka „Ukázat počasí" jich na telefonu zbývá ~200 — a protože
+   `flex: 1` (tedy `1 1 0%`) položku zmenší místo zalomení, vylezla poslední
+   („Vzdušnou čarou") POD sousední tlačítko. Nebylo ji vidět ani trefit.
+
+   ⚠️ Layoutový test to nechytil a chytit nemohl: nic nepřeteklo z okna,
+   volba se jen schovala za souseda uvnitř karty. Našlo se to až na snímku. */
+.modes { display: flex; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap; }
 
 .mode {
-  flex: 1;
+  flex: 1 1 auto;
   padding: 8px 10px;
   font: inherit; font-size: 13px;
   color: var(--text-soft); background: var(--surface);

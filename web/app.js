@@ -51,7 +51,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.5.0';
+const VERZE = '0.5.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2009,6 +2009,17 @@ function prepniObrazovku(kam) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
   presunMapu();
+
+  // 🚨 HLEDÁNÍ JEDNOHO MÍSTA PATŘÍ METEOSTANICI, NE TRASE. Na trase stálo
+  // „Najít místo…" přímo nad poli Odkud a Kam — tři vstupní pole na jedné
+  // obrazovce, a to horní nedělalo nic, co by se trasy týkalo. Michal
+  // 29. 8. 2026: *„nemůže přece nahoře zůstávat tupá volba místa; tam má být
+  // právě už switch na volbu trasy."* Když zmizí, sedí volba trasy hned pod
+  // záložkami — tam, kde ji člověk hledá.
+  const naTrase = kam === 'route';
+  $('search-form').hidden = naTrase;
+  if (naTrase) hideResults();   // rozepsaný seznam by zůstal viset bez pole
+
   // Přepnutí záložky je cesta k obsahu — takže nabídka ustoupí, je-li co
   // ukazovat. Na prázdné obrazovce zůstane, jinak by nebylo čím začít.
   sbalNabidkuKObsahu();

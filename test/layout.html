@@ -23,7 +23,8 @@
   <h1>Kontrola rozvržení na úzkých displejích</h1>
   <div class="muted">
     Appka běží v rámech o skutečné šířce displeje, takže se měří opravdový viewport —
-    ne okno headless prohlížeče. Hlídá se, že <b>nic nepřetéká vodorovně</b>.
+    ne okno headless prohlížeče. Hlídá se, že <b>nic nepřetéká vodorovně</b> a že se
+    <b>ovládací prvky nepřekrývají</b> — a to na obou obrazovkách, na místě i na trase.
   </div>
 </header>
 
@@ -143,6 +144,44 @@ function nasypPyl(doc) {
 }
 
 /**
+ * 🚨 PŘEKRÝVÁ SE NĚCO S NĚČÍM? Přetečení z okna je jen jedna polovina.
+ *
+ * Ta druhá stála 29. 8. 2026 volbu „Vzdušnou čarou": pruh způsobů dopravy
+ * se nezalomil, ale smrskl, a poslední tlačítko vylezlo POD sousední
+ * „Ukázat počasí". Z okna nepřeteklo nic, takže test hlásil ✓ — a volba
+ * přitom nešla přečíst ani trefit. Našlo se to až na snímku obrazovky.
+ *
+ * Měří se jen dvojice, které mají stát VEDLE SEBE v jednom pruhu; překryv
+ * karty s nadpisem uvnitř ní je v pořádku a hledat se nemá.
+ *
+ * 🚨 A porovnávají se OVLÁDACÍ PRVKY, ne přímí sourozenci. Napoprvé jsem
+ * srovnával děti pruhu — jenže `.modes` má šířku, kterou mu přidělil
+ * flexbox, a jeho obsah leze ven mimo ni. Obálka se s tlačítkem vedle sebe
+ * nepřekrývala, ačkoli tlačítka uvnitř ano, a kontrola tu vadu propásla
+ * všude kromě nejužšího displeje. Nástroj, který měří něco jiného, než si
+ * myslí, je horší než žádný.
+ */
+function prekryvy(doc) {
+  const nalezy = [];
+  for (const pruh of doc.querySelectorAll('.route-controls, .tabs, .brand, .search')) {
+    const deti = [...pruh.querySelectorAll('button, input, select, a')]
+      .filter((el) => el.getBoundingClientRect().width > 0);
+    for (let i = 0; i < deti.length; i++) {
+      for (let j = i + 1; j < deti.length; j++) {
+        const a = deti[i].getBoundingClientRect();
+        const b = deti[j].getBoundingClientRect();
+        const vodorovne = a.right > b.left + 1 && b.right > a.left + 1;
+        const svisle = a.bottom > b.top + 1 && b.bottom > a.top + 1;
+        if (vodorovne && svisle) {
+          nalezy.push(`${deti[i].id || deti[i].className} × ${deti[j].id || deti[j].className}`);
+        }
+      }
+    }
+  }
+  return [...new Set(nalezy)];
+}
+
+/**
  * Rozbalí nabídku v hlavičce.
  *
  * 🚨 Od 29. 8. 2026 se hlavička po vybrání místa SBALÍ — a rám má místo
@@ -202,19 +241,35 @@ async function run() {
   const results = [];
   for (const { w, f } of frames) {
     const cell = document.getElementById('v-' + w);
-    let o;
-    try { o = overflow(f.contentDocument); }
-    catch (e) { cell.textContent = 'nešlo změřit: ' + e.message; cell.className = 'verdict bad'; failed++; results.push({ width: w, ok: false, detail: 'nešlo změřit: ' + e.message }); continue; }
+    const doc = f.contentDocument;
+    const vady = [];
 
-    if (!o) {
+    try {
+      // 1) Meteostanice — obrazovka, na které je nejvíc obsahu.
+      const o = overflow(doc);
+      if (o) vady.push(`Místo: přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})`);
+      for (const p of prekryvy(doc)) vady.push(`Místo: překryv ${p}`);
+
+      // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
+      //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.
+      doc.getElementById('tab-route').click();
+      rozbalNabidku(doc);
+      const o2 = overflow(doc);
+      if (o2) vady.push(`Trasa: přetéká o ${o2.total - o2.limit} px (${o2.culprit} sahá na ${o2.right})`);
+      for (const p of prekryvy(doc)) vady.push(`Trasa: překryv ${p}`);
+    } catch (e) {
+      vady.push('nešlo změřit: ' + e.message);
+    }
+
+    if (!vady.length) {
       cell.textContent = '✓ vejde se';
       cell.className = 'verdict ok';
       results.push({ width: w, ok: true });
     } else {
-      cell.textContent = `✕ přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})`;
+      cell.textContent = '✕ ' + vady.join(' · ');
       cell.className = 'verdict bad';
       failed++;
-      results.push({ width: w, ok: false, detail: `přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})` });
+      results.push({ width: w, ok: false, detail: vady.join(' · ') });
     }
   }
 
@@ -227,8 +282,8 @@ async function run() {
 
   const s = document.getElementById('summary');
   s.textContent = failed
-    ? `✕ ${failed} z ${WIDTHS.length} šířek přetéká.`
-    : `✓ Všech ${WIDTHS.length} šířek se vejde bez vodorovného rolování.`;
+    ? `✕ ${failed} z ${WIDTHS.length} šířek má vadu rozvržení.`
+    : `✓ Všech ${WIDTHS.length} šířek se vejde a nic se nepřekrývá.`;
   s.className = failed ? 'bad' : 'ok';
   document.title = (failed ? 'FAIL' : 'OK') + ' — kontrola rozvržení';
 }

@@ -39,8 +39,8 @@ try {
 
   const bad = result.cases.filter((r) => !r.ok).length;
   console.log(bad
-    ? `\n✕ ${bad} z ${result.cases.length} šířek přetéká.`
-    : `\n✓ Všech ${result.cases.length} šířek se vejde bez vodorovného rolování.`);
+    ? `\n✕ ${bad} z ${result.cases.length} šířek má vadu rozvržení.`
+    : `\n✓ Všech ${result.cases.length} šířek se vejde a nic se nepřekrývá.`);
 
   process.exit(bad ? 1 : 0);
 } catch (e) {
