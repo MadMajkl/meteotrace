@@ -230,22 +230,28 @@
 
     <!-- Piktogramy jsou v rohu buňky a jsou JEN DOPLNĚK: popis i hodnota
          stojí vedle nich. Kdo tvar nepozná, nesmí o údaj přijít. -->
+    <!-- ⚠️ `data-ton` na buňce řídí podbarvení (vítr, UV, tlak, soumrak).
+         Barva je JEN zvýrazňovač: popis i hodnota stojí vedle ní, takže
+         kdo odstíny nerozliší, nepřijde o nic. Prahy jsou v `tile-tone.js`. -->
     <dl class="details">
-      <div><span class="fact-ico" id="ico-wind" aria-hidden="true"></span><dt data-i18n="now.wind"></dt><dd id="d-wind"></dd></div>
+      <div id="cell-wind"><span class="fact-ico" id="ico-wind" aria-hidden="true"></span><dt data-i18n="now.wind"></dt><dd id="d-wind"></dd></div>
       <div><dt data-i18n="now.gusts"></dt><dd id="d-gusts"></dd></div>
       <div><dt data-i18n="now.humidity"></dt><dd id="d-humidity"></dd></div>
       <div><dt data-i18n="now.precipitation"></dt><dd id="d-precip"></dd></div>
       <div><dt data-i18n="now.cloudCover"></dt><dd id="d-cloud"></dd></div>
-      <div><dt data-i18n="now.uvIndex"></dt><dd id="d-uv"></dd></div>
-      <div><span class="fact-ico" id="ico-sunrise" aria-hidden="true"></span><dt data-i18n="now.sunrise"></dt><dd id="d-sunrise"></dd></div>
-      <div><span class="fact-ico" id="ico-sunset" aria-hidden="true"></span><dt data-i18n="now.sunset"></dt><dd id="d-sunset"></dd></div>
+      <!-- UV: slunce a pod ním člověk. Piktogram je tu větší než jinde —
+           nese vlastní sdělení („tohle jde po tvém zdraví"), ne jen značku
+           u popisku. -->
+      <div id="cell-uv"><span class="fact-ico fact-ico-velka" id="ico-uv" aria-hidden="true"></span><dt data-i18n="now.uvIndex"></dt><dd id="d-uv"></dd></div>
+      <div id="cell-sunrise"><span class="fact-ico" id="ico-sunrise" aria-hidden="true"></span><dt data-i18n="now.sunrise"></dt><dd id="d-sunrise"></dd></div>
+      <div id="cell-sunset"><span class="fact-ico" id="ico-sunset" aria-hidden="true"></span><dt data-i18n="now.sunset"></dt><dd id="d-sunset"></dd></div>
       <!-- Fáze Měsíce. Do mřížky se vejde jako třetí do řady k východu
            a západu Slunce — a je to jediný údaj, který se nestahuje. -->
       <div><dt data-i18n="now.moon"></dt><dd id="d-moon"></dd></div>
       <!-- Tlak zavírá mřížku. Vypisuje se přepočtený na hladinu moře
            (letecky QNH) — jen ten se dá srovnávat mezi místy — a pod ním
            menším písmem ten skutečný, který je tady. -->
-      <div><span class="fact-ico" id="ico-pressure" aria-hidden="true"></span><dt data-i18n="now.pressure"></dt><dd id="d-pressure"></dd></div>
+      <div id="cell-pressure"><span class="fact-ico" id="ico-pressure" aria-hidden="true"></span><dt data-i18n="now.pressure"></dt><dd id="d-pressure"></dd></div>
     </dl>
 
     <!-- Hláška k počasí tady a teď. Dovětek pod údaji, nikdy místo nich —

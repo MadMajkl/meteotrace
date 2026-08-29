@@ -190,6 +190,9 @@ export function buildStationView(a) {
       precip: formatPrecip(pick(cur.precipitation, H.precipitation?.[iNow]), units, lang),
       cloudCover: pct(pick(cur.cloud_cover, H.cloud_cover?.[iNow]), lang),
       uvIndex: numOrDash(H.uv_index?.[iNow], lang),
+      // ⚠️ A taky číslo, ne jen text. Podle něj se dlaždice podbarvuje —
+      // z „4,1" se rozhodovat nedá a v angličtině je to navíc „4.1".
+      uvIndexNum: Number.isFinite(H.uv_index?.[iNow]) ? H.uv_index[iNow] : null,
       // Tlak přepočtený na hladinu moře (letecky QNH). Jen tenhle se dá
       // srovnávat mezi místy — údaj naměřený ve 400 m n. m. je vždycky
       // nižší, aniž by to o počasí něco říkalo.
@@ -233,6 +236,10 @@ export function buildStationView(a) {
         // v novu — proto se sem předává obojí pojmenovaně.
         osvetleni: f.osvetleni,
         dorusta: f.podil < 0.5,
+        // ⚠️ Poloha v cyklu se posílá i syrová: podle ní se kreslí šipka
+        // „dorůstá / couvá", která u úplňku a novu ZÁMĚRNĚ chybí. Ze
+        // samotného `dorusta` by to nešlo — je to `true` i v novu.
+        podil: f.podil,
         // Osvětlení se zaokrouhluje na celá procenta — desetiny by
         // předstíraly přesnost, kterou střední synodický měsíc nemá.
         lit: pct(Math.round(f.osvetleni * 100), lang),
@@ -307,6 +314,12 @@ export function buildStationView(a) {
     sun: {
       sunrise: formatClock(sunrise[0], tz, lang),
       sunset: formatClock(sunset[0], tz, lang),
+      // ⚠️ A taky jako OKAMŽIKY, ne jen jako text. Podle nich se dlaždice
+      // rozhoří, když východ nebo západ zrovna probíhá (`soumrakPodil`).
+      // Z „06:12" se počítat nedá a odečítat místní časy se nesmí:
+      // poslední březnová neděle má 23 hodin. Epoch ms, jako v `eta.js`.
+      sunriseMs: sunrise[0] ?? null,
+      sunsetMs: sunset[0] ?? null,
     },
 
     hourly: hourMs.slice(iNow, iNow + hours).map((ms, k) => {

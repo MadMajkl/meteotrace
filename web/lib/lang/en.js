@@ -284,6 +284,8 @@ export default {
     themeAuto: 'Match my device',
     themeLight: 'Light',
     themeDark: 'Dark',
+    themePink: 'Pink',
+    themePinkDark: 'Pink, dark',
     units: 'Units',
     unitsNote: 'Units are yours to pick — an American who speaks Czech exists.',
     temperature: 'Temperature',

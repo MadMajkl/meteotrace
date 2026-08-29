@@ -115,12 +115,13 @@ tohle je jen shrnutí.**
 | Upozornění na výstrahy (R17) | hlídá androidí obal (`Vystrahy.kt`, WorkManager, 15 min), web jen když běží. Rozhodování: server + `lib/severity.js` + `lib/warn-notify.js`; **obal jen porovnává řetězce**. Práh jde serveru jako `minSeverity`. Výchozí VYPNUTO, práh `Moderate` |
 | Most do obalu | `MostDoWebu.kt` / `window.MeteoTraceObal`. ⚠️ Zůstane úzký — je to jediné okno z webu do telefonu |
 | Potažení dolů = načíst znovu | logika v `web/lib/pull-refresh.js` (čistá, se samotestem), dotyk v `app.js` (`zapojPotazeni`). Obnovuje i osu radaru (`refreshRadar()` v `map.js`) |
-| Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
+| Vzhled | světlý / tmavý / **růžový** / **tmavě růžový** / podle zařízení (⚙); jedna značka `data-theme` na kořeni, seznam je `MOTIVY` v app.js. 🚨 `color-scheme` zná JEN light/dark — jméno motivu se tam poslat nesmí; a mapa pozná tmu podle toho, jestli jméno obsahuje `dark` |
+| Semafor dlaždic | `web/lib/tile-tone.js` — prahy pro vítr, UV, tlak a soumrak. 🚨 Barva NIKDY nenese údaj sama; „nevíme" a „je klid" se nebarví obojí stejně, nebarví se vůbec |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**644 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
+**668 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
 
 ### 🔑 Klíče
 
@@ -141,7 +142,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.7.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.8.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 

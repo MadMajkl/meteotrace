@@ -56,6 +56,56 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
 }
 
+/* ── Růžové motivy ──────────────────────────────────────────────────────
+   Michal 29. 8. 2026: *„udělej i růžový a tmavě růžový motiv pro dámy."*
+
+   ⚠️ Není to přebarvený modrý motiv. Kontrast se musí hlídat znovu:
+   růžová má při stejné světlosti nižší kontrast proti bílé než modrá,
+   takže text i tlumené popisky jsou tu ZÁMĚRNĚ tmavší, než by vyšlo
+   prostým posunem odstínu. Údaj, který se špatně čte, je horší než údaj
+   v nudné barvě.
+
+   ⚠️ Semaforové tóny (`--ton-*`) se NEPŘEBARVUJÍ. Zelená pořád znamená
+   klid a červená nebezpečí — kdyby se přizpůsobily motivu, přestal by
+   semafor fungovat právě tam, kde na něm nejvíc záleží. */
+:root[data-theme="pink"] {
+  --bg: #fdf4f8;
+  --bg-grad: linear-gradient(180deg, #fbe8f1 0%, #fdf4f8 42%);
+  --surface: #ffffff;
+  --surface-2: #fbeef4;
+  --line: #f2d9e5;
+  --text: #2b1622;
+  --text-soft: #86697a;
+  --accent: #c2185b;
+  --accent-soft: #fce4ec;
+  --warn-bg: #fff5e2;
+  --warn-line: #e6b45c;
+  --warn-text: #7a4f0d;
+  --shadow: 0 1px 2px rgba(80, 20, 50, .06), 0 6px 20px rgba(80, 20, 50, .08);
+}
+
+:root[data-theme="pink-dark"] {
+  /* ⚠️ Sytější, než by stačilo. Při #1a1016 byl motiv od obyčejného tmavého
+     k nerozeznání a vypadal by jako by se přepnutí nepovedlo — volba, kterou
+     není poznat, je totéž jako volba, která nefunguje. */
+  --bg: #1f1119;
+  --bg-grad: linear-gradient(180deg, #331a29 0%, #1f1119 42%);
+  --surface: #2b1926;
+  --surface-2: #372030;
+  --line: #4a2c3f;
+  --text: #f6e9f0;
+  --text-soft: #bb96ab;
+  --accent: #ff8ab8;
+  --accent-soft: #3a1f2e;
+  --warn-bg: #33251a;
+  --warn-line: #8a6a2a;
+  --warn-text: #f0d9a8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 20px rgba(0, 0, 0, .4);
+  /* Na tmavém pozadí musí být podbarvení sytější, aby vůbec bylo vidět —
+     tatáž úvaha jako u tmavého motivu. */
+  --ton-sila: 0.16;
+}
+
 
 * { box-sizing: border-box; }
 
@@ -343,6 +393,71 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 }
 .details .fact-ico { position: absolute; top: 8px; right: 10px; line-height: 0; }
 
+/* UV nese vlastní sdělení („tohle jde po tvém zdraví"), ne jen značku
+   u popisku — proto větší a sytější než ostatní piktogramy. */
+.fact-ico-velka .sky-icon { width: 30px; height: 30px; opacity: 0.75; }
+
+/* ── Semafor dlaždic ────────────────────────────────────────────────────
+   🚨 BARVA NIKDY NENESE ÚDAJ SAMA. Vedle každé podbarvené buňky stojí
+   popis i hodnota („Vítr / 82 km/h"), takže kdo odstíny nerozliší —
+   a barvoslepost má každý dvanáctý muž — nepřijde o nic. Barva je
+   zvýrazňovač, ne sdělení.
+
+   Prahy, kdy se který stupeň nasadí, jsou v `lib/tile-tone.js` a mají
+   samotest: barva, která svítí pořád, přestane cokoli znamenat.
+
+   ⚠️ Podbarvení je ZÁMĚRNĚ slabé (8–16 %). Sytá plocha by přebila text,
+   který na ní stojí, a dlaždice by se hůř četla právě tehdy, kdy na ní
+   nejvíc záleží. */
+:root {
+  --ton-klid: 140 62% 42%;
+  --ton-mirne: 82 60% 42%;
+  --ton-pozor: 38 92% 50%;
+  --ton-zle: 18 88% 52%;
+  --ton-krize: 356 78% 52%;
+  --ton-sila: 0.10;                 /* jak sytě se podbarvuje */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ton-sila: 0.16; }
+}
+:root[data-theme="dark"] { --ton-sila: 0.16; }
+
+.details > div[data-ton="mirne"] { background: color-mix(in srgb, hsl(var(--ton-mirne)) calc(var(--ton-sila) * 100%), var(--surface)); }
+.details > div[data-ton="pozor"] { background: color-mix(in srgb, hsl(var(--ton-pozor)) calc(var(--ton-sila) * 100%), var(--surface)); }
+.details > div[data-ton="zle"]   { background: color-mix(in srgb, hsl(var(--ton-zle))   calc(var(--ton-sila) * 130%), var(--surface)); }
+.details > div[data-ton="krize"] { background: color-mix(in srgb, hsl(var(--ton-krize)) calc(var(--ton-sila) * 160%), var(--surface)); }
+
+/* Soumrak a svítání se nebarví stupni, ale plynule — sílu dodává JS
+   proměnnou `--zar` (0–1), protože „jak moc zrovna zapadá" je spojitá
+   věc, ne pět přihrádek. */
+.details > div[data-soumrak] {
+  background: color-mix(in srgb, hsl(var(--soumrak-barva)) calc(var(--zar, 0) * 22%), var(--surface));
+}
+.details > div[data-soumrak="vychod"] { --soumrak-barva: 42 95% 55%; }
+.details > div[data-soumrak="zapad"]  { --soumrak-barva: 14 90% 52%; }
+
+/* Ikony východu a západu mají vlastní teplou barvu i mimo soumrak.
+   ⚠️ Rozdíl mezi nimi ale pořád nese ŠIPKA, ne barva — kdo barvy
+   nerozliší, musí východ od západu poznat dál (poučení z 28. 8. 2026). */
+#ico-sunrise .sky-icon { color: hsl(42 92% 52%); opacity: 0.9; }
+#ico-sunset .sky-icon { color: hsl(14 88% 55%); opacity: 0.9; }
+
+/* Střelka větru se barví podle síly — barvu dosazuje JS podle `windTon()`.
+   ⚠️ Větší než ostatní značky: nese barvu, a ta se na dvaceti pixelech
+   špatně rozeznává. Údaj sám o sobě si zaslouží víc místa než popisek. */
+#ico-wind .sky-icon {
+  width: 26px; height: 26px;
+  color: var(--vitr-barva, var(--accent));
+  opacity: 0.95;
+}
+
+/* Silueta v UV zčervená se zátěží. Slunce nad ní zůstává sluncem. */
+#ico-uv .sky-icon { color: var(--uv-barva, var(--accent)); }
+
+/* Šipka „dorůstá / couvá" vedle kotouče Měsíce. Menší než kotouč: je to
+   dovětek k údaji, ne údaj sám. */
+.moon-trend { width: 14px; height: 14px; vertical-align: -2px; color: var(--text-soft); }
+
 /* Měsíc stojí přímo v hodnotě, tak je o kousek větší a plně sytý —
    je to údaj sám o sobě, ne značka u popisu. */
 .moon-icon { width: 22px; height: 22px; vertical-align: -5px; color: var(--text); }
@@ -356,6 +471,11 @@ main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 
 .now-elev {
   display: flex; align-items: center; gap: 5px;
+  /* ⚠️ Odstup od ikony počasí nad ní. Při 2px mezeře se výška o ikonu
+     opírala a vypadala jako její součást — Michal 29. 8. 2026: „je to moc
+     nalepené". Kotouč slunce má měkký okraj, takže potřebuje víc místa,
+     než se od oka zdá. */
+  margin-top: 10px;
   font-size: 12px; color: var(--text-soft);
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }

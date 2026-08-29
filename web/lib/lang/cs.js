@@ -313,6 +313,8 @@ export default {
     themeAuto: 'Podle zařízení',
     themeLight: 'Světlý',
     themeDark: 'Tmavý',
+    themePink: 'Růžový',
+    themePinkDark: 'Tmavě růžový',
     units: 'Jednotky',
     unitsNote: 'Jednotky si volíš zvlášť — Američan mluvící česky existuje.',
     temperature: 'Teplota',

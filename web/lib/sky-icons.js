@@ -155,8 +155,81 @@ export function windRoseShape() {
     // Prstenec a čtyři světové strany — pevná část.
     kruh: [12, 12, 8.6],
     cara: ['M12 1.6v2', 'M22.4 12h-2', 'M12 22.4v-2', 'M1.6 12h2'],
-    // Otáčivá část: plná špička (odkud) a prázdný ocas (kam).
-    plocha: 'M12 4.2 15 12h-6z',
-    ocas: 'M12 19.8 9 12h6z',
+    // 🚨 JEDEN HROT PŘES CELÝ KRUH, žádný ocas. Michal 29. 8. 2026:
+    // *„šipka tvar jen hrot a musí vyplňovat celý kruh a celá se natáčet."*
+    //
+    // Původní verze měla malou špičku a proti ní prázdný ocas — dvě drobné
+    // věci, ze kterých v šestnácti pixelech nebylo poznat, která je která.
+    // Jeden velký plný hrot je čitelný i po očku a jeho směr nejde splést.
+    //
+    // ⚠️ Prstenec se pořád NEOTÁČÍ. Sever musí zůstat nahoře, jinak by
+    // z růžice byla jen šipka v kroužku (viz `app.js`, `otoceni`).
+    plocha: 'M12 3.4 17.2 19.4 12 15.6 6.8 19.4z',
+  };
+}
+
+/**
+ * UV index: slunce a pod ním člověk.
+ *
+ * Michal 29. 8. 2026: *„UV index musí mít piktogram slunce a v dlaždici musí
+ * být silueta horní poloviny lidského těla (jakože UV index ovlivňuje zdraví
+ * a je od slunce)."*
+ *
+ * ⚠️ Silueta je ZÁMĚRNĚ bez tváře. Obrys hlavy a ramen se pozná i v šestnácti
+ * pixelech; oči a ústa by se slily do skvrny a z piktogramu by byl flek.
+ *
+ * ⚠️ Slunce je v levém horním rohu, ne nad hlavou. Nad hlavou by se obojí
+ * dotýkalo a splynulo v jeden tvar — takhle je vidět, že to jsou dvě věci
+ * a že jedna svítí na druhou.
+ *
+ * @returns {{plocha: string, cara: string[], kruh: number[]}}
+ */
+export function uvShape() {
+  return {
+    // Slunce: kotouček s paprsky vlevo nahoře.
+    kruh: [6.6, 6.6, 2.6],
+    cara: [
+      'M6.6 1.2v1.3', 'M6.6 10.7v1.3', 'M1.2 6.6h1.3', 'M10.7 6.6h1.3',
+      'M2.8 2.8l.9.9', 'M9.5 9.5l.9.9', 'M10.4 2.8l-.9.9', 'M3.7 9.5l-.9.9',
+    ],
+    // Hlava a ramena. Ramena jsou oblouk, ne obdélník — hranatá silueta
+    // vypadá jako ikona uživatele v nastavení, ne jako člověk na slunci.
+    plocha: 'M16 8.4a2.9 2.9 0 1 1 0 5.8 2.9 2.9 0 0 1 0-5.8z'
+      + 'M16 15.1c3.4 0 6 2.2 6 5.1v1.4H10v-1.4c0-2.9 2.6-5.1 6-5.1z',
+  };
+}
+
+/**
+ * Šipka trendu Měsíce: dorůstá, nebo couvá.
+ *
+ * Michal 29. 8. 2026: *„měsíc doplnit o piktogram šipky nahoru při rostoucím
+ * měsíci a při couvajícím dolů, při úplňku nic a to samé při novu."*
+ *
+ * 🚨 U ÚPLŇKU A NOVU SE VRACÍ `null`, a je to správně. V těch dvou bodech
+ * Měsíc nedorůstá ani neubývá — je na obrátce. Šipka by tam ukazovala směr,
+ * který v tu chvíli neplatí, a byla by to nepravda kvůli symetrii.
+ *
+ * ⚠️ Vlastní tvar vedle kotouče, ne uvnitř něj. Do kotouče se v mřížce
+ * 24 × 24 nic dalšího nevejde tak, aby to zůstalo čitelné — a hlavně by to
+ * překreslilo osvětlenou část, tedy ten údaj, o který jde.
+ *
+ * @param {number} podil  poloha v cyklu: 0 = nov, 0,5 = úplněk
+ * @returns {{cara: string[]}|null}
+ */
+export function moonTrendShape(podil) {
+  const f = Number(podil);
+  if (!Number.isFinite(f)) return null;
+
+  // Meze jsou tytéž jako u fází v `moon.js` (`new` do 0,02, `full` 0,48–0,52),
+  // aby šipka nezmizela o den dřív, než appka vedle napíše „úplněk".
+  const nov = f < 0.02 || f > 0.98;
+  const uplnek = f >= 0.48 && f <= 0.52;
+  if (nov || uplnek) return null;
+
+  const dorusta = f < 0.5;
+  return {
+    cara: dorusta
+      ? ['M12 20V5', 'M6.5 10.5 12 5l5.5 5.5']
+      : ['M12 4v15', 'M6.5 13.5 12 19l5.5-5.5'],
   };
 }

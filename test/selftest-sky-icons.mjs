@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 
 import {
   sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
+  uvShape, moonTrendShape,
 } from '../web/lib/sky-icons.js';
 import { formatElevation, formatPressure, METRIC, IMPERIAL } from '../web/lib/units.js';
 
@@ -113,8 +114,24 @@ test('🚨 růžice má pevný prstenec a otáčivou střelku zvlášť', () => 
   const r = windRoseShape();
   assert.ok(r.kruh, 'prstenec');
   assert.equal(r.cara.length, 4, 'čtyři světové strany');
-  assert.ok(r.plocha, 'plná špička (odkud)');
-  assert.ok(r.ocas, 'prázdný ocas (kam)');
+  assert.ok(r.plocha, 'hrot (odkud fouká)');
+});
+
+test('🚨 růžice je JEDEN hrot, ne špička s ocasem', () => {
+  // Michal 29. 8. 2026: „šipka tvar jen hrot a musí vyplňovat celý kruh."
+  // Malá špička proti prázdnému ocasu byly dvě drobné věci, ze kterých
+  // v šestnácti pixelech nebylo poznat, která je která.
+  const r = windRoseShape();
+  assert.equal(r.ocas, undefined, 'ocas se zrušil schválně');
+});
+
+test('hrot sahá přes celý kruh, ne jen do jeho čtvrtiny', () => {
+  // Souřadnice y v cestě musí pokrýt většinu průměru prstence (r = 8,6,
+  // tedy 3,4–20,6). Malý hrot uprostřed by v dlaždici zanikl.
+  const cisla = windRoseShape().plocha.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const ys = cisla.filter((_, i) => i % 2 === 1);
+  assert.ok(Math.min(...ys) < 5, 'sahá skoro k hornímu okraji prstence');
+  assert.ok(Math.max(...ys) > 18, 'a skoro ke spodnímu');
 });
 
 /**
@@ -148,4 +165,60 @@ test('chybějící hodnota dá pomlčku, ne nulu', () => {
 
 test('nula je platná výška — hladina moře není chybějící údaj', () => {
   assert.equal(formatElevation(0, METRIC, 'cs'), '0 m');
+});
+
+/* ============================================================
+   UV INDEX A TREND MĚSÍCE (29. 8. 2026)
+   ============================================================ */
+
+test('UV: slunce i silueta člověka, ne jen jedno z toho', () => {
+  // Michal: „musí mít piktogram slunce a v dlaždici musí být silueta horní
+  // poloviny lidského těla (jakože UV ovlivňuje zdraví a je od slunce)."
+  const u = uvShape();
+  assert.ok(u.kruh, 'kotouček slunce');
+  assert.ok(u.cara.length >= 4, 'paprsky');
+  assert.ok(u.plocha, 'silueta');
+});
+
+test('🚨 slunce a hlava se nepřekrývají', () => {
+  // Nad hlavou by se obojí dotýkalo a splynulo v jeden tvar. Takhle je
+  // vidět, že to jsou dvě věci a že jedna svítí na druhou.
+  const u = uvShape();
+  const [sx, sy, sr] = u.kruh;
+  // Hlava je první oblouk siluety; její střed vytáhneme z cesty.
+  const [hx, hy] = u.plocha.match(/-?\d+(?:\.\d+)?/g).slice(0, 2).map(Number);
+  const odstup = Math.hypot(hx - sx, hy - sy);
+  assert.ok(odstup > sr + 2, `slunce a hlava mají odstup (${odstup.toFixed(1)})`);
+});
+
+test('měsíc: dorůstající má šipku nahoru, couvající dolů', () => {
+  const nahoru = moonTrendShape(0.25);
+  const dolu = moonTrendShape(0.75);
+  assert.ok(nahoru, 'dorůstající má šipku');
+  assert.ok(dolu, 'couvající taky');
+  assert.notDeepEqual(nahoru.cara, dolu.cara, 'a nesmí to být tatáž šipka');
+});
+
+test('🚨 v úplňku ani v novu žádná šipka', () => {
+  // V těch dvou bodech Měsíc nedorůstá ani neubývá — je na obrátce.
+  // Šipka by ukazovala směr, který v tu chvíli neplatí.
+  assert.equal(moonTrendShape(0), null, 'nov');
+  assert.equal(moonTrendShape(0.5), null, 'úplněk');
+  assert.equal(moonTrendShape(0.99), null, 'konec cyklu je zase nov');
+});
+
+test('🚨 meze šipky sedí na fáze z moon.js', () => {
+  // Kdyby se rozešly, zmizela by šipka o den dřív, než appka vedle napíše
+  // „úplněk" — nebo naopak by u úplňku ještě svítila.
+  assert.equal(moonTrendShape(0.019), null, 'ještě nov');
+  assert.ok(moonTrendShape(0.03), 'už dorůstá');
+  assert.equal(moonTrendShape(0.48), null, 'začátek úplňku');
+  assert.equal(moonTrendShape(0.52), null, 'konec úplňku');
+  assert.ok(moonTrendShape(0.53), 'už couvá');
+});
+
+test('trend: nesmyslný vstup nespadne', () => {
+  assert.equal(moonTrendShape(null), null);
+  assert.equal(moonTrendShape('nesmysl'), null);
+  assert.equal(moonTrendShape(undefined), null);
 });

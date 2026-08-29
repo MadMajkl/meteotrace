@@ -20,6 +20,7 @@ import { pollenIcon } from './lib/pollen-icons.js';
 import { kresliTvar } from './icon-draw.js';
 import {
   sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
+  uvShape, moonTrendShape,
 } from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
@@ -37,6 +38,7 @@ import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
 import { noveVystrahy, textUpozorneni } from './lib/warn-notify.js';
 import { kamMiri, coRict } from './lib/drift.js';
+import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
@@ -53,7 +55,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.7.0';
+const VERZE = '0.8.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -114,7 +116,10 @@ function load() {
     // nespustil. Kdyby se přečetla, opravená appka by dál mluvila anglicky
     // přesně těm lidem, kteří si toho už všimli. Takový zápis se zahazuje
     // a jazyk se odhadne znovu.
-    if (typeof saved.theme === 'string') state.theme = saved.theme;
+    // ⚠️ Neznámý motiv se zahazuje. Zápis z novější verze appky (nebo
+    // překlep) by jinak zůstal v `data-theme` a appka by běžela bez
+    // proměnných — tedy bíle na bílém.
+    if (MOTIVY.includes(saved.theme)) state.theme = saved.theme;
     if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;
@@ -671,6 +676,8 @@ function openSettings() {
     { value: '', text: t('settings.themeAuto', state.lang) },
     { value: 'light', text: t('settings.themeLight', state.lang) },
     { value: 'dark', text: t('settings.themeDark', state.lang) },
+    { value: 'pink', text: t('settings.themePink', state.lang) },
+    { value: 'pink-dark', text: t('settings.themePinkDark', state.lang) },
   ], state.theme || '');
 
   for (const [osa, hodnoty] of Object.entries(JEDNOTKY)) {
@@ -1618,6 +1625,8 @@ function render(forecast, air) {
   vlozIkonu('ico-sunset', sunsetShape());
   vlozIkonu('ico-pressure', pressureShape());
   vlozIkonu('ico-wind', windRoseShape(), c.windDeg);
+  vlozIkonu('ico-uv', uvShape());
+  obarviDlazdice(view, c);
 
   // Nadmořská výška patří k teplotě: vysvětluje ji.
   const radekVysky = $('now-elev-row');
@@ -1638,6 +1647,11 @@ function render(forecast, air) {
     mesic.textContent = '—';
   } else {
     mesic.append(kresliTvar(moonShape(view.moon.osvetleni, view.moon.dorusta), 'moon-icon'));
+    // Šipka „dorůstá / couvá". ⚠️ U úplňku a novu ŽÁDNÁ — v těch dvou
+    // bodech Měsíc nedorůstá ani neubývá, je na obrátce, a šipka by
+    // ukazovala směr, který v tu chvíli neplatí.
+    const trend = moonTrendShape(view.moon.podil);
+    if (trend) mesic.append(kresliTvar(trend, 'moon-trend'));
     mesic.append(document.createTextNode(` ${view.moon.lit}`));
     mesic.append(el('span', 'dir', view.moon.label));
     mesic.setAttribute('aria-label', `${view.moon.label}, ${view.moon.lit}`);
@@ -1745,15 +1759,42 @@ function renderPollen(view) {
  * Prázdná hodnota značku smaže, takže platí `prefers-color-scheme` a appka
  * se přepne sama, když si telefon v noci přepne motiv.
  */
+/**
+ * Motivy, které appka zná. Prázdná hodnota = podle zařízení.
+ *
+ * ⚠️ JEDEN SEZNAM. Kdyby si ho každé místo drželo po svém (nastavení,
+ * ukládání, mapa), přidání motivu by znamenalo najít všechna — a na jedno
+ * by se zapomnělo. Pak by nový motiv šel vybrat, ale po zavření appky by
+ * se ztratil.
+ */
+const MOTIVY = ['light', 'dark', 'pink', 'pink-dark'];
+
+/**
+ * Je motiv tmavý?
+ *
+ * 🚨 Potřebuje to i MAPA (`map.js`, `jeTma()`), která má vlastní styl.
+ * Kdyby znala jen `dark`, spadla by u tmavě růžového motivu na dotaz
+ * systému a v tmavé appce by svítila světlá mapa. Proto se to rozhoduje
+ * podle jména, ne podle výčtu na dvou místech.
+ */
+function jeTmavyMotiv(motiv) {
+  return String(motiv || '').includes('dark');
+}
+
 function pouzijVzhled() {
   const k = document.documentElement;
-  if (state.theme === 'light' || state.theme === 'dark') k.dataset.theme = state.theme;
+  if (MOTIVY.includes(state.theme)) k.dataset.theme = state.theme;
   else delete k.dataset.theme;
 
   // ⚠️ Prohlížeč musí vědět taky — jinak zůstanou posuvníky a políčka
   // formulářů v opačném režimu než appka kolem nich.
+  //
+  // 🚨 A musí dostat SVOJE slovo, ne jméno našeho motivu. `color-scheme`
+  // zná jen `light` a `dark`; `content="pink"` by prohlížeč zahodil jako
+  // nesmysl a políčka by zůstala světlá uvnitř tmavě růžové appky — tedy
+  // vada, která vypadá jako vada vykreslování, ne jako překlep v hodnotě.
   const meta = document.querySelector('meta[name="color-scheme"]');
-  if (meta) meta.content = state.theme || 'light dark';
+  if (meta) meta.content = state.theme ? (jeTmavyMotiv(state.theme) ? 'dark' : 'light') : 'light dark';
 
   // Mapa má vlastní styl a musí se přebarvit s appkou, ne až po znovunačtení.
   mapModule?.refreshTheme?.();
@@ -2140,6 +2181,82 @@ async function showRadar(timeZone) {
  * Vloží piktogram do políčka. Prázdné místo je lepší než cizí tvar, takže
  * neznámý údaj (chybí směr větru) ikonu prostě nedostane.
  */
+/**
+ * Semafor dlaždic: vítr, UV, tlak a probíhající soumrak.
+ *
+ * Michal 29. 8. 2026 si vyžádal, aby dlaždice nesly barvu podle toho, jak
+ * je na tom údaj. Prahy jsou v `lib/tile-tone.js` a mají samotest — je to
+ * návrhové rozhodnutí, ne kosmetika.
+ *
+ * 🚨 BARVA NIKDY NENESE ÚDAJ SAMA. Vedle každé podbarvené buňky stojí popis
+ * i hodnota, takže kdo odstíny nerozliší, nepřijde o nic. A z téhož důvodu
+ * se ikony obarvují navíc, ne místo tvaru: východ od západu se pořád pozná
+ * šipkou.
+ */
+function obarviDlazdice(view, c) {
+  const ton = (id, stupen) => {
+    const el = $(id);
+    if (!el) return;
+    // ⚠️ „Nevíme" a „je klid" se nebarví obojí stejně — nebarví se vůbec.
+    // Zelené pozadí u chybějícího údaje by tvrdilo, že je naměřeno hezky.
+    if (stupen === 'zadny' || stupen === 'klid') delete el.dataset.ton;
+    else el.dataset.ton = stupen;
+  };
+
+  // ── vítr ──────────────────────────────────────────────────────────────
+  // Střelka se plynule barví od zelené po červenou; celá dlaždice až při
+  // vichřici. Nižší práh by ji barvil několikrát do měsíce a přestalo by
+  // to být varování.
+  const v = windTon(c.windKmh, c.gustKmh);
+  const cell = $('cell-wind');
+  if (cell) {
+    // Odstín jde od zelené (140°) k červené (0°) — přes žlutou a oranžovou,
+    // tedy tou stranou kruhu, kterou lidé čtou jako semafor.
+    const odstin = Math.round(140 * (1 - v.podil));
+    cell.style.setProperty('--vitr-barva', v.stupen === 'zadny'
+      ? 'var(--accent)'
+      : `hsl(${odstin} 72% 45%)`);
+    ton('cell-wind', v.vichrice ? 'krize' : 'zadny');
+  }
+
+  // ── UV ────────────────────────────────────────────────────────────────
+  // Silueta i pozadí sílí spolu: pozadí říká „pozor", silueta „na tebe".
+  const uv = uvTon(c.uvIndexNum);
+  const bunkaUv = $('cell-uv');
+  if (bunkaUv) {
+    const odstinUv = Math.round(140 * (1 - Math.min(1, uv.podil * 1.6)));
+    bunkaUv.style.setProperty('--uv-barva', uv.stupen === 'zadny'
+      ? 'var(--accent)'
+      : `hsl(${odstinUv} 74% 46%)`);
+    ton('cell-uv', uv.stupen);
+  }
+
+  // ── tlak ──────────────────────────────────────────────────────────────
+  // ⚠️ Z QNH, ne ze skutečného tlaku v místě: ten ve 400 m klesá ke 970 hPa
+  // a appka by v Jeseníkách hlásila trvalou tlakovou níži.
+  ton('cell-pressure', pressureTon(c.pressureHpa).stupen);
+
+  // ── soumrak a svítání ─────────────────────────────────────────────────
+  // ⚠️ Plynule, ne stupni: „jak moc zrovna zapadá" je spojitá věc. Dlaždice
+  // se rozhoří, když se to děje, a zase vyhasne.
+  const ted = Date.now();
+  for (const [id, okamzik, druh] of [
+    ['cell-sunrise', view.sun?.sunriseMs, 'vychod'],
+    ['cell-sunset', view.sun?.sunsetMs, 'zapad'],
+  ]) {
+    const b = $(id);
+    if (!b) continue;
+    const zar = soumrakPodil(ted, okamzik);
+    if (zar > 0) {
+      b.dataset.soumrak = druh;
+      b.style.setProperty('--zar', String(zar));
+    } else {
+      delete b.dataset.soumrak;
+      b.style.removeProperty('--zar');
+    }
+  }
+}
+
 function vlozIkonu(id, tvar, otoceni = null) {
   const box = $(id);
   if (!box) return;

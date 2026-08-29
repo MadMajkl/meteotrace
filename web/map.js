@@ -138,8 +138,12 @@ const $ = (id) => document.getElementById(id);
  */
 function jeTma() {
   const volba = document.documentElement.dataset.theme;
-  if (volba === 'dark') return true;
-  if (volba === 'light') return false;
+  // 🚨 Podle toho, jestli je motiv tmavý, ne podle jediného jména `dark`.
+  // Od 29. 8. 2026 existuje i `pink-dark`; kdyby se hledala jen shoda
+  // s `dark`, spadl by dotaz na systém a v tmavě růžové appce by svítila
+  // světlá mapa. A vypadalo by to jako vada vykreslování, ne jako mezera
+  // v podmínce.
+  if (volba) return volba.includes('dark');
   return matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
