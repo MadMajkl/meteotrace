@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.9.1';
+const VERZE = '0.9.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3313,6 +3313,7 @@ function init() {
    ============================================================ */
 
 let uvitani = null;
+let hlidacKroku = 0;
 const uvitaniVyber = { domov: null, cil: null };
 
 /** Spustí uvítání, pokud na něj tenhle člověk má nárok. */
@@ -3413,6 +3414,11 @@ function ukazZivyKrok(krok) {
     $('uvitani-pruh-text').textContent = tf('onboarding.placeText',
       { place: uvitaniVyber.domov?.name || '' }, state.lang);
     prepniObrazovku('station');
+    // Data se natáhla už při výběru domova. Když tam ale ještě nejsou —
+    // pomalá síť, nebo se to nepovedlo —, zkusí se to znovu a proužek
+    // mezitím řekne proč. 🚨 Prázdná obrazovka bez vysvětlení je ten
+    // nejhorší možný první dojem: vypadá jako rozbitá appka.
+    hlidejPrazdnyKrok();
     return;
   }
 
@@ -3427,6 +3433,61 @@ function ukazZivyKrok(krok) {
   if (!state.routeResult) loadRoute();
 }
 
+/**
+ * Hlídá, aby živý krok uvítání nezůstal prázdný.
+ *
+ * 🚨 Michal 29. 8. 2026: *„proč je 3. stránka onboardingu prázdná bez dat?
+ * … nemůže to být prázdné."* Prvotní příčinou bylo chybějící `loadStation()`
+ * (opraveno u výběru domova), ale i tak se to může stát — pomalá síť,
+ * výpadek, metro. A prázdná obrazovka s proužkem „tohle je tvoje
+ * meteostanice" je nejhorší možný první dojem: vypadá jako rozbitá appka.
+ *
+ * ⚠️ Dívá se na SKUTEČNÝ OBSAH, ne na to, jestli dotaz doběhl. Odpověď může
+ * dorazit a stejně z ní nic nevykreslit (poškozená data); jediné, co se
+ * počítá, je jestli na obrazovce něco je.
+ *
+ * ⚠️ Kontroluje se dvakrát s odstupem, ne jednou. Hned po přepnutí ještě
+ * běží první dotaz a hlásit „není spojení" v tu chvíli by byla nepravda.
+ */
+function hlidejPrazdnyKrok() {
+  clearTimeout(hlidacKroku);
+
+  const prazdno = () => !$('now-temp')?.textContent?.trim();
+
+  const zkontroluj = (posledni) => {
+    if (!uvitani?.krok?.zivaAppka || !prazdno()) return;
+
+    if (!posledni) {
+      // Ještě jednou to zkusit — mezitím může doběhnout první dotaz.
+      if (state.place) loadStation();
+      hlidacKroku = setTimeout(() => zkontroluj(true), 4000);
+      return;
+    }
+
+    // Pořád nic. Řekne se to nahlas a uvítání jede dál — appka je
+    // nastavená tak jako tak, jen se do ní zatím nedostala data.
+    $('uvitani-pruh-text').textContent = t('onboarding.offline', state.lang);
+
+    // 🚨 A do dlaždic se dají POMLČKY. Michal: „nemůže to být prázdné."
+    // Prázdná mřížka vypadá jako appka, která se nedopočítala; mřížka
+    // s pomlčkami ukazuje, co všechno tu bude, a přiznává, že to teď nemá.
+    //
+    // ⚠️ Pomlčka, ne nula a ne vymyšlené číslo. Údaj, který si appka
+    // vycucá, je horší než chybějící — tomu se aspoň nedá uvěřit.
+    $('place-name').textContent = state.place?.name || '';
+    for (const id of ['now-temp', 'now-cond', 'now-feels', 'd-wind', 'd-gusts',
+      'd-humidity', 'd-precip', 'd-cloud', 'd-uv', 'd-sunrise', 'd-sunset',
+      'd-moon', 'd-pressure']) {
+      const e = $(id);
+      if (e && !e.textContent.trim()) e.textContent = '—';
+    }
+    $('station').hidden = false;
+    $('splash').hidden = true;
+  };
+
+  hlidacKroku = setTimeout(() => zkontroluj(false), 2500);
+}
+
 /** Zapíše vybrané místo do kroku a rovnou ho uloží mezi oblíbená. */
 function uvitaniVyberMisto(misto) {
   const krok = uvitani?.krok;
@@ -3437,6 +3498,13 @@ function uvitaniVyberMisto(misto) {
     state.place = misto;
     state.route.from = misto;
     $('route-from').value = misto.name;
+    // 🚨 A HNED SE NAČTOU DATA. Bez tohohle volání jen zůstalo nastavené
+    // místo a třetí krok odkryl PRÁZDNOU obrazovku — Michal 29. 8. 2026.
+    // Nastavit `state.place` totiž neznamená mít co ukázat.
+    //
+    // ⚠️ Načítá se teď, ne až ve třetím kroku: mezitím si člověk vybírá
+    // cíl, takže se to schová do času, který by stejně proseděl čekáním.
+    loadStation();
   } else {
     uvitaniVyber.cil = misto;
     state.route.to = misto;
