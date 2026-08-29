@@ -110,6 +110,10 @@ function describePoint(planPoint, location, lang, units) {
     // zjistit — a ptát se na význam vlastní obrazovky je vada, ne zvědavost.
     windDirLong: dirLong(H.wind_direction_10m?.[i], lang),
     windDirKey: windDirKey(H.wind_direction_10m?.[i]) || null,
+    // ⚠️ Stupně, ne jen klíč směru. Podle nich se počítá, jestli déšť
+    // u trasy míří k ní, nebo od ní (`lib/drift.js`) — z osminy kruhu
+    // by se ten úhel dal jen odhadnout, a to u směru nestačí.
+    windDeg: H.wind_direction_10m?.[i] ?? null,
     windKmh,
     gustKmh: H.wind_gusts_10m?.[i] ?? null,
     gusts: formatWind(H.wind_gusts_10m?.[i], units, lang),

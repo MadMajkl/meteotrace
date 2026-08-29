@@ -269,6 +269,41 @@ export function buildStationView(a) {
       return null;
     })(),
 
+    /**
+     * Kdy podle předpovědi přestane pršet.
+     *
+     * 🚨 Protějšek `rainSoon`, a chyběl. Michal 29. 8. 2026: *„to samé
+     * o pěkném počasí, pokud prší, jestli už je slunce v dohlednu a jestli
+     * jde k nám nebo nás mine a bude dál ošklivě."* Kdo stojí v dešti,
+     * nepotřebuje vědět, kde je sucho — potřebuje vědět, jestli to přejde.
+     *
+     * ⚠️ Vrací `null` VE DVOU RŮZNÝCH PŘÍPADECH a volající je musí umět
+     * rozlišit: buď teď neprší (není co končit), nebo prší a dvanáct hodin
+     * dopředu to nekončí. Od toho je `prsiTed` — bez něj by „nevíme"
+     * vypadalo jako „hned to přejde".
+     */
+    clearSoon: (() => {
+      const DOHLED_HODIN = 12;
+      const PRAH_PROCENT = 40;      // tentýž práh jako u příchodu deště
+      const prsiVHodine = (i) => {
+        const pst = H.precipitation_probability?.[i];
+        const mm = H.precipitation?.[i];
+        return (Number.isFinite(pst) && pst >= PRAH_PROCENT)
+          || (Number.isFinite(mm) && mm > 0.2);
+      };
+
+      if (!prsiVHodine(iNow)) return { prsiTed: false, hours: null, time: '' };
+
+      for (let k = 1; k < DOHLED_HODIN; k += 1) {
+        const i = iNow + k;
+        if (i >= hourMs.length) break;
+        if (prsiVHodine(i)) continue;
+        return { prsiTed: true, hours: k, time: formatClock(hourMs[i], tz, lang) };
+      }
+      // Prší a v dohledu to nekončí. To je odpověď, ne mezera.
+      return { prsiTed: true, hours: null, time: '' };
+    })(),
+
     sun: {
       sunrise: formatClock(sunrise[0], tz, lang),
       sunset: formatClock(sunset[0], tz, lang),

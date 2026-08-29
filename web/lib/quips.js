@@ -420,6 +420,9 @@ export function placeQuip(k, lang = 'cs') {
  * @param {boolean} [k.odTrasy]        měří se od trasy, ne od jednoho místa
  * @param {boolean} [k.siroko]         nález je z druhého, hrubého kola (stovky km)
  * @param {string} [k.dorazi]         čas, kdy má déšť dorazit sem (z předpovědi místa)
+ * @param {string} [k.prestane]       čas, kdy má tady přestat pršet
+ * @param {boolean} [k.prsiTed]       prší přímo tady (rozlišuje „nevíme" od „nekončí")
+ * @param {'prichazi'|'odchazi'|'mine'|null} [k.pohyb]  kam to podle větru míří
  * @param {string} [lang]
  */
 export function okoliQuip(k, lang = 'cs') {
@@ -439,6 +442,19 @@ export function okoliQuip(k, lang = 'cs') {
   // Nic se nenašlo — taky odpověď, a u deště dokonce dobrá.
   if (km === null || !kam) {
     const okruh = k.odTrasy ? ' od trasy' : ' kolem';
+
+    // 🚨 Prší tady a jasno není nikde v dosahu — ale jestli to PŘESTANE,
+    // je pořád ta nejcennější věta dne. Bez téhle odbočky by se spolkla
+    // jen proto, že se nenašla sonda se sluncem; člověk by se dozvěděl,
+    // že je zataženo všude, a ne že za dvě hodiny bude po dešti.
+    if (k.hledame === 'slunce' && k.prsiTed && k.prestane) {
+      const vety = [
+        'Jasno není ani ' + dosah + ' km' + okruh + ', ale kolem ' + k.prestane + ' by tady mělo přestat pršet. Mistr říkal, že konec deště je lepší zpráva než cizí slunce.',
+        'Slunce nikde do ' + dosah + ' km' + okruh + '. Zato déšť by tu měl kolem ' + k.prestane + ' povolit — Mistr by počkal a nikam nejezdil.',
+      ];
+      return vety[otisk(otiskZ + '|jenkonec') % vety.length];
+    }
+
     const vety = k.hledame === 'dest'
       ? [
         'Do ' + dosah + ' km' + okruh + ' neprší ani nikde jinde. Mistr by v tak dobré zprávě ze zvyku hledal háček.',
@@ -476,6 +492,61 @@ export function okoliQuip(k, lang = 'cs') {
       'Déšť je asi ' + km + ' km ' + smerem + kde + ', sem dorazí kolem ' + k.dorazi + '. Mistr v takovou chvíli neplánoval nic, co se nedá přeložit.',
     ];
     return vety[otisk(otiskZ) % vety.length];
+  }
+
+  // 🚨 PRŠÍ TADY? Pak je otázka jiná: ne kde je sucho, ale KDY TO PŘEJDE.
+  //
+  // Michal 29. 8. 2026: *„to samé o pěkném počasí, pokud prší, jestli už je
+  // slunce v dohlednu a jestli jde k nám nebo nás mine a bude dál ošklivě."*
+  // Kdo stojí v dešti, se neptá, kam za sluncem — ptá se, jestli počkat.
+  if (k.hledame === 'slunce' && k.prsiTed) {
+    // ⚠️ Opatrnost širokého kola platí i tady — viz níže.
+    const jasno = k.siroko
+      ? 'nejbližší jasno, o kterém víme, je asi '
+      : 'nejbližší jasno je asi ';
+
+    // Konec v dohledu: to je ta zpráva, pro kterou si člověk přišel.
+    if (k.prestane) {
+      const vety = [
+        'Mělo by to povolit kolem ' + k.prestane + '; ' + jasno + km + ' km ' + smerem + kde + '. Mistr říkal, že čekat na konec deště je levnější než ho objíždět.',
+        'Kolem ' + k.prestane + ' by mělo přestat. Do jasna je to jinak asi ' + km + ' km ' + smerem + kde + ' — Mistr by si počkal.',
+      ];
+      return vety[otisk(otiskZ + '|p' + k.prestane) % vety.length];
+    }
+    // ⚠️ „V dohledu to nekončí" NENÍ totéž co „nevíme" — a musí to tak
+    // i znít. Kdo dostane mlhavou větu, přečte si ji jako naději.
+    const vety = k.pohyb === 'odchazi' ? [
+      'Tady zatím prší a v nejbližších hodinách to podle předpovědi nepovolí, i když vítr to žene pryč. A ' + jasno + km + ' km ' + smerem + kde + '. Mistr by takové obloze nevěřil ani to zlepšení.',
+    ] : [
+      'Prší a dvanáct hodin dopředu se to nelepší. Za jasnem by se muselo asi ' + km + ' km ' + smerem + kde + ' — Mistr by v tom viděl důvod k výletu, ne k čekání.',
+      'Tady prší a konec v dohledu není. A ' + jasno + km + ' km ' + smerem + kde + '. Mistr tvrdil, že takový den se dá jedině přesedět.',
+    ];
+    return vety[otisk(otiskZ + '|nekonci') % vety.length];
+  }
+
+  // 🚨 DÉŠŤ, KTERÝ ODCHÁZÍ NEBO NÁS MINE, JE DOBRÁ ZPRÁVA — a dosud se
+  // mlčela. Bez ní vypadá „nejblíž prší 40 km na východ" stejně hrozivě
+  // jako blížící se fronta, přitom je to přesný opak.
+  //
+  // ⚠️ Mluví se o VĚTRU, ne o čase. Přízemní vítr není rychlost srážkového
+  // pásu (ten se řídí prouděním ve výšce), takže „za hodinu je to pryč"
+  // by bylo číslo, které nemáme. Viz `lib/drift.js`.
+  if (k.hledame === 'dest' && (k.pohyb === 'odchazi' || k.pohyb === 'mine')) {
+    // ⚠️ I tady platí opatrnost širokého kola. Osm směrů na stovkách
+    // kilometrů nechává mezery stovky kilometrů široké, takže „nejblíž prší"
+    // by tvrdilo přesnost, kterou to nemá — a nové věty nesmí to pravidlo
+    // obejít jen proto, že vznikly později.
+    const uvod = k.siroko
+      ? 'Nejbližší déšť, o kterém víme, je asi '
+      : 'Nejblíž prší asi ';
+    const vety = k.pohyb === 'odchazi' ? [
+      uvod + km + ' km ' + smerem + kde + ' a vítr to odsud žene pryč. Mistr říkal, že déšť, který odchází, je ten nejhezčí pohled na oblohu.',
+      uvod + km + ' km ' + smerem + kde + ' a vzdaluje se. Mistr by dodal, že tohle je ta správná chvíle věšet prádlo.',
+    ] : [
+      uvod + km + ' km ' + smerem + kde + ', ale vítr to vede bokem — sem by to jít nemělo. Mistr takovým mrakům říkal projíždějící.',
+      uvod + km + ' km ' + smerem + kde + ' a míří mimo nás. Mistr by upozornil, že „mimo" se u počasí píše tužkou.',
+    ];
+    return vety[otisk(otiskZ + '|' + k.pohyb) % vety.length];
   }
 
   // 🚨 Široké kolo MLUVÍ O SOBĚ JINAK. Osm směrů na pěti stech kilometrech

@@ -363,3 +363,75 @@ test('🚨 den se láme podle pásma MÍSTA, ne prohlížeče', () => {
   const prvni = v.hourly.findIndex((h) => h.dayLabel);
   assert.equal(prvni, 12, 'od 12:00 místního je do půlnoci dvanáct hodin');
 });
+
+/* ============================================================
+   KDY PŘESTANE PRŠET
+
+   🚨 Protějšek `rainSoon`, a dlouho chyběl. Kdo stojí v dešti,
+   nepotřebuje vědět, kde je sucho — potřebuje vědět, jestli to přejde.
+   ============================================================ */
+
+/** Fixture s libovolným průběhem srážek. Teď = index 0. */
+function sPrsenim(mm) {
+  const cas = mm.map((_, i) => `2026-08-21T${String(13 + i).padStart(2, '0')}:00`);
+  return {
+    ...FORECAST,
+    hourly: {
+      ...FORECAST.hourly,
+      time: cas,
+      temperature_2m: mm.map(() => 18),
+      apparent_temperature: mm.map(() => 18),
+      relative_humidity_2m: mm.map(() => 80),
+      // ⚠️ Pravděpodobnost sleduje TÝŽ práh jako množství. Napoprvé jsem
+      // dal 90 % ke každé kapce včetně 0,1 mm — a test „mrholení se
+      // nepočítá" pak padal na vlastní fixture, ne na kódu: 90 % je přes
+      // práh právem, protože to znamená „skoro jistě bude mrholit".
+      precipitation_probability: mm.map((v) => (v > 0.2 ? 90 : 5)),
+      precipitation: mm,
+      weather_code: mm.map((v) => (v > 0 ? 61 : 2)),
+      cloud_cover: mm.map(() => 90),
+      wind_speed_10m: mm.map(() => 15),
+      wind_direction_10m: mm.map(() => 270),
+      uv_index: mm.map(() => 1),
+    },
+  };
+}
+
+const konec = (mm) => buildStationView({
+  forecast: sPrsenim(mm), lang: 'cs', units: METRIC,
+  nowMs: Date.parse('2026-08-21T11:00:00Z'),      // 13:00 v Praze = index 0
+}).clearSoon;
+
+test('prší a za dvě hodiny přestane', () => {
+  const c = konec([2, 1.5, 0, 0]);
+  assert.equal(c.prsiTed, true);
+  assert.equal(c.hours, 2);
+  assert.ok(c.time, 'čas se musí dát vypsat');
+});
+
+test('🚨 „neprší" a „prší a nekončí to" se NESMÍ splést', () => {
+  // Obojí by bez `prsiTed` vypadalo stejně — a „nevíme, kdy to skončí"
+  // by se tvářilo jako „hned to přejde". Přesně opačná zpráva.
+  const sucho = konec([0, 0, 0, 0]);
+  assert.equal(sucho.prsiTed, false);
+  assert.equal(sucho.hours, null);
+
+  const lije = konec([2, 2, 2, 2]);
+  assert.equal(lije.prsiTed, true, 'prší');
+  assert.equal(lije.hours, null, 'ale konec v dohledu není');
+});
+
+test('krátká předpověď nevymyslí konec, který v datech není', () => {
+  // Když pole skončí dřív, než přestane pršet, je odpověď „nevíme kdy",
+  // ne „za tři hodiny".
+  const c = konec([1, 1]);
+  assert.equal(c.prsiTed, true);
+  assert.equal(c.hours, null);
+});
+
+test('mrholení pod prahem se za déšť nepovažuje', () => {
+  // Tentýž práh jako u příchodu deště (0,2 mm), ať si dvě věty o témže
+  // počasí neodporují.
+  const c = konec([0.1, 0.1, 0.1]);
+  assert.equal(c.prsiTed, false);
+});

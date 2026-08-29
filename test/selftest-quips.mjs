@@ -379,3 +379,111 @@ test('u hledání slunce se čas příchodu deště neplete', () => {
   const v = okoliQuip({ hledame: 'slunce', km: 60, dirKey: 'e', misto: 'Písek', dorazi: '21:00' });
   assert.ok(!v.includes('21:00'), v);
 });
+
+/* ============================================================
+   JDE TO K NÁM, NEBO OD NÁS?
+
+   Michal 29. 8. 2026: *„v těch hláškách by mělo být vždy alespoň ještě
+   řečeno, na základě větru, jestli třeba déšť jde k nám nebo naopak od nás…
+   to samé o pěkném počasí."*
+
+   🚨 Vzdálenost sama tuhle otázku nezodpoví. „Nejblíž prší 40 km na západ"
+   je úplně jiná zpráva, když to sem míří, než když to odchází — a dosud
+   zněly obě situace stejně hrozivě.
+   ============================================================ */
+
+const OKOLI = { hledame: 'dest', km: 40, dirKey: 'w', misto: 'Plzeň' };
+
+test('déšť, který odchází, se pozná ze slov', () => {
+  const v = okoliQuip({ ...OKOLI, pohyb: 'odchazi' });
+  assert.ok(/pryč|vzdaluje/i.test(v), v);
+  assert.ok(!/dorazí|je to tady/i.test(v), 'nesmí zároveň hrozit příchodem');
+});
+
+test('déšť, který nás mine, to řekne — a nemíchá to s příchodem', () => {
+  const v = okoliQuip({ ...OKOLI, pohyb: 'mine' });
+  assert.ok(/bokem|mimo/i.test(v), v);
+});
+
+test('🚨 „odchází" a „přichází" nesmí vyjít jako tatáž věta', () => {
+  // Kdyby se to spletlo, appka by tvrdila přesný opak toho, co se děje —
+  // a nikdo by to nenahlásil, jen by tomu přestal věřit.
+  const pryc = okoliQuip({ ...OKOLI, pohyb: 'odchazi' });
+  const sem = okoliQuip({ ...OKOLI, dorazi: '15:00' });
+  assert.notEqual(pryc, sem);
+  assert.ok(/15:00/.test(sem), sem);
+  assert.ok(!/15:00/.test(pryc));
+});
+
+test('bez známého pohybu zůstává původní věta', () => {
+  // Když se o pohybu nedá nic říct, mlčí se o něm — ne že se vymyslí.
+  const v = okoliQuip({ ...OKOLI, pohyb: null });
+  assert.ok(/40 km/.test(v), v);
+  assert.ok(!/pryč|bokem|mimo/i.test(v), v);
+});
+
+/* ── prší tady: kdy to přestane ───────────────────────────────────────── */
+
+const PRSI = { hledame: 'slunce', km: 80, dirKey: 'se', misto: 'Brno', prsiTed: true };
+
+test('prší a ví se, kdy přestane — to je ta hlavní zpráva', () => {
+  const v = okoliQuip({ ...PRSI, prestane: '16:00' });
+  assert.ok(/16:00/.test(v), v);
+});
+
+test('🚨 „nekončí to" NENÍ totéž co „nevíme"', () => {
+  // Mlhavou větu si člověk přečte jako naději. Když se to dvanáct hodin
+  // dopředu nelepší, musí to tak i znít.
+  const nekonci = okoliQuip({ ...PRSI, prestane: '' });
+  assert.ok(/nepovolí|nelepší|konec v dohledu není/i.test(nekonci), nekonci);
+  assert.notEqual(nekonci, okoliQuip({ ...PRSI, prestane: '16:00' }));
+});
+
+test('🚨 konec deště se řekne, i když jasno není nikde v dosahu', () => {
+  // Bez téhle odbočky by se nejcennější věta dne spolkla jen proto, že se
+  // nenašla sonda se sluncem.
+  const v = okoliQuip({
+    hledame: 'slunce', km: null, dirKey: '', prsiTed: true, prestane: '16:00', dosahKm: 120,
+  });
+  assert.ok(/16:00/.test(v), v);
+});
+
+test('když neprší, věty o konci deště se nepletou do hledání slunce', () => {
+  const v = okoliQuip({ hledame: 'slunce', km: 80, dirKey: 'se', prsiTed: false });
+  assert.ok(!/přestat|povolí/i.test(v), v);
+});
+
+test('nové věty drží tón i pravidla — Mistr se nejmenuje', () => {
+  const vzorky = [
+    okoliQuip({ ...OKOLI, pohyb: 'odchazi' }),
+    okoliQuip({ ...OKOLI, pohyb: 'mine' }),
+    okoliQuip({ ...PRSI, prestane: '16:00' }),
+    okoliQuip({ ...PRSI, prestane: '' }),
+    okoliQuip({ hledame: 'slunce', km: null, prsiTed: true, prestane: '16:00', dosahKm: 120 }),
+  ];
+  for (const v of vzorky) {
+    assert.ok(v.length > 0, 'věta nesmí být prázdná');
+    assert.ok(!/Werich|Wericha/i.test(v), v);
+    assert.ok(/Mistr/.test(v), 'hláška má mít dovětek: ' + v);
+  }
+});
+
+test('anglicky se hlášky nevypisují vůbec', () => {
+  assert.equal(okoliQuip({ ...OKOLI, pohyb: 'odchazi' }, 'en'), '');
+  assert.equal(okoliQuip({ ...PRSI, prestane: '16:00' }, 'en'), '');
+});
+
+test('🚨 nové věty NEOBCHÁZEJÍ opatrnost širokého kola', () => {
+  // Osm směrů na stovkách kilometrů nechává mezery stovky kilometrů široké.
+  // „Nejblíž prší" by tvrdilo přesnost, kterou to nemá — a věty, které
+  // vznikly později, se od toho pravidla nesmějí odchýlit.
+  const siroko = okoliQuip({ ...OKOLI, km: 320, pohyb: 'odchazi', siroko: true });
+  assert.ok(/o kterém víme/.test(siroko), siroko);
+  assert.ok(!/Nejblíž prší/.test(siroko), siroko);
+
+  const blizko = okoliQuip({ ...OKOLI, pohyb: 'odchazi' });
+  assert.ok(!/o kterém víme/.test(blizko), blizko);
+
+  const dest = okoliQuip({ ...PRSI, prestane: '', siroko: true });
+  assert.ok(!/nejbližší jasno je/.test(dest), dest);
+});

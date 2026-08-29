@@ -36,6 +36,7 @@ import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
 import { noveVystrahy, textUpozorneni } from './lib/warn-notify.js';
+import { kamMiri, coRict } from './lib/drift.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
@@ -52,7 +53,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.6.0';
+const VERZE = '0.7.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1321,6 +1322,22 @@ async function vypisOkoli(a) {
       siroko,
       // Kdy to sem dorazí — jen u hledání deště a jen když to víme.
       dorazi: a.dorazi || '',
+      // Kdy to tady přestane, a jestli tu vůbec prší.
+      prestane: a.prestane || '',
+      prsiTed: !!a.prsiTed,
+      // 🚨 Jde to k nám, nebo od nás? Vzdálenost sama tuhle otázku
+      // nezodpoví — „40 km na západ" je úplně jiná zpráva, když to sem
+      // míří, než když to odchází. Rozhoduje `lib/drift.js`; PŘEDNOST MÁ
+      // PŘEDPOVĚĎ, vítr se uplatní jen tam, kde model mlčí.
+      pohyb: (() => {
+        // U jednoho místa je vítr jeden; u trasy se bere z bodu nejbližšího
+        // nálezu (viz `vitrUBodu`), protože jeden „vítr na trase" neexistuje.
+        const v = a.vitrUBodu ? a.vitrUBodu(nalez) : { odkud: a.vitrOdkud, kmh: a.vitrKmh };
+        return coRict({
+          drift: kamMiri(nalez?.dirKey, v.odkud, v.kmh),
+          predpovedPotvrzuje: !!a.dorazi,
+        });
+      })(),
     }, state.lang);
 
     if (!veta) return;
@@ -1373,6 +1390,13 @@ async function ukazOkoli(place, c, view) {
     hledame: (stojiZaTo && !vidimSlunce) ? 'slunce' : 'dest',
     // Vzdálenost sama neřekne, jestli se to blíží. Tohle ano.
     dorazi: view?.rainSoon?.time || '',
+    // A protějšek: prší tady, a kdy to má povolit.
+    prsiTed: !!view?.clearSoon?.prsiTed,
+    prestane: view?.clearSoon?.time || '',
+    // Vítr, ze kterého se pozná, kam se to hýbe. ⚠️ „Odkud fouká", jako
+    // všude v appce — obrácené znaménko by tvrdilo přesný opak.
+    vitrOdkud: view?.current?.windDeg ?? null,
+    vitrKmh: view?.current?.windKmh ?? null,
     blizke: probePoints(stred),
     siroke: () => probePoints(stred, SIROKE_PRSTENCE_KM),
     klic: 'okoli',
@@ -1412,7 +1436,30 @@ async function ukazOkoliTrasy(view, cara) {
     }),
     odTrasy: true,
     klic: 'okoli-trasa',
+    // 🚨 Vítr se bere z BODU TRASY NEJBLIŽŠÍHO NÁLEZU, ne z průměru cesty.
+    // Praha–Brno má na obou koncích jiné počasí; jeden „vítr na trase"
+    // neexistuje a tvrdit podle něj, kam déšť míří, by byl výmysl.
+    vitrUBodu: (nalez) => vitrNejblize(view, nalez),
   });
+}
+
+/**
+ * Vítr v tom bodě trasy, který je nálezu nejblíž.
+ *
+ * ⚠️ Vrací prázdno, když body nemají směr větru — a to je správně: raději
+ * o pohybu mlčet než ho odvodit z čísla, které tam není.
+ */
+function vitrNejblize(view, nalez) {
+  if (!nalez) return {};
+  let nej = null;
+  let nejmensi = Infinity;
+  for (const p of view?.points || []) {
+    const b = p.point;
+    if (!Array.isArray(b) || !Number.isFinite(b[0])) continue;
+    const d = distanceM(b, [nalez.lat, nalez.lon]);
+    if (d < nejmensi) { nejmensi = d; nej = p; }
+  }
+  return { odkud: nej?.windDeg ?? null, kmh: nej?.windKmh ?? null };
 }
 
 async function loadStation() {

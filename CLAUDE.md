@@ -109,6 +109,8 @@ tohle je jen shrnutí.**
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
 | Hledání místa | patří METEOSTANICI: na trase se schová (`prepniObrazovku`), aby nad poli Odkud a Kam nestála volba, která se trasy netýká |
 | Sbalitelná hlavička | hledání, záložky a uložené věci sedí v `#top-menu` a rozbaluje je klepnutí na značku (`nabidka()`); sbalí se sama, jakmile je co ukazovat. 🚨 Sbalený řádek nese **jméno záložky a k němu to konkrétní** („Místo · Praha"), protože záložky jsou schované |
+| Jde to k nám, nebo od nás? | `web/lib/drift.js` — z větru se pozná SMĚR (přichází/odchází/mine), nikdy ČAS: přízemní vítr není rychlost srážkového pásu. 🚨 PŘEDPOVĚĎ PŘEBÍJÍ VÍTR — „přichází" se proti mlčícímu modelu netvrdí. U trasy se vítr bere z bodu nejbližšího nálezu, ne z průměru cesty |
+| Kdy přestane pršet | `clearSoon` ve `station.js`, protějšek `rainSoon`. 🚨 `prsiTed` rozlišuje „neprší" od „prší a nekončí to" — bez něj by se „nevíme" tvářilo jako „hned to přejde" |
 | Karta výstrah | při klidu se schová celá. 🚨 JEN ve stavu „nic nehrozí" — při výpadku a mimo pokrytí zůstane, jinak by appka mlčky tvrdila klid o něčem, o čem nic neví. Že je klid, říká tichý řádek u „aktualizováno" |
 | Upozornění na výstrahy (R17) | hlídá androidí obal (`Vystrahy.kt`, WorkManager, 15 min), web jen když běží. Rozhodování: server + `lib/severity.js` + `lib/warn-notify.js`; **obal jen porovnává řetězce**. Práh jde serveru jako `minSeverity`. Výchozí VYPNUTO, práh `Moderate` |
 | Most do obalu | `MostDoWebu.kt` / `window.MeteoTraceObal`. ⚠️ Zůstane úzký — je to jediné okno z webu do telefonu |
@@ -118,7 +120,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**615 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
+**644 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
 
 ### 🔑 Klíče
 
@@ -139,7 +141,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.6.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.7.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
