@@ -21,6 +21,17 @@ export default {
     route: 'Trasa',
     sections: 'Části appky',
     settings: 'Nastavení',
+    menu: 'Hledání, části appky a uložené věci',
+    menuHide: 'Schovat nabídku',
+  },
+
+  /* Potažení dolů nahoře na stránce data natáhne znovu. Každý stav má svoje
+     slovo — samotné kolečko neřekne, jestli se vůbec něco stalo. */
+  refresh: {
+    pull: 'Potáhni dolů a načte se znovu',
+    release: 'Pusť a načte se znovu',
+    working: 'Načítám…',
+    done: 'Máš čerstvá data',
   },
 
   search: {

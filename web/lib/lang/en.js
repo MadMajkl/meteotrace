@@ -18,6 +18,17 @@ export default {
     route: 'Route',
     sections: 'Sections',
     settings: 'Settings',
+    menu: 'Search, sections and saved items',
+    menuHide: 'Hide the menu',
+  },
+
+  /* Pull down at the top of the page and the data reloads. Each state has
+     its own words — a spinner alone never says whether anything happened. */
+  refresh: {
+    pull: 'Pull down to refresh',
+    release: 'Let go to refresh',
+    working: 'Refreshing…',
+    done: 'Up to date',
   },
 
   search: {

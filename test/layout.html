@@ -142,6 +142,19 @@ function nasypPyl(doc) {
   }
 }
 
+/**
+ * Rozbalí nabídku v hlavičce.
+ *
+ * 🚨 Od 29. 8. 2026 se hlavička po vybrání místa SBALÍ — a rám má místo
+ * v adrese, takže by se měřil jeden řádek se značkou. Jenže nejširší obsah
+ * appky je pořád tam: řádek uložených míst a tras. Bez tohohle by test
+ * mlčky přestal měřit to, kvůli čemu vznikl.
+ */
+function rozbalNabidku(doc) {
+  const btn = doc.getElementById('btn-menu');
+  if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
+}
+
 /** Nejhorší případy do karty výstrah — jinak by se měřila prázdná karta. */
 function nasypVystrahy(doc) {
   const card = doc.getElementById('warnings-card');
@@ -179,7 +192,11 @@ async function run() {
   // takže by se na ní nezměřilo nic. Před měřením se proto nasypou schválně
   // ty nejhorší případy: nejdelší štítek závažnosti („Neznámá závažnost")
   // a dlouhý název jevu vedle sebe na jednom řádku.
-  for (const { f } of frames) { nasypVystrahy(f.contentDocument); nasypPyl(f.contentDocument); }
+  for (const { f } of frames) {
+    rozbalNabidku(f.contentDocument);
+    nasypVystrahy(f.contentDocument);
+    nasypPyl(f.contentDocument);
+  }
 
   let failed = 0;
   const results = [];

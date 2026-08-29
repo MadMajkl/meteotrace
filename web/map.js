@@ -115,6 +115,8 @@ let vystrahaTrida = 'unknown';
 /** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
 let styleReady = false;
 let frames = [];
+/** Bod, pro který jsou snímky stažené — potřebuje ho obnova při potažení dolů. */
+let posledniBod = null;
 /** Rohy obrázku předpovědi (ČHMÚ dodává hotový výřez, ne dlaždice). */
 let nowcastRohy = null;
 let nowcastZdroj = '';
@@ -543,6 +545,22 @@ export function refreshMap() {
 }
 
 /**
+ * Znovu stáhne osu radaru. Volá se při potažení dolů.
+ *
+ * ⚠️ Radar je nejrychleji stárnoucí věc na obrazovce — nové snímky přibývají
+ * po pěti minutách. Kdyby se při „načíst znovu" obnovilo jen počasí, zůstala
+ * by mapa u snímků z doby, kdy se appka otevřela, a tvářila by se jako teď.
+ *
+ * ⚠️ Bez mapy se nic nestane a nic se nehlásí: kdo radar neotevřel, nemá co
+ * obnovovat. Vrací `false`, ať volající pozná, jestli se vůbec sáhlo ven.
+ */
+export function refreshRadar() {
+  if (!map || !styleReady || !posledniBod) return false;
+  loadFrames(posledniBod.lat, posledniBod.lon);
+  return true;
+}
+
+/**
  * Stáhne osu: naměřené snímky z radaru a předpověď na hodinu dopředu.
  *
  * ⚠️ Předpověď se tahá ZVLÁŠŤ a její selhání nesmí shodit radar. Je to
@@ -553,6 +571,7 @@ export function refreshMap() {
  * a kus okolí. Pro Berlín nebo Vídeň by to byl dotaz zadarmo pro nikoho.
  */
 async function loadFrames(lat, lon) {
+  posledniBod = { lat, lon };
   let radarove = [];
   try {
     const { data } = await apiGet('radar');

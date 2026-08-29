@@ -107,12 +107,14 @@ tohle je jen shrnutí.**
 | Start a cíl klepnutím do mapy | na trase zadá klepnutí start, další cíl |
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
+| Sbalitelná hlavička | hledání, záložky a uložené věci sedí v `#top-menu` a rozbaluje je klepnutí na značku (`nabidka()`); sbalí se sama, jakmile je co ukazovat. 🚨 Sbalený řádek nese **jméno záložky a k němu to konkrétní** („Místo · Praha"), protože záložky jsou schované |
+| Potažení dolů = načíst znovu | logika v `web/lib/pull-refresh.js` (čistá, se samotestem), dotyk v `app.js` (`zapojPotazeni`). Obnovuje i osu radaru (`refreshRadar()` v `map.js`) |
 | Vzhled | světlý / tmavý / podle zařízení (⚙); jedna značka `data-theme` na kořeni, zbytek dělá CSS |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**571 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
+**588 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách.
 
 ### 🔑 Klíče
 
@@ -133,7 +135,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.4.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.5.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -218,6 +220,19 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   výpočtu výřezu.
 - **🚨 Vrstva nad radarem musí být v `PREKRYVY`.** Radar se zakládá znovu při každém
   snímku a vkládá se pod nejnižší z nich; co v seznamu není, po vteřině zmizí samo.
+- **🚨 Prohlížeč má vlastní potažení dolů a to naše přebije.** Chrome na Androidu
+  na přetažení nahoře stránku CELOU ZNOVU NAČTE — a s ní zmizí i rozdělaná trasa.
+  Vypíná to `overscroll-behavior-y: contain` na `html` **i** `body`; prohlížeče se
+  liší v tom, který z nich se ptají.
+- **🚨 Cokoli, co vyjíždí zpod hlavičky, musí její výšku MĚŘIT.** Hlavička je
+  jednou sbalená (55 px) a jindy rozbalená (163 px), plus „safe area" na telefonu.
+  Napevno zapsané číslo sedí vždycky nanejvýš v jednom stavu — pruh potažení se
+  kvůli tomu schoval za hlavičku a vykukovalo z něj 7 px. Logika přitom byla
+  v pořádku a samotest zelený; vidět z toho nebylo nic.
+- **⚠️ Kdo sbalí hlavičku, musí ji rozbalit v layoutovém testu.** Nejširší obsah
+  appky je řádek uložených míst a tras — a ten je teď schovaný. `test/layout.html`
+  ho proto před měřením rozbalí (`rozbalNabidku`), jinak by test mlčky přestal
+  měřit to, kvůli čemu vznikl.
 - **🚨 `display` v pravidle PŘEBÍJÍ atribut `hidden`.** Prvek pak zůstane ve stránce
   a layoutová kontrola hlásí přetečení u něčeho úplně jiného. Ke každému `display`
   u skrývaného prvku patří `[hidden] { display: none; }`.

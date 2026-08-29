@@ -59,6 +59,12 @@
 
 * { box-sizing: border-box; }
 
+/* 🚨 PROHLÍŽEČ MÁ VLASTNÍ POTAŽENÍ DOLŮ A PŘEBIL BY TO NAŠE. Chrome na
+   Androidu na přetažení nahoře stránku CELOU ZNOVU NAČTE — a s ní by zmizela
+   i rozdělaná trasa. `contain` ho vypne, ale rolování uvnitř appky nechá být.
+   Patří na `html` I na `body`: prohlížeče se liší v tom, který z nich se ptají. */
+html, body { overscroll-behavior-y: contain; }
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -79,10 +85,42 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-.brand { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 8px; }
 .brand-mark { color: var(--accent); font-size: 20px; }
 .brand-mark.big { font-size: 44px; }
 .brand-name { font-weight: 700; letter-spacing: -.01em; }
+
+/* ── Značka jako tlačítko nabídky ──────────────────────────────────────── */
+/* Celý řádek se značkou je tlačítko: na telefonu je to ta největší plocha,
+   která v hlavičce zbývá, a trefí se palcem naslepo. */
+.brand-toggle {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;                    /* ať se kontext může zkrátit */
+  padding: 8px 4px; margin: -8px 0 -8px -4px;   /* větší terč, tentýž vzhled */
+  font: inherit; text-align: left;
+  color: var(--text); background: none; border: 0;
+  cursor: pointer;
+}
+/* ⚠️ Šipka musí být vidět, jinak nikoho nenapadne na značku klepnout.
+   Při 10 px a barvě popisků splývala s pozadím — na fotce mobilu byla
+   k nerozeznání od tečky. */
+.brand-sipka { flex: none; font-size: 13px; color: var(--accent); transition: transform .18s; }
+.brand-toggle[aria-expanded="true"] .brand-sipka { transform: rotate(180deg); }
+
+/* Co je vidět dole, když je nabídka sbalená. Bez toho by zmizely záložky
+   a nebylo by poznat, jestli se člověk dívá na místo, nebo na trasu —
+   a zmizelé nastavení se nedá odlišit od ztraceného. */
+.brand-kontext {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: right;
+  font-size: 13px; font-weight: 500; color: var(--text-soft);
+}
+.brand-toggle[aria-expanded="true"] .brand-kontext { display: none; }
+
+/* ⚠️ Sbaluje se OBAL, ne jednotlivé kusy: jinak by v hlavičce zůstaly
+   mezery po prvcích, které nejsou vidět. Schování obstará `[hidden]`. */
+.top-menu { margin-top: 10px; }
 
 .search { display: flex; gap: 8px; }
 
@@ -120,6 +158,64 @@ body {
 .results li:hover, .results li:focus-visible { background: var(--accent-soft); }
 .results .muted { color: var(--text-soft); font-size: 14px; }
 .results li.empty { cursor: default; color: var(--text-soft); }
+
+/* ---------- potažení dolů: načíst znovu ---------- */
+
+/* Pruh visí nad stránkou a vytahuje ho prst. `position: fixed` schválně:
+   kdyby byl v toku, tlačil by při tažení celou appku dolů a mapa by pod ním
+   poskakovala. Takhle se hýbe jen on.
+
+   ⚠️ `z-index` je pod hlavičkou (10), ne nad ní — pruh má vyjíždět ZPOD ní. */
+.pull {
+  position: fixed; z-index: 9;
+  /* ⚠️ `top: 0`, ale posun se počítá od SPODNÍHO okraje hlavičky (měří ho JS).
+     Napevno zapsaná výška by nesedila: sbalená hlavička má 55 px, rozbalená
+     163 px — a při „safe area" na telefonu ještě víc. Napoprvé se pruh kvůli
+     tomu schoval za hlavičku celý a vykukovalo z něj 7 px. */
+  top: 0; left: 0; right: 0;
+  display: flex; justify-content: center;
+  pointer-events: none;                    /* prst patří stránce, ne pruhu */
+  transform: translateY(-100%);
+  opacity: 0;
+}
+/* Během tažení se posun mění každý snímek, takže se NEanimuje; plynulý
+   návrat po puštění zapíná JS značkou `data-hladce`. */
+.pull[data-hladce="1"] { transition: transform .22s ease, opacity .22s ease; }
+
+.pull-box {
+  display: flex; align-items: center; gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  font-size: 13px; font-weight: 600; color: var(--text-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.pull-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Šipka se u prahu otočí vzhůru — „už můžeš pustit" musí být vidět DŘÍV,
+   než člověk pustí, jinak je to hádanka. Barva to jen podtrhuje; poznat
+   je to i černobíle. */
+.pull-ico { flex: none; font-size: 15px; line-height: 1; transition: transform .18s; }
+.pull[data-stav="release"] .pull-ico { transform: rotate(180deg); }
+.pull[data-stav="release"] .pull-box,
+.pull[data-stav="working"] .pull-box { color: var(--accent); border-color: var(--accent); }
+
+/* Načítání: kolečko místo šipky. Vlastní tvar, ne emoji — ten se točí
+   v každém systému jinak, a někde vůbec. */
+.pull[data-stav="working"] .pull-ico {
+  width: 14px; height: 14px;
+  border: 2px solid currentColor; border-top-color: transparent;
+  border-radius: 50%;
+  font-size: 0;                            /* šipku schovej, kruh nech */
+  animation: pull-tocit .7s linear infinite;
+}
+@keyframes pull-tocit { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pull[data-stav="working"] .pull-ico { animation-duration: 2.4s; }
+}
 
 /* ---------- uložená místa ---------- */
 

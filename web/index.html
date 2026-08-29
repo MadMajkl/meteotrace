@@ -26,14 +26,28 @@
 <body>
 
 <header class="top">
+  <!-- 🚨 ZNAČKA JE TLAČÍTKO NABÍDKY. Hledání, záložky a uložené věci zabíraly
+       na telefonu skoro třetinu displeje, i když se člověk zrovna díval na
+       mapu (Michal 29. 8. 2026: „ten pás je moc vertikálně široký").
+       Sbalená hlavička je jeden řádek — a ten řádek MUSÍ říct, co je vidět
+       dole, jinak by zmizely i záložky a nebylo by poznat, kde vlastně jsem. -->
   <div class="brand">
-    <span class="brand-mark" aria-hidden="true">◈</span>
-    <span class="brand-name" data-i18n="app.name">MeteoTrace</span>
+    <button id="btn-menu" class="brand-toggle" type="button"
+            aria-expanded="true" aria-controls="top-menu">
+      <span class="brand-mark" aria-hidden="true">◈</span>
+      <span class="brand-name" data-i18n="app.name">MeteoTrace</span>
+      <span class="brand-sipka" aria-hidden="true">▾</span>
+      <span class="brand-kontext" id="brand-kontext"></span>
+    </button>
     <!-- Jazyk a jednotky. V hlavičce, protože appka, která mluví cizí řečí,
-         je k nepotřebě hned — ne až se člověk proklikne do nastavení. -->
+         je k nepotřebě hned — ne až se člověk proklikne do nastavení.
+         ⚠️ Mimo tlačítko nabídky: tlačítko uvnitř tlačítka není platné HTML
+         a klepnutí na ozubené kolo by rozbalovalo nabídku. -->
     <button id="btn-settings" class="icon-btn settings" type="button"
             data-i18n-attr="aria-label:settings.title|title:settings.title">⚙</button>
   </div>
+
+  <div id="top-menu" class="top-menu">
   <form class="search" id="search-form" role="search" autocomplete="off">
     <input id="search-input" type="search"
            data-i18n-attr="placeholder:search.placeholder|aria-label:search.placeholder">
@@ -79,7 +93,18 @@
       <ul id="places-panel" class="saved-panel" hidden></ul>
     </div>
   </nav>
+  </div><!-- /#top-menu -->
 </header>
+
+<!-- Potažení dolů = načíst znovu. Pruh visí pod hlavičkou a vytahuje ho prst;
+     🚨 každý stav má SVOJE SLOVO — samotné kolečko neřekne, jestli se něco
+     stalo, nebo jestli appka jen zamrzla. `aria-live` to řekne i nahlas. -->
+<div id="pull" class="pull" aria-hidden="true">
+  <div class="pull-box">
+    <span class="pull-ico" id="pull-ico" aria-hidden="true">↓</span>
+    <span class="pull-text" id="pull-text" role="status" aria-live="polite"></span>
+  </div>
+</div>
 
 <!-- Správa uložených míst. Nativní <dialog>: ohlídá si zavření klávesou Esc,
      vrácení ohniska i to, že se pod ním nedá klikat. -->

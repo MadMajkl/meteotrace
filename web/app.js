@@ -34,6 +34,7 @@ import {
 } from './lib/route-view.js';
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
+import { createPull } from './lib/pull-refresh.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import { formatDistance } from './lib/units.js';
@@ -50,7 +51,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.4.1';
+const VERZE = '0.5.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -833,6 +834,10 @@ function applyI18n() {
   }
   $('splash-text').textContent = t('search.placeholder', state.lang);
   document.title = `${t('app.name', state.lang)} — ${t('app.tagline', state.lang)}`;
+  // Sbalený řádek a bublina nad značkou se skládají v kódu, ne ze značek —
+  // po přepnutí jazyka by jinak zůstaly v tom předchozím.
+  $('btn-menu')?.setAttribute('title', t(nabidkaOtevrena() ? 'nav.menuHide' : 'nav.menu', state.lang));
+  vypisKontext();
 }
 
 /* ============================================================
@@ -984,6 +989,9 @@ function selectPlace(place, textDoPole = '') {
   $('search-input').value = textDoPole;
   $('search-input').blur();
   renderSaved();
+  // Místo je vybrané → nabídka ustoupí počasí. Přesně o tohle jde: displej
+  // má patřit tomu, co si člověk vyžádal.
+  nabidka(false);
   loadStation();
 }
 
@@ -1702,6 +1710,158 @@ function kolecemDoBoku(pruh) {
   }, { passive: false });
 }
 
+/* ============================================================
+   POTAŽENÍ DOLŮ = NAČÍST ZNOVU
+
+   Michal 29. 8. 2026: *„aktualizovat by se to mělo normálně potažením palcem
+   dolů na HP."* Rozhodování (odpor, práh, kdy se gesto chytá) je v čistém
+   modulu `lib/pull-refresh.js` a má vlastní samotest; tady zbývá dotyk,
+   posun pruhu a to, co se vlastně načte.
+   ============================================================ */
+
+/** Běží zrovna načítání z gesta? Druhé potažení do něj nemá co mluvit. */
+let nacitamZGesta = false;
+
+/**
+ * Odkud pruh vyjíždí — spodní okraj hlavičky.
+ *
+ * 🚨 Měří se, nezapisuje natvrdo. Sbalená hlavička má 55 px, rozbalená 163 px
+ * a na telefonu k tomu přibude „safe area". S pevným číslem se pruh schoval
+ * za hlavičku a vykukovalo z něj sedm pixelů — gesto fungovalo a vypadalo
+ * jako by nedělalo nic.
+ */
+let vrchPruhu = 0;
+
+/**
+ * Co se potažením obnoví — podle obrazovky, na kterou se člověk dívá.
+ *
+ * ⚠️ Vrací `null`, když není co obnovovat. Gesto se pak vůbec nechytí:
+ * kolečko, po kterém se nic nezmění, vypadá jako zaseknutá appka.
+ */
+function coObnovit() {
+  if (state.screen === 'route') {
+    if (state.route.from && state.route.to) return () => loadRoute();
+    return null;
+  }
+  return state.place ? () => loadStation() : null;
+}
+
+/**
+ * Smí dotyk začínající tady spustit gesto?
+ *
+ * 🚨 Mapa si tahání bere sama — potažení v ní znamená posun mapy, ne
+ * načítání. Totéž otevřený dialog: pod ním appka nereaguje, tak ať se
+ * netváří, že ano.
+ */
+function dotykPatriNekomuJinemu(cil) {
+  if (document.querySelector('dialog[open]')) return true;
+  return !!(cil?.closest?.('.map, .radar-scrub, .hours-box, .chips, .departures'));
+}
+
+/**
+ * Pruh: kam se má posunout a co má říkat.
+ *
+ * 🚨 Každý stav má SVOJE SLOVO. Samotné kolečko neřekne, jestli se něco
+ * načítá, nebo jestli appka zamrzla — a mlčící správné chování se od chyby
+ * nedá odlišit.
+ */
+function vykresliPruh(posun, stav) {
+  const pruh = $('pull');
+  if (!pruh) return;
+  const text = $('pull-text');
+
+  pruh.dataset.stav = stav;
+  // Během tažení se posun mění každý snímek — animace by za prstem
+  // zaostávala. Plynule se jede jen návrat a spuštění.
+  pruh.dataset.hladce = stav === 'drag' ? '0' : '1';
+
+  if (stav === 'off') {
+    pruh.style.transform = '';
+    pruh.style.opacity = '';
+    if (text) text.textContent = '';
+    return;
+  }
+
+  // Pruh vyjíždí zpod hlavičky: −100 % je schovaný, posun ho vytahuje dolů.
+  pruh.style.transform = `translateY(calc(-100% + ${Math.round(vrchPruhu + posun)}px))`;
+  pruh.style.opacity = String(Math.min(1, posun / 32));
+  if (text) {
+    text.textContent = t(
+      stav === 'working' ? 'refresh.working'
+        : stav === 'done' ? 'refresh.done'
+          : stav === 'release' ? 'refresh.release'
+            : 'refresh.pull',
+      state.lang,
+    );
+  }
+}
+
+/**
+ * Načtení vyvolané gestem.
+ *
+ * ⚠️ „Hotovo" se ukáže na chvilku i tehdy, když se data nezměnila. Bez toho
+ * by úspěšné načtení vypadalo přesně jako gesto, které se nechytlo —
+ * a člověk by táhl znovu a znovu.
+ */
+async function obnovZGesta(akce) {
+  if (nacitamZGesta) return;
+  nacitamZGesta = true;
+  vykresliPruh(48, 'working');
+  try {
+    await akce();
+    // Radar má vlastní snímky a je nejstarší věc na obrazovce; když už se
+    // sahá ven, patří k tomu. Chybí-li mapa, není co obnovovat.
+    mapModule?.refreshRadar?.();
+  } catch { /* hlášku o chybě si obstará samo načítání */ }
+  vykresliPruh(48, 'done');
+  setTimeout(() => {
+    nacitamZGesta = false;
+    vykresliPruh(0, 'off');
+  }, 900);
+}
+
+/**
+ * Zapojení gesta. Jednou při startu, na celý dokument.
+ *
+ * ⚠️ `touchmove` NENÍ pasivní: bez `preventDefault()` by se pod pruhem
+ * rolovala stránka a appka by při tažení poskakovala.
+ */
+function zapojPotazeni() {
+  const pull = createPull();
+  let akce = null;
+
+  document.addEventListener('touchstart', (e) => {
+    if (nacitamZGesta) return;
+    akce = coObnovit();
+    // Hlavička je jednou sbalená a jednou rozbalená — změř ji teď, ne kdysi.
+    vrchPruhu = document.querySelector('.top')?.getBoundingClientRect().bottom || 0;
+    const lze = pull.start(e.touches[0]?.clientY, {
+      scrollY: window.scrollY || document.documentElement.scrollTop || 0,
+      prstu: e.touches.length,
+      nelze: !akce || dotykPatriNekomuJinemu(e.target),
+    });
+    if (lze) vykresliPruh(0, 'drag');
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    const posun = pull.move(e.touches[0]?.clientY, { prstu: e.touches.length });
+    if (posun === null) { vykresliPruh(0, 'off'); return; }
+    // Až od pár pixelů: do té doby může jít pořád ještě o klepnutí a krást
+    // stránce rolování kvůli dvěma pixelům by bylo znát.
+    if (posun > 4 && e.cancelable) e.preventDefault();
+    vykresliPruh(posun, pull.spusti ? 'release' : 'drag');
+  }, { passive: false });
+
+  const pust = () => {
+    if (pull.end() && akce) obnovZGesta(akce);
+    else if (!nacitamZGesta) vykresliPruh(0, 'off');
+  };
+  document.addEventListener('touchend', pust);
+  // ⚠️ Systém umí dotyk zrušit (hovor, gesto zpět). Bez tohohle by pruh
+  // zůstal viset uprostřed obrazovky a nikdo by ho nesundal.
+  document.addEventListener('touchcancel', () => { pull.zrus(); if (!nacitamZGesta) vykresliPruh(0, 'off'); });
+}
+
 /**
  * Mapa s radarem. Načte se až teď, ne při startu appky.
  * Selhání mapy nesmí shodit zbytek obrazovky — počasí je důležitější.
@@ -1849,6 +2009,84 @@ function prepniObrazovku(kam) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
   presunMapu();
+  // Přepnutí záložky je cesta k obsahu — takže nabídka ustoupí, je-li co
+  // ukazovat. Na prázdné obrazovce zůstane, jinak by nebylo čím začít.
+  sbalNabidkuKObsahu();
+}
+
+/* ============================================================
+   NABÍDKA V HLAVIČCE
+
+   Hledání, záložky a uložené věci se sbalí pod značku. Michal 29. 8. 2026:
+   *„ten pás trasa a místa je moc vertikálně široký… tohle menu by mohlo
+   vyvolat až klepnutí nahoře na MeteoTrace; pokud se zobrazí místo nebo
+   mapa, mělo by se schovat."* Na telefonu je displej to nejcennější,
+   co appka má.
+   ============================================================ */
+
+/**
+ * Rozbalí nebo sbalí nabídku v hlavičce.
+ *
+ * 🚨 Sbalená nabídka schová i ZÁLOŽKY, takže sbalený řádek musí říct, na co
+ * se člověk dívá — viz `kontextNabidky()`. Nabídka, která zmizí beze stopy,
+ * se nedá odlišit od appky, které se cosi rozbilo.
+ */
+function nabidka(otevrit) {
+  const menu = $('top-menu');
+  const tlacitko = $('btn-menu');
+  if (!menu || !tlacitko) return;
+
+  menu.hidden = !otevrit;
+  tlacitko.setAttribute('aria-expanded', String(!!otevrit));
+  tlacitko.title = t(otevrit ? 'nav.menuHide' : 'nav.menu', state.lang);
+  // ⚠️ Rozepsané hledání patří k nabídce. Kdyby zůstalo viset, svítil by
+  // seznam výsledků pod sbalenou hlavičkou bez pole, do kterého se psalo.
+  if (!otevrit) { hideResults(); zavriPanely(); }
+  vypisKontext();
+}
+
+/** Je nabídka rozbalená? Pravda je v DOM, ať se nemusí držet dvakrát. */
+function nabidkaOtevrena() {
+  return $('btn-menu')?.getAttribute('aria-expanded') === 'true';
+}
+
+/**
+ * Co je vidět dole — text do sbaleného řádku.
+ *
+ * Vždycky JMÉNO ZÁLOŽKY a k němu to konkrétní: „Místo · Praha",
+ * „Trasa · Praha → Brno". Samotné „Praha" by neřeklo, jestli se appka dívá
+ * na jedno místo, nebo na cestu, která tam vede — a záložky jsou schované.
+ */
+function kontextNabidky() {
+  const zalozka = t(state.screen === 'route' ? 'nav.route' : 'nav.station', state.lang);
+  let co = '';
+  if (state.screen === 'route') {
+    const { from, to } = state.route;
+    if (from && to) co = `${placeLabel(from, state.lang)} → ${placeLabel(to, state.lang)}`;
+  } else if (state.place) {
+    co = state.place.name;
+  }
+  return co ? `${zalozka} · ${co}` : zalozka;
+}
+
+function vypisKontext() {
+  const box = $('brand-kontext');
+  if (box) box.textContent = kontextNabidky();
+}
+
+/**
+ * Sbalí nabídku, JEN KDYŽ je pod ní co ukazovat.
+ *
+ * ⚠️ Prázdná obrazovka se sbalenou nabídkou je slepá ulička: appka nic
+ * neukazuje a jediný nástroj, jak něco zobrazit, je schovaný. Kdo teprve
+ * hledá místo, musí mít pole na očích.
+ */
+function sbalNabidkuKObsahu() {
+  const jeCo = state.screen === 'route'
+    ? !$('route-summary-card')?.hidden       // spočítaná trasa
+    : !!state.place;
+  if (jeCo) nabidka(false);
+  else { nabidka(true); }
 }
 
 /**
@@ -2069,6 +2307,8 @@ function skryjVysledekTrasy() {
   // ⚠️ Bez výsledku nemá co sbalit: sbalený formulář nad prázdnou
   // obrazovkou by vypadal, že se appka kouše.
   sbalFormularTrasy(false);
+  // Trasa přestala platit, takže ji sbalený řádek nesmí dál hlásit.
+  vypisKontext();
 }
 
 /**
@@ -2315,8 +2555,10 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   vykresliOdjezdy();
 
   $('route-summary-card').hidden = false;
-  // Trasa je spočítaná → formulář se sbalí a plochu dostane mapa.
+  // Trasa je spočítaná → formulář se sbalí a plochu dostane mapa. A s ním
+  // i nabídka v hlavičce: kdo se dívá na cestu, hledání teď nepotřebuje.
   sbalFormularTrasy(true);
+  nabidka(false);
   renderRoutes();
   $('route-summary').textContent = tf('route.result', {
     distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
@@ -2544,7 +2786,14 @@ function init() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.saved-group')) zavriPanely();
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') zavriPanely(); });
+  // ⚠️ Escape zavírá po JEDNÉ vrstvě: nejdřív rozbalený seznam, teprve pak
+  // celou nabídku. Kdyby zmizelo obojí naráz, přišel by člověk o víc, než
+  // o co jedním klepnutím žádal.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (document.querySelector('.saved-panel:not([hidden])')) { zavriPanely(); return; }
+    if (nabidkaOtevrena()) sbalNabidkuKObsahu();
+  });
 
   // Po otočení telefonu nebo rozložení skládacího displeje se do řádku vejde
   // jiný počet štítků — musí se přepočítat, ne zůstat podle staré šířky.
@@ -2562,6 +2811,16 @@ function init() {
   }
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
+
+  // Značka rozbaluje a sbaluje nabídku.
+  $('btn-menu').addEventListener('click', () => nabidka(!nabidkaOtevrena()));
+  // ⚠️ Klepnutí mimo hlavičku nabídku sbalí — je to nabídka, ne druhá půlka
+  // obrazovky. Ale JEN když je pod ní co ukazovat: na prázdné obrazovce by
+  // se sbalila a nezůstalo by nic, čím začít.
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.top') && nabidkaOtevrena()) sbalNabidkuKObsahu();
+  });
+  zapojPotazeni();
   $('route-go').addEventListener('click', loadRoute);
   // Klepnutí na sbalený řádek vrátí formulář. ⚠️ Zaostří se rovnou pole
   // startu — kdo formulář otvírá, chce něco změnit, ne se na něj dívat.
