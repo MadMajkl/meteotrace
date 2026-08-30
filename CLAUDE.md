@@ -199,6 +199,12 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Trefa do CDN cache jde MIMO ochranu proxy.** Cizí `Origin` dostane na
+  `/api/radar` v produkci **200**, protože odpověď leží v edge cache Netlify
+  a funkce se vůbec nespustí. Není to vada — co nejde ven, nestojí kvótu nic —
+  ale kdo to neví, hledá hodinu vadu, která tam není. Na čerstvé adrese je 403
+  spolehlivě. `Vary: Origin` by to spravilo za cenu rozdrobené cache, tedy
+  víc cest ven; nedělá se to. Viz `R19`.
 - **🚨 Ochrana, která vypadá, že funguje, je horší než žádná.** U omezovače dotazů
   jsou tři místa, kde se dá udělat chyba neviditelná v testu i v prohlížeči:
   počítat i trefy do cache (appka „přestane fungovat po chvíli používání"),
