@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.11.1';
+const VERZE = '0.11.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1815,7 +1815,19 @@ function renderPollen(view) {
   note.hidden = !zprava;
 
   // Když data nejsou, nemá smysl vypisovat šest prázdných řádků.
-  const polozky = view.pollenStatus === 'nedostupne' ? [] : view.pollen;
+  //
+  // 🚨 A druhy, které NELÍTAJÍ, se schovávají. Michal 30. 8. 2026: *„pyly,
+  // u kterých je výsledek žádný, dynamicky skrývej."* V srpnu je většina
+  // seznamu na nule (bříza, olše, oliva) a šest řádků se stejným slovem
+  // vypadá jako vymyšlená data — přesně na to narazil Michal už 23. 8.
+  // Tehdy se to spravilo tím, že nula přestala být „nízká"; teď mizí úplně.
+  //
+  // ⚠️ Karta ale zůstává a mluví dál. Věta u ní rozlišuje tři stavy, které
+  // se nesmí splést: „nic nelítá" · „nemáme data" · „tohle zrovna lítá".
+  // Kdyby se schoval i ten popisek, byl by klid k nerozeznání od výpadku.
+  const polozky = view.pollenStatus === 'nedostupne'
+    ? []
+    : view.pollen.filter((p) => p.level !== 'none');
   fill($('pollen'), polozky, (p) => {
     const level = el('span', 'lvl', p.levelText);
     level.dataset.level = p.level;            // barvu odznaku řídí CSS podle stupně
