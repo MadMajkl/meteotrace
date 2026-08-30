@@ -123,8 +123,11 @@ export default {
     saved: 'Saved routes',
     mine: 'My routes',
     save: 'Save this route',
-    saveShort: 'Save',
-    savedShort: 'Saved',
+    // ⚠️ „Save ROUTE", not a bare „Save": on the route screen there are
+    // other buttons around it and the verb alone says nothing about what
+    // gets saved.
+    saveShort: 'Save route',
+    savedShort: 'Route saved',
     remove: 'Remove this route',
     empty: 'No routes yet. Work one out and the star will keep it.',
     count: '{count} of {max} routes used.',
@@ -167,7 +170,7 @@ export default {
     computing: 'Working out the route…',
     failed: 'The route did not work out. Shall we try again?',
     noWeather: 'We have the route, but its weather could not be loaded.',
-    result: '{distance}, arriving at {arrival}',
+    result: 'Distance {distance}, arriving at {arrival}',
     arrival: 'Arriving at {time} — {what}.',
     estimated: 'Times are estimates: we have no data on hold-ups along the way.',
     beyond: 'The end of the route is beyond the forecast range.',
@@ -197,6 +200,11 @@ export default {
     pickedTo: 'Destination set from the map.',
     start: 'Start',
     finish: 'Destination',
+    legend: 'Points along the route',
+    legendOk: 'no rain',
+    legendRain: 'rain',
+    legendHazard: 'hazardous weather',
+    legendUnknown: 'beyond the forecast',
   },
 
   now: {

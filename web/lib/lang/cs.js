@@ -130,8 +130,11 @@ export default {
     saved: 'Uložené trasy',
     mine: 'Moje trasy',
     save: 'Uložit tuhle trasu',
-    saveShort: 'Uložit',
-    savedShort: 'Uloženo',
+    // ⚠️ „Uložit TRASU", ne jen „Uložit". U místa je hvězdička jediné
+    // tlačítko na kartě, na trase je vedle ní spousta dalších — a co se
+    // vlastně uloží, z holého slovesa nepoznáš.
+    saveShort: 'Uložit trasu',
+    savedShort: 'Trasa uložena',
     remove: 'Odebrat tuhle trasu',
     empty: 'Zatím žádná trasa. Spočítej ji a hvězdička ji podrží.',
     count: 'Využito {count} z {max} tras.',
@@ -174,7 +177,9 @@ export default {
     computing: 'Počítám trasu…',
     failed: 'Trasu se spočítat nepovedlo. Zkusíme to ještě jednou?',
     noWeather: 'Trasu známe, počasí k ní se ale nepodařilo načíst.',
-    result: '{distance}, příjezd v {arrival}',
+    // ⚠️ Popisek před číslem, ne holé „205 km, příjezd v 18:12". Bez něj se
+    // údaj dá číst jako cokoli — zbývající kilometry, ujetá vzdálenost, dojezd.
+    result: 'Vzdálenost {distance}, příjezd v {arrival}',
     arrival: 'Příjezd v {time} — {what}.',
     estimated: 'Časy jsou odhadnuté: nemáme informace o překážkách na trati.',
     beyond: 'Konec trasy je mimo rozsah předpovědi.',
@@ -213,6 +218,15 @@ export default {
     pickedTo: 'Cíl je z mapy.',
     start: 'Start',
     finish: 'Cíl',
+    // Legenda barev pod mapou. ⚠️ Barva bodu je bez ní hádanka: mapa
+    // ukazuje čtyři odstíny a nikde nestojí, co který znamená. Michal
+    // 30. 8. 2026 chtěl vysvětlivky u bodů — tohle je ta levnější půlka,
+    // která odpovídá na častější otázku („proč je červený?").
+    legend: 'Body na trase',
+    legendOk: 'beze srážek',
+    legendRain: 'déšť',
+    legendHazard: 'nebezpečné počasí',
+    legendUnknown: 'za obzorem předpovědi',
   },
 
   now: {

@@ -1465,3 +1465,39 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
   text-transform: uppercase; color: var(--text-soft);
 }
 .manage-hlavicka[hidden] { display: none; }
+
+/* ── Legenda barev u bodů na trase ───────────────────────────────────────
+   Michal 30. 8. 2026 chtěl u bodů vysvětlivky. Legenda je ta levnější
+   polovina odpovědi: řeší otázku „co ta barva znamená" jednou provždy
+   a bez klepání.
+
+   ⚠️ Tlumená a drobná. Není to údaj, je to vysvětlivka k údaji — kdyby
+   křičela, přetahovala by pozornost od mapy, ke které se vztahuje. */
+.legenda {
+  margin: -6px 0 16px;
+  padding: 0 4px;
+}
+.legenda[hidden] { display: none; }
+
+.legenda-nadpis {
+  display: block; margin-bottom: 6px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+
+.legenda-body {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  list-style: none; margin: 0; padding: 0;
+}
+.legenda-body li {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-soft);
+}
+
+/* Puntík má tentýž tvar jako bod v mapě: kolečko s bílým lemem.
+   ⚠️ Barvu dosazuje JS z `ROUTE_COLORS`, ne CSS — viz index.html. */
+.legenda-puntik {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1.5px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}

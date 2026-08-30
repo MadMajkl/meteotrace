@@ -465,14 +465,15 @@
     </div>
   </section>
 
-  <!-- Sem se mapa přesune, když je otevřená trasa.
+  <!-- ♻️ SOUHRN JE NAD MAPOU. 28. 8. 2026 to bylo obráceně (mapa nahoru,
+       „aby se dostala do hlavního view"), jenže tím se to hlavní číslo —
+       kdy tam dorazíš — odsunulo pod obrazovku. Michal 30. 8. 2026:
+       „prohoď u trasy dlaždici s příjezdem nad tu dlaždici se srážkovým
+       radarem."
 
-       ⚠️ Je NAD souhrnem schválně. Na obrazovce trasy je mapa hlavní věc —
-       souhrn se dá přečíst i po ní, ale mapa schovaná pod třemi kartami
-       znamená, že ji nikdo neuvidí bez rolování. Michal 28. 8. 2026:
-       „aby se dostala mapa do hlavního view." -->
-  <div id="route-map-slot"></div>
-
+       ⚠️ Původní důvod tím nepadá: souhrn je jen pár řádků, takže mapa
+       zůstává vidět hned pod ním — ne pod třemi kartami, jak to bylo
+       před 28. 8. -->
   <section class="card" id="route-summary-card" hidden aria-labelledby="h-route-summary">
     <h2 id="h-route-summary" class="sr-only" data-i18n="route.summary"></h2>
     <div class="place-row">
@@ -509,6 +510,22 @@
     <div class="departures" id="route-departures" role="group"
          data-i18n-attr="aria-label:route.departure"></div>
   </section>
+
+  <!-- Sem se mapa přesune, když je otevřená trasa. -->
+  <div id="route-map-slot"></div>
+
+  <!-- 🚨 LEGENDA BAREV. Bez ní je barva bodu hádanka: mapa ukazuje čtyři
+       odstíny a nikde nestojí, co který znamená. Michal 30. 8. 2026 chtěl
+       vysvětlivky u bodů — tohle odpovídá na tu častější otázku („proč je
+       ten bod červený?"), aniž by se muselo cokoli rozklikávat.
+
+       ⚠️ Puntíky si barvu berou z `ROUTE_COLORS` v map.js, ne z CSS —
+       dvě sady odstínů by se rozešly a legenda by pak vysvětlovala barvy,
+       které v mapě nejsou. -->
+  <div class="legenda" id="route-legenda" hidden>
+    <span class="legenda-nadpis" data-i18n="route.legend"></span>
+    <ul class="legenda-body" id="route-legenda-body"></ul>
+  </div>
 
   <section class="card" id="route-points-card" hidden aria-labelledby="h-route-points">
     <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>

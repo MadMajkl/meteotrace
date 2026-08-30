@@ -59,11 +59,15 @@ const ROUTE_LINE = 'trasa-cara';
 const ROUTE_POINTS = 'trasa-body';
 
 /**
+ * 🚨 VYVÁŽENO SCHVÁLNĚ. Legenda pod mapou si barvy bere odsud, ne z vlastní
+ * kopie — dvě sady odstínů by se rozešly při první úpravě a legenda by pak
+ * vysvětlovala barvy, které v mapě nejsou.
+ *
  * Barvy bodů trasy. Odpovídají tomu, jak se body chovají ve výpisu pod mapou:
  * co je tam zvýrazněné jako nebezpečné, musí být zvýrazněné i tady — jinak
  * by mapa a seznam vyprávěly každý něco jiného.
  */
-const ROUTE_COLORS = {
+export const ROUTE_COLORS = {
   hazard: '#b3261e',    // bouřka, náledí, silný vítr
   rain: '#1a7fd4',      // pravděpodobný déšť
   ok: '#2f7d4f',

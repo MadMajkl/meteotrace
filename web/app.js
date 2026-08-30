@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.10.2';
+const VERZE = '0.11.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1927,6 +1927,44 @@ function zpravaMistoMapy(text) {
   p.textContent = text;
 }
 
+/**
+ * Legenda barev pod mapou trasy.
+ *
+ * 🚨 Barvy si bere z `ROUTE_COLORS` v `map.js`, ne z vlastní kopie. Dvě sady
+ * odstínů by se rozešly při první úpravě a legenda by pak vysvětlovala barvy,
+ * které v mapě nejsou — tedy horší stav než žádná legenda, protože by lhala.
+ *
+ * ⚠️ Modul mapy se natahuje LÍNĚ (skoro megabajt). Když ještě není, legenda
+ * se prostě neukáže — vysvětlovat barvy mapy, která se nenačetla, nedává
+ * smysl. Až mapa naskočí, `vykresliLegendu()` se zavolá znovu.
+ */
+function vykresliLegendu() {
+  const box = $('route-legenda');
+  const seznam = $('route-legenda-body');
+  if (!box || !seznam) return;
+
+  const barvy = mapModule?.ROUTE_COLORS;
+  // Bez mapy (nebo s vypnutou mapou) není co vysvětlovat.
+  if (!barvy || mapaVypnuta()) { box.hidden = true; return; }
+
+  const polozky = [
+    ['ok', 'route.legendOk'],
+    ['rain', 'route.legendRain'],
+    ['hazard', 'route.legendHazard'],
+    ['unknown', 'route.legendUnknown'],
+  ];
+
+  seznam.replaceChildren();
+  for (const [stav, klic] of polozky) {
+    const li = document.createElement('li');
+    const puntik = el('span', 'legenda-puntik');
+    puntik.style.background = barvy[stav] || barvy.unknown;
+    li.append(puntik, document.createTextNode(t(klic, state.lang)));
+    seznam.append(li);
+  }
+  box.hidden = false;
+}
+
 /** Přesune kartu s mapou k obrazovce, která je zrovna vidět. */
 function presunMapu() {
   const karta = document.querySelector('.map-card');
@@ -1996,6 +2034,10 @@ async function ukazMapuTrasy(trasaProMapu) {
     });
     presunMapu();
     mapModule.showRoute(trasaProMapu || null, { fit: !!trasaProMapu });
+    // ⚠️ Až teď — legenda si barvy bere z modulu mapy, a ten se natahuje
+    // líně. Při prvním výpočtu trasy tu ještě nebyl, takže by se legenda
+    // bez tohohle volání ukázala až napodruhé.
+    vykresliLegendu();
   } catch (e) {
     console.warn('[MeteoTrace] mapa trasy se nenačetla:', e.message);
   }
@@ -3029,6 +3071,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   // i nabídka v hlavičce: kdo se dívá na cestu, hledání teď nepotřebuje.
   sbalFormularTrasy(true);
   nabidka(false);
+  vykresliLegendu();
   renderRoutes();
   $('route-summary').textContent = tf('route.result', {
     distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
@@ -3507,6 +3550,21 @@ function ukazZivyKrok(krok) {
   // ⚠️ Trasa se počítá JEDNOU. Bez téhle podmínky by každý nový uživatel
   // spálil dva dotazy z kvóty ORS místo jednoho (`R4`).
   if (!state.routeResult) loadRoute();
+
+  // 🚨 A TRASA SE ROVNOU ULOŽÍ. Michal 30. 8. 2026: *„při tom onboardingu
+  // už mu tu první trasu ulož! nezobrazují se totiž vůbec po onboardingu
+  // po rozklepnutí horní lišty — Moje trasy."*
+  //
+  // Byla to vada, ne opomenutí návrhu: uvítání ukládalo obě MÍSTA, ale
+  // trasu z nich ne — takže appka po uvítání tvrdila, že žádnou trasu
+  // nemám, přestože jsem si ji v něm právě prošel. Celý smysl uvítání je,
+  // že po něm appka NENÍ prázdná.
+  //
+  // ⚠️ Přes `toggleSaveRoute` schválně: kdyby se ukládalo vlastní cestou,
+  // rozešlo by se to s hvězdičkou u souhrnu — a jednou by trasa byla
+  // uložená, ale hvězdička prázdná. `najdiUlozenouTrasu()` navíc hlídá,
+  // aby se tatáž trasa neuložila dvakrát.
+  if (!najdiUlozenouTrasu()) toggleSaveRoute();
 }
 
 /**
