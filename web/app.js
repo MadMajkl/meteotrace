@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.11.3';
+const VERZE = '0.11.4';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3449,7 +3449,18 @@ const uvitaniVyber = { domov: null, cil: null };
 
 /** Spustí uvítání, pokud na něj tenhle člověk má nárok. */
 function mozneUvitani() {
-  if (!maSeSpustit({ hotovo: state.onboardingHotovo, pocetMist: state.places.places.length })) {
+  // 🚨 `?onboarding=1` uvítání vynutí, ať se dá vyzkoušet bez mazání dat.
+  // Michal 30. 8. 2026 smazal data v prohlížeči a uvítání stejně nenaskočilo:
+  // příznak `onboardingHotovo` sice zmizel, ale ZŮSTALO ULOŽENÉ MÍSTO —
+  // a `maSeSpustit()` se schválně dívá na obojí. Vyčistit obě položky
+  // ručně je otrava, na kterou se přijde až po deseti minutách hledání.
+  //
+  // ⚠️ Vynucení NEMAŽE data. Kdo si to pustí s plnou appkou, jen si uvítání
+  // prohlédne; vybraná místa se do uložených přidají, nic se neztratí.
+  const vynuceno = new URLSearchParams(location.search).get('onboarding') === '1';
+
+  if (!vynuceno
+      && !maSeSpustit({ hotovo: state.onboardingHotovo, pocetMist: state.places.places.length })) {
     return false;
   }
   uvitani = createOnboarding({ maCil: false });
