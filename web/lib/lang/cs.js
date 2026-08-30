@@ -142,6 +142,7 @@ export default {
     count: 'Využito {count} z {max} tras.',
     removed: 'Odebráno: {name}.',
     full: 'Seznam tras je plný — vypadla nejméně používaná.',
+    manage: 'Spravovat uložené trasy',
     title: 'Trasy',
   },
 

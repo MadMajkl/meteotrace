@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.11.4';
+const VERZE = '0.11.5';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -253,6 +253,10 @@ function renderSaved() {
     panel: 'routes-panel',
     polozky: state.places.routes.map((r) => ({ kind: 'route', item: r, name: r.name })),
     current: najdiUlozenouTrasu(),
+    // ⚠️ U tras „Spravovat uložené trasy", i když dialog je společný.
+    // Popisek má říkat, na co se člověk zrovna dívá — ne kam ho to
+    // technicky zavede.
+    spravaKlic: 'routes.manage',
   });
 
   vykresliSkupinu({
@@ -274,7 +278,7 @@ function renderSaved() {
  * šířku podle počtu písmen by u „Domov" a „Praha → Brno přes Jihlavu"
  * vyšlo pokaždé jinak.
  */
-function vykresliSkupinu({ box, radek, panel, polozky, current }) {
+function vykresliSkupinu({ box, radek, panel, polozky, current, spravaKlic }) {
   $(box).hidden = polozky.length === 0;
   if (!polozky.length) return;
 
@@ -282,7 +286,7 @@ function vykresliSkupinu({ box, radek, panel, polozky, current }) {
 
   // V rozbaleném seznamu je navíc poslední řádek: správa.
   fill($(panel), [...polozky, { sprava: true }], (p) => (p.sprava
-    ? radekSpravy()
+    ? radekSpravy(spravaKlic)
     : stitekPolozky(p, current)));
 
   // Měří se až po vykreslení, jinak nemá prohlížeč co měřit.
@@ -295,9 +299,9 @@ function vykresliSkupinu({ box, radek, panel, polozky, current }) {
  * ⚠️ Je to jiná věc než štítky nad ním, takže vypadá jinak — kdyby to byl
  * další štítek v řadě, klepl by na něj člověk omylem místo na místo.
  */
-function radekSpravy() {
+function radekSpravy(klic = 'places.manage') {
   const li = document.createElement('li');
-  const btn = el('button', 'chip chip-sprava', `⋯ ${t('places.manage', state.lang)}`);
+  const btn = el('button', 'chip chip-sprava', `⋯ ${t(klic, state.lang)}`);
   btn.type = 'button';
   btn.addEventListener('click', () => { zavriPanely(); openPlaces(); });
   li.append(btn);
@@ -331,9 +335,28 @@ function stitekPolozky(polozka, current) {
     state.places = touchPlace(state.places, je.key, Date.now());
     persistPlaces();
     const misto = { name: je.name, country: je.country, lat: je.lat, lon: je.lon };
-    // Na trase uložené místo VYPLŇUJE TRASU — viz `doplnDoTrasy()`.
-    if (state.screen === 'route') doplnDoTrasy(misto);
-    else selectPlace(misto);
+    // 🚨 HOTOVOU TRASU KLEPNUTÍ NA MÍSTO NEROZBÍJÍ. Michal 30. 8. 2026:
+    // *„když máš vybranou trasu a koukáš na ni a jsi hotovej a klepneš na
+    // uložené místo, mělo by tě to přenést do Místo — a ne, že ti to
+    // rozpatlá aktuální trasu."*
+    //
+    // Vyplňování trasy z uloženého místa („jeď sem", 25. 8.) dává smysl,
+    // dokud se trasa teprve skládá. Jakmile je spočítaná, je to hotová
+    // práce — a klepnutí na něco pod nadpisem „Moje MÍSTA" znamená, že
+    // chce vidět místo, ne měnit cestu.
+    //
+    // ⚠️ Pozná se to podle VÝSLEDKU, ne podle vyplněných polí. Start a cíl
+    // můžou být zadané a trasa přitom ještě nespočítaná — v tu chvíli
+    // vyplňování pořád pomáhá.
+    const hotovaTrasa = state.screen === 'route' && !$('route-summary-card').hidden;
+
+    if (state.screen === 'route' && !hotovaTrasa) {
+      doplnDoTrasy(misto);
+    } else {
+      // Na obrazovce místa (nebo nad hotovou trasou) se místo prostě ukáže.
+      selectPlace(misto);
+      if (hotovaTrasa) prepniObrazovku('station');
+    }
   });
 
   li.append(chip);

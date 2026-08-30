@@ -134,6 +134,7 @@ export default {
     count: '{count} of {max} routes used.',
     removed: 'Removed {name}.',
     full: 'Route list is full — the least used one was dropped.',
+    manage: 'Manage saved routes',
     title: 'Routes',
   },
 
