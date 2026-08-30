@@ -17,6 +17,8 @@ import {
   planRequest, transformBody, filterByPlace, responseHeaders, errorBody, API_PREFIX,
 } from '../web/lib/proxy-core.js';
 import { findArea } from '../web/lib/orp.js';
+import { createLimiter, originPovolen, tridaSluzby } from '../web/lib/rate-limit.js';
+import { UPSTREAMS } from '../web/lib/upstreams.js';
 
 /**
  * Vypadá odpověď hledání jako „nic jsme nenašli"?
@@ -66,9 +68,31 @@ export const PLATNOST_ZALOHY_S = 10 * 60;
  */
 const vypadky = new Map();
 
+/**
+ * Omezovač sdílený instancí. Sahá se na něj až ve chvíli, kdy by se šlo ven —
+ * viz `web/lib/rate-limit.js`.
+ */
+const omezovac = createLimiter();
+
 /** Jen pro testy: zapomenout, co se kdy pokazilo. */
 export function zapomenVypadky() {
   vypadky.clear();
+  omezovac.store.clear();
+}
+
+/**
+ * Odkud smí prohlížeč volat proxy.
+ *
+ * ⚠️ Bere se z prostředí, ne z kódu: na náhledovém nasazení Netlify má
+ * stránka jinou adresu než na ostré doméně a napevno zapsaný seznam by tam
+ * appku umlčel. `SITE_URL` nastavuje Netlify sám.
+ */
+function povoleneOrigins(env = {}) {
+  const seznam = ['meteotrace.com', 'localhost:8099', 'appassets.androidplatform.net'];
+  for (const klic of ['SITE_URL', 'URL', 'DEPLOY_PRIME_URL']) {
+    if (env[klic]) seznam.push(env[klic]);
+  }
+  return seznam;
 }
 
 /**
@@ -130,6 +154,17 @@ export async function serveProxy(req, deps) {
     return { status: plan.status, headers: responseHeaders({ ttlS: 0 }), body: errorBody(plan.status, plan.error) };
   }
 
+  // Cizí stránka nad naší kvótou. ⚠️ Chybějící `Origin` se NEODMÍTÁ — naše
+  // vlastní stránka ho neposílá (je to týž původ) a appka v obalu taky ne.
+  if (!originPovolen(req.origin, povoleneOrigins(req.env))) {
+    log('cizí původ odmítnut', { origin: req.origin, service: plan.service });
+    return {
+      status: 403,
+      headers: responseHeaders({ ttlS: 0 }),
+      body: errorBody(403, 'Tahle proxy obsluhuje jen MeteoTrace.'),
+    };
+  }
+
   // Zahozené parametry nejsou chyba, ale musí být vidět. Tiché zahazování je
   // nejhorší druh chyby: volající dostane odpověď, jen jinou, než čekal.
   if (plan.dropped.length) {
@@ -155,6 +190,30 @@ export async function serveProxy(req, deps) {
     cache.set(plan.cacheKey, telo, plan.ttlS);
     log('místní odpověď', { service: plan.service, key: plan.cacheKey });
     return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: telo };
+  }
+
+  // 1c) 🚨 AŽ TEĎ SE OMEZUJE. Nad tímhle řádkem se ven nechodí (čerstvá cache,
+  //     místní odpověď), takže tam dotaz nic nestojí a počítat ho by znamenalo
+  //     trestat uživatele za to, že se appka ptá na totéž. Viz `rate-limit.js`.
+  const trida = tridaSluzby(UPSTREAMS[plan.service]);
+  const mez = omezovac.zkus({ trida, ip: req.clientIp || '', nowMs: (deps.now || Date.now)() });
+  if (!mez.ok) {
+    log('omezeno', { service: plan.service, trida, pravidlo: mez.pravidlo, ip: req.clientIp });
+    // ⚠️ Prošlá odpověď je pořád lepší než odmítnutí. Kdo narazil na strop
+    // a máme pro něj něco v cache, dostane to — se značkou, že to není
+    // čerstvé. Odmítnutí si necháme na případ, kdy nemáme co nabídnout.
+    if (hit) {
+      return {
+        status: 200,
+        headers: responseHeaders({ ttlS: plan.ttlS, fresh: false, ageS: hit.ageS }),
+        body: proMisto(hit.value),
+      };
+    }
+    return {
+      status: 429,
+      headers: { ...responseHeaders({ ttlS: 0 }), 'Retry-After': String(mez.retryAfterS) },
+      body: { ...errorBody(429, 'Moc dotazů naráz. Zkus to za chvíli.'), retryAfterS: mez.retryAfterS },
+    };
   }
 
   // 2) Ven.
@@ -250,6 +309,18 @@ export async function serveProxy(req, deps) {
         body: proMisto(hit.value),
       };
     }
+    // 🚨 Vyčerpaná kvóta NENÍ výpadek. Cizí služba odpověděla, a to zcela
+    // správně — jen jsme na dnešek vybrali svůj příděl (`R4`). Kdyby se to
+    // zabalilo do „zdroj neodpověděl", vypadalo by to jako cizí porucha
+    // a hledalo by se to na špatné straně. Stav 429 se proto propouští ven.
+    if (e.status === 429) {
+      log('kvóta u zdroje vyčerpána', { service: plan.service });
+      return {
+        status: 429,
+        headers: responseHeaders({ ttlS: 0 }),
+        body: { ...errorBody(429, `Denní příděl u zdroje ${plan.service} je vyčerpaný.`), kvota: true },
+      };
+    }
     log('upstream selhal a není co nabídnout', { service: plan.service, chyba: e.message });
     return {
       status: 502,
@@ -265,7 +336,14 @@ async function fetchUpstream(fetchImpl, plan) {
   const timer = setTimeout(() => ac.abort(), UPSTREAM_TIMEOUT_S * 1000);
   try {
     const res = await fetchImpl(plan.url, { headers: plan.headers, signal: ac.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // ⚠️ Stav se nese s chybou dál. Bez něj je „vyčerpaná kvóta" k nerozeznání
+      // od „služba spadla" — a to jsou dvě různé zprávy pro uživatele: jedna
+      // znamená „zkus to zítra", druhá „zkus to za minutu".
+      const e = new Error(`HTTP ${res.status}`);
+      e.status = res.status;
+      throw e;
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);

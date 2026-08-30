@@ -37,6 +37,11 @@ export async function apiGet(service, params = {}, opts = {}) {
     const msg = data?.error || `HTTP ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
+    // ⚠️ „Moc dotazů teď" a „vyčerpaný denní příděl" chodí obojí jako 429
+    // a znamenají něco jiného: u prvního se čeká minutu, u druhého do zítřka.
+    // Bez téhle značky by je obrazovka nedokázala rozeznat.
+    err.kvota = data?.kvota === true;
+    err.retryAfterS = Number(data?.retryAfterS) || Number(res.headers.get('Retry-After')) || 0;
     throw err;
   }
 

@@ -39,6 +39,14 @@ export default async function handler(request) {
     params: url.searchParams,
     method: request.method,
     env: process.env,
+    // 🚨 ADRESU BERE JEN Z HLAVIČKY, KTEROU PÍŠE NETLIFY.
+    // `x-forwarded-for` si napíše kdokoli — kdyby se omezovač řídil jí,
+    // stačilo by ji u každého dotazu obměnit a ochrana by neexistovala.
+    // Vypadala by přitom, že funguje, protože v testu i v prohlížeči by
+    // se chovala správně. `x-nf-client-connection-ip` doplňuje až Netlify
+    // a klient ji přepsat nemůže.
+    clientIp: request.headers.get('x-nf-client-connection-ip') || '',
+    origin: request.headers.get('origin') || '',
   }, {
     cache,
     areas,

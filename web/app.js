@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.13.1';
+const VERZE = '0.14.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -746,6 +746,25 @@ function openSettings() {
 
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
+}
+
+/**
+ * Co se o chybě řekne uživateli.
+ *
+ * 🚨 Ochrana, o které se mlčí, se nedá odlišit od poruchy. Proxy od 30. 8. 2026
+ * odmítá dotazy nad rámec kvóty (`lib/rate-limit.js`) a bez tohohle by z toho
+ * v appce bylo obecné „Data se nepodařilo načíst" — tedy zpráva, po které
+ * člověk mačká znovu a znovu, protože netuší, že má počkat.
+ *
+ * Rozlišují se dva stavy, které vypadají stejně a znamenají něco jiného:
+ * **moc dotazů teď** (počkej minutu) a **vyčerpaný denní příděl** (počkej
+ * do zítřka, ale zbytek appky jede dál).
+ */
+function textChyby(e, obecny) {
+  if (e?.status === 429) {
+    return t(e.kvota ? 'error.quota' : 'error.tooMany', state.lang);
+  }
+  return `${t(obecny, state.lang)} ${e?.message || ''}`.trim();
 }
 
 /* ============================================================
@@ -1675,7 +1694,7 @@ async function loadStation() {
     }
   } catch (e) {
     if (requests.isAbort(e)) return;          // zrušený dotaz není chyba
-    notice(`${t('error.failed', state.lang)} ${e.message}`);
+    notice(textChyby(e, 'error.failed'));
   }
 }
 
@@ -3099,7 +3118,7 @@ async function loadRoute() {
     vykresliTrasu({ view, plan, trasa, srovnani, mista, useky });
   } catch (e) {
     if (requests.isAbort(e)) return;
-    poznamkaTrasy(`${t('route.failed', state.lang)} ${e.message}`);
+    poznamkaTrasy(textChyby(e, 'route.failed'));
   }
 }
 

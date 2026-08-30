@@ -286,13 +286,28 @@ test('obsluha: výpadek bez cache je 502 se srozumitelnou hláškou', async () =
 });
 
 test('obsluha: chybový stav od cizí služby se nevydává za úspěch', async () => {
-  const f = fakeFetch({ ok: false, status: 429, body: null });
+  const f = fakeFetch({ ok: false, status: 503, body: null });
   const res = await serveProxy(
     { pathname: '/api/radar' },
     { cache: createCache(), fetchImpl: f },
   );
   assert.equal(res.status, 502);
-  assert.match(res.body.error, /429/);
+  assert.match(res.body.error, /503/);
+});
+
+test('🚨 obsluha: vyčerpaná kvóta NENÍ výpadek cizí služby', async () => {
+  // Cizí služba odpověděla, a správně — jen jsme vybrali svůj příděl (R4).
+  // Kdyby to prošlo jako 502 „zdroj neodpověděl", hledala by se porucha
+  // na cizí straně. A uživatel by dostal větu, po které mačká znovu,
+  // místo aby počkal.
+  zapomenVypadky();
+  const f = fakeFetch({ ok: false, status: 429, body: null });
+  const res = await serveProxy(
+    { pathname: '/api/route/driving-car', params: { start: '14,50', end: '16,49' }, env: { ORS_API_KEY: 'x' } },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.status, 429);
+  assert.equal(res.body.kvota, true, 'klient to musí umět odlišit od chvilkového stropu');
 });
 
 test('obsluha: výstrahy se ořežou už na serveru', async () => {
@@ -680,4 +695,126 @@ test('🚨 odpověď ze zálohy platí krátce, ne 24 hodin jako plnohodnotná',
   const pozdeji = await serveProxy(dotaz, spolecne);
   assert.equal(pozdeji.body.results[0].name, 'náměstí Republiky 1',
     'po obnovení kvóty se týž dotaz zeptá znovu a vrátí adresu, ne obec');
+});
+
+/* ============================================================
+   OCHRANA VEŘEJNÉ PROXY (R19)
+
+   🚨 Testy míří na OBEJITÍ, ne na šťastnou cestu. Zelený test „při 31.
+   dotazu se odmítne" neřekne nic o tom, jestli se ochrana nedá vypnout
+   hlavičkou, jestli neodstřihne vlastní appku a jestli se nespustí tam,
+   kde se ven vůbec nechodí.
+   ============================================================ */
+
+test('🚨 ochrana: trefa do cache se do přídělu NEPOČÍTÁ', async () => {
+  // Nejdůležitější pravidlo celé ochrany. Odpověď z cache nestojí kvótu nic,
+  // takže omezovat ji znamená trestat uživatele za to, že se appka ptá na
+  // totéž — a přesně to chování chceme. Kdyby se tohle jednou rozbilo,
+  // projevilo by se to tím, že appka „přestane fungovat po chvíli
+  // používání", a nikdo by to nespojil s ochranou.
+  zapomenVypadky();
+  const f = fakeFetch({ body: { ok: 1 } });
+  const cache = createCache();
+  const dotaz = { pathname: '/api/radar', clientIp: '10.0.0.1' };
+
+  for (let i = 0; i < 300; i++) {
+    const res = await serveProxy(dotaz, { cache, fetchImpl: f });
+    assert.equal(res.status, 200, `dotaz ${i + 1} skončil ${res.status}`);
+  }
+  assert.equal(f.calls.length, 1, 'ven se mělo jít jen jednou, zbytek je cache');
+});
+
+test('ochrana: kdo mlátí do placené služby, dostane 429 i s Retry-After', async () => {
+  zapomenVypadky();
+  // Každý dotaz jiný, aby se netrefil do cache — jinak by se neměřilo nic.
+  const f = fakeFetch({ body: { features: [] } });
+  const cache = createCache();
+
+  let posledni = null;
+  for (let i = 0; i < 60; i++) {
+    posledni = await serveProxy({
+      pathname: '/api/route/driving-car',
+      params: { start: `14.${i},50.1`, end: '16.6,49.2' },
+      env: ENV,
+      clientIp: '10.0.0.2',
+    }, { cache, fetchImpl: f });
+    if (posledni.status === 429) break;
+  }
+  assert.equal(posledni.status, 429);
+  assert.ok(Number(posledni.headers['Retry-After']) > 0, 'musí říct, kdy to zkusit');
+  assert.ok(posledni.body.error, 'a proč');
+});
+
+test('🚨 ochrana: kdo narazí na strop, dostane radši prošlé než nic', async () => {
+  // Odmítnutí je až poslední možnost. Když pro tazatele něco máme, je
+  // zastaralá předpověď nesrovnatelně lepší než hláška — a `X-MeteoTrace-Stale`
+  // zařídí, že se to netváří jako čerstvé.
+  zapomenVypadky();
+  const hodiny = fakeClock();
+  // ⚠️ Cache musí dostat TYTÉŽ hodiny. Napoprvé je neměla, takže posun času
+  // záznam nezestaral a test měřil čerstvou odpověď místo prošlé.
+  const cache = createCache({ now: hodiny.now });
+  const f = fakeFetch({ body: { teplota: 1 } });
+  const dotaz = { pathname: '/api/forecast', params: { latitude: '50', longitude: '14' }, clientIp: '10.0.0.3' };
+
+  await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now });
+  hodiny.advance(3600);                       // záznam v cache zestárl
+
+  // Vyčerpat příděl jinými dotazy z téže adresy.
+  for (let i = 0; i < 200; i++) {
+    await serveProxy({
+      // ⚠️ Souřadnice musí být JINÉ než u sledovaného dotazu. Napoprvé měl
+      // filler s `i = 0` tytéž (`5${i}` = `50`), takže si test sám přepsal
+      // záznam v cache na čerstvý — a neměřil, co si myslel.
+      pathname: '/api/forecast', params: { latitude: '40', longitude: `1${i}` }, clientIp: '10.0.0.3',
+    }, { cache, fetchImpl: f, now: hodiny.now });
+  }
+
+  const res = await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now });
+  assert.equal(res.status, 200, 'prošlé se má vrátit, ne odmítnout');
+  assert.equal(res.headers['X-MeteoTrace-Stale'], '1', 'a musí být poznat, že je prošlé');
+});
+
+test('🚨 ochrana: vlastní stránka projde, cizí ne', async () => {
+  zapomenVypadky();
+  const f = fakeFetch({ body: { ok: 1 } });
+
+  const nase = await serveProxy(
+    { pathname: '/api/radar', origin: 'https://meteotrace.com', clientIp: '10.0.0.4' },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(nase.status, 200);
+
+  const cizi = await serveProxy(
+    { pathname: '/api/radar', origin: 'https://zlodej.cz', clientIp: '10.0.0.5' },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(cizi.status, 403);
+});
+
+test('🚨 ochrana: appka bez hlavičky Origin se nesmí odstřihnout', async () => {
+  // Vlastní stránka `Origin` neposílá (je to týž původ) a androidí obal taky
+  // ne. Kdyby chybějící hlavička znamenala zákaz, vypnula by se appka všem
+  // a prošly by jen skripty, které si hlavičku napíšou — přesný opak záměru.
+  zapomenVypadky();
+  const f = fakeFetch({ body: { ok: 1 } });
+  const res = await serveProxy(
+    { pathname: '/api/radar', clientIp: '10.0.0.6' },
+    { cache: createCache(), fetchImpl: f },
+  );
+  assert.equal(res.status, 200);
+});
+
+test('ochrana: náhledové nasazení Netlify se povolí z prostředí', async () => {
+  // ⚠️ Napevno zapsaná doména by na náhledu appku umlčela — a hledalo by se
+  // to jako vada appky, ne jako vada seznamu.
+  zapomenVypadky();
+  const f = fakeFetch({ body: { ok: 1 } });
+  const res = await serveProxy({
+    pathname: '/api/radar',
+    origin: 'https://deploy-preview-12--meteotrace.netlify.app',
+    env: { DEPLOY_PRIME_URL: 'https://deploy-preview-12--meteotrace.netlify.app' },
+    clientIp: '10.0.0.7',
+  }, { cache: createCache(), fetchImpl: f });
+  assert.equal(res.status, 200);
 });

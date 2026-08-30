@@ -425,5 +425,10 @@ export default {
     failed: 'Could not load data.',
     retry: 'Try again',
     beyondForecast: 'No forecast reaches that far ahead yet.',
+    /* 🚨 A guard nobody is told about looks exactly like a fault. Both of
+       these arrive as 429 and mean different things: wait a minute, or wait
+       until tomorrow. The sentence has to say what to do. */
+    tooMany: 'Too many requests at once. Give it a minute and try again.',
+    quota: 'The daily allowance for routes is used up; it resets tomorrow. The weather station and radar carry on.',
   },
 };

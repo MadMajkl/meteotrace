@@ -65,6 +65,11 @@ const server = createServer(async (req, res) => {
       params: url.searchParams,
       method: req.method,
       env: process.env,
+      // Adresa přímo ze spojení — na vývojovém serveru není žádný předřazený
+      // proxy, takže se nemá kde vzít podvržená hlavička. Viz Netlify Function,
+      // kde je to naopak to jediné, na co se dá spolehnout.
+      clientIp: req.socket?.remoteAddress || '',
+      origin: req.headers.origin || '',
     }, {
       cache,
       areas,

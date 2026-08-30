@@ -127,11 +127,12 @@ tohle je jen shrnutí.**
 | Semafor dlaždic | `web/lib/tile-tone.js` — prahy pro vítr, UV, tlak a soumrak. 🚨 Barva NIKDY nenese údaj sama; „nevíme" a „je klid" se nebarví obojí stejně, nebarví se vůbec |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
+| Ochrana proxy (R19) | `web/lib/rate-limit.js` — omezovač na tazatele, strop na instanci, povolené `Origin`. Třída se odvozuje z `needsKey`, ne z ručního seznamu. 🚨 Omezuje se AŽ ZA CACHE a strop na instanci NENÍ globální |
 | Dar (R7, R18) | `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**741 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**763 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -162,7 +163,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.13.1**; na `1.0.0` až s vydáním na Play.
+  Teď **0.14.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -198,6 +199,12 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Ochrana, která vypadá, že funguje, je horší než žádná.** U omezovače dotazů
+  jsou tři místa, kde se dá udělat chyba neviditelná v testu i v prohlížeči:
+  počítat i trefy do cache (appka „přestane fungovat po chvíli používání"),
+  věřit hlavičce `x-forwarded-for` (kdokoli si ji napíše a obmění), a odmítat
+  chybějící `Origin` (vlastní stránka ho neposílá, takže by se vypnula appka
+  všem a prošly by jen skripty). Viz `R19`.
 - **🚨 Správně spočítaný údaj umí sdělovat nepravdu.** Čas příjezdu se počítal
   na milisekundy přesně a všechny testy ETA byly zelené — jenže se vypisoval jako
   holé `HH:MM`, takže z pěší cesty na 60 hodin bylo „příjezd v 22:31", tedy zdánlivě

@@ -471,5 +471,10 @@ export default {
     failed: 'Data se nepodařilo načíst.',
     retry: 'Zkusit znovu',
     beyondForecast: 'Tak daleko dopředu předpověď zatím nesahá.',
+    /* 🚨 Ochrana, o které se mlčí, se nedá odlišit od poruchy. Obojí chodí
+       jako 429 a znamená něco jiného: u prvního se čeká minutu, u druhého
+       do zítřka. Věta proto musí říct, CO DĚLAT. */
+    tooMany: 'Moc dotazů naráz. Dej tomu minutu a zkus to znovu.',
+    quota: 'Denní příděl tras je vyčerpaný, zítra bude zas. Meteostanice a radar jedou dál.',
   },
 };
