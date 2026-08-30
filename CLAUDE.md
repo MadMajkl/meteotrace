@@ -10,7 +10,7 @@ Leží v `..\dokumentace\` (tedy `C:\develop\meteotrace-pracovni\dokumentace\`):
 | Soubor | Co v něm je |
 |---|---|
 | `02-rozhodnuti.md` | **Záznam rozhodnutí R0–R17 i s důvody. Čti jako první.** |
-| `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva |
+| `01-architektura.md` | Komponenty, hosting, náklady, proxy vrstva. **§4.2 = TOKY DAT: co se kam ptá a kdy** |
 | `04-zadani.md` | Vstupní brief: co se staví, název, domény, zdroje dat |
 
 **Bez přečtení `02-rozhodnuti.md` hrozí, že znovu otevřeš rozhodnutí, které už
@@ -64,7 +64,10 @@ a vyměnitelná konfigurací**, ne přepisem.
 Vzorem procesu i architektury je Gulpka — `C:\develop\napij_se-pracovni\`, zejména
 `napijse-poznamky\DOKUMENTACE-appka_b.md` a `skilly-claude-gulpka.md`.
 
-## Aktuální stav (k 25. 8. 2026)
+## Aktuální stav (k 30. 8. 2026)
+
+🌍 **Appka je venku na `https://meteotrace.com`** (Netlify, staví se samo z `main`).
+APK pro terén: `npm run android -- --api=https://meteotrace.com`.
 
 **Podrobný a průběžně vedený stav je v `..\dokumentace\03-vyvoj-progress.md` — čti ho,
 tohle je jen shrnutí.**
@@ -108,6 +111,9 @@ tohle je jen shrnutí.**
 | Množné číslo (i18n) | `tp()` nad `Intl.PluralRules`; tvary jsou vlastnost jazyka, hlídá `checkPlurals()` |
 | Pořadí záložek | vlevo je výchozí **Trasa** (odlišovač, R8) a je to zároveň úvodní obrazovka; jde prohodit v ⚙ |
 | Hledání místa | patří METEOSTANICI: na trase se schová (`prepniObrazovku`), aby nad poli Odkud a Kam nestála volba, která se trasy netýká |
+| Uvítání při 1. spuštění (R17) | `web/lib/onboarding.js` + `#uvitani` v app.js; 4 kroky, po nich má appka domov, cíl I TRASU. `?onboarding=1` ho vynutí bez mazání dat |
+| SEO a sdílení | Open Graph, Twitter card, canonical, `robots.txt`, `sitemap.xml`, ld+json. Náhled vyrábí `npm run og`. 🚨 Appka se kreslí JS, takže MIMO `<head>` je pro robota prázdná |
+| Legenda bodů trasy | barvy si bere z `ROUTE_COLORS` v map.js, ne z vlastní kopie — jinak by vysvětlovala barvy, které v mapě nejsou |
 | Sbalitelná hlavička | hledání, záložky a uložené věci sedí v `#top-menu` a rozbaluje je klepnutí na značku (`nabidka()`); sbalí se sama, jakmile je co ukazovat. 🚨 Sbalený řádek nese **jméno záložky a k němu to konkrétní** („Místo · Praha"), protože záložky jsou schované |
 | Jde to k nám, nebo od nás? | `web/lib/drift.js` — z větru se pozná SMĚR (přichází/odchází/mine), nikdy ČAS: přízemní vítr není rychlost srážkového pásu. 🚨 PŘEDPOVĚĎ PŘEBÍJÍ VÍTR — „přichází" se proti mlčícímu modelu netvrdí. U trasy se vítr bere z bodu nejbližšího nálezu, ne z průměru cesty |
 | Kdy přestane pršet | `clearSoon` ve `station.js`, protějšek `rainSoon`. 🚨 `prsiTed` rozlišuje „neprší" od „prší a nekončí to" — bez něj by se „nevíme" tvářilo jako „hned to přejde" |
@@ -122,7 +128,7 @@ tohle je jen shrnutí.**
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**668 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
+**695 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
 
 ### 🔑 Klíče
 
@@ -153,7 +159,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.8.1**; na `1.0.0` až s vydáním na Play.
+  Teď **0.12.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -181,6 +187,7 @@ npm run android             # nasype web do obalu a sestaví APK (JDK z Android 
 npm run android -- --api=https://…   # APK pro TERÉN: bez toho míří na místní síť
 npm run dev                 # (v něm i laboratoř ikon: /test/icon-lab.html)
 npm run icons               # ikony z web/icons/icon.svg (jednorázově, kreslí Chrome)
+npm run og                  # náhled pro sdílení 1200×630 (Open Graph), taky kreslí Chrome
 npm run docx                # dokumentace do Wordu
 ```
 

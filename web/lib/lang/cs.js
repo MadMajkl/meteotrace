@@ -386,7 +386,7 @@ export default {
     distance: 'Vzdálenost',
     about: 'O aplikaci',
     version: 'MeteoTrace {version}',
-    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer. Výstrahy: ČHMÚ přes MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
+    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ přes MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
 
   warnings: {
