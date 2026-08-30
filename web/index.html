@@ -10,8 +10,41 @@
      Prázdná hodnota = soubor vedle appky, tak to jede při vývoji.
      ⚠️ Doména musí umět Range i CORS, jinak se z archivu nenačte nic. -->
 <meta name="meteotrace:tiles" content="https://pub-0f518418db5b4a73b99caba2c28954c6.r2.dev/cz.pmtiles">
-<title>MeteoTrace</title>
-<meta name="description" content="Weather along your route — at every point, at the time you actually get there.">
+<!-- ══ CO O SOBĚ APPKA ŘEKNE VYHLEDÁVAČŮM A PŘI SDÍLENÍ ═════════════════
+     🚨 Tohle je JEDINÉ, co si robot přečte bez spuštění JavaScriptu.
+     Appka se celá kreslí skriptem, takže mimo tuhle hlavičku je stránka
+     pro vyhledávač prázdná — a odkaz poslaný do chatu by byl holý řádek
+     bez obrázku a bez popisu.
+
+     ⚠️ ČESKY, i když referenční jazyk kódu je angličtina. Doména cílí na
+     Česko a lidé sem doputují přes česká slova („počasí na trase"), ne
+     přes „weather along route". Appka sama se pak přepne podle prohlížeče;
+     tenhle text je vizitka, ne obsah. -->
+<title>MeteoTrace — počasí na trase i meteostanice pro tvoje místo</title>
+<meta name="description" content="Předpověď počasí v každém bodě cesty v čase, kdy tam doopravdy dorazíš. K tomu meteostanice pro jedno místo, srážkový radar s hodinovou předpovědí a výstrahy ČHMÚ.">
+<link rel="canonical" href="https://meteotrace.com/">
+
+<!-- Náhled při sdílení (Facebook, Messenger, LinkedIn, Slack…).
+     ⚠️ Obrázek MUSÍ být absolutní adresa — relativní si žádná z těch
+     služeb nedoplní a náhled zůstane prázdný. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://meteotrace.com/">
+<meta property="og:title" content="MeteoTrace — počasí na trase">
+<meta property="og:description" content="Počasí v každém bodě cesty v čase, kdy tam doopravdy dorazíš. A meteostanice pro tvoje místo.">
+<meta property="og:image" content="https://meteotrace.com/icons/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MeteoTrace — počasí na trase">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:site_name" content="MeteoTrace">
+
+<!-- Twitter/X má vlastní sadu. `summary_large_image` = velký náhled;
+     bez ní se ukáže čtvereček velikosti ikony. -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MeteoTrace — počasí na trase">
+<meta name="twitter:description" content="Počasí v každém bodě cesty v čase, kdy tam doopravdy dorazíš.">
+<meta name="twitter:image" content="https://meteotrace.com/icons/og.png">
+
 <!-- PWA: bez manifestu si appku nikdo nenainstaluje na plochu a na iPhonu,
      kde nativní appka nebude, je to jediná cesta k ní (R1). -->
 <link rel="manifest" href="manifest.json">
@@ -19,6 +52,24 @@
 <!-- ⚠️ Safari SVG jako ikonu nepřijme, proto PNG (vyrábí `npm run icons`). -->
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+
+<!-- Strukturovaná data pro vyhledávač. ⚠️ Popisují to, co appka OPRAVDU
+     dělá — vymyšlené hodnocení nebo cena, které nikde nejsou, znamenají
+     u Googlu postih, ne lepší pozici. `price: 0` je pravda: appka je
+     zdarma a nic neodemyká (viz R8, dary nesmí nic odemknout). -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "MeteoTrace",
+  "url": "https://meteotrace.com/",
+  "applicationCategory": "TravelApplication",
+  "operatingSystem": "Any",
+  "inLanguage": ["cs", "en"],
+  "description": "Předpověď počasí v každém bodě cesty v čase, kdy tam doopravdy dorazíš. Meteostanice pro jedno místo, srážkový radar s hodinovou předpovědí a výstrahy ČHMÚ.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CZK" }
+}
+</script>
 
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">

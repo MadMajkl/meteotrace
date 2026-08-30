@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ⚠️ Jedna adresa, protože appka JE jedna adresa. Obrazovky se přepínají
+  v prohlížeči, ne odkazem — sitemapa s vymyšlenými cestami by vyhledávači
+  slibovala stránky, které neexistují.
+
+  Až přibudou skutečné podstránky (nápověda, zásady, jednotlivá města),
+  patří sem taky.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://meteotrace.com/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

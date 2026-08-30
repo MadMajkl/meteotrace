@@ -1,6 +1,6 @@
 {
   "name": "meteotrace",
-  "version": "0.11.5",
+  "version": "0.12.0",
   "description": "Počasí na trase — v bodech cesty v čase, kdy tam skutečně dorazíš.",
   "private": true,
   "type": "module",
@@ -17,6 +17,7 @@
     "docx": "node tools/docx.mjs",
     "selftest:layout": "node tools/layout-check.mjs",
     "icons": "node tools/icons-build.mjs",
+    "og": "node tools/og-build.mjs",
     "verze": "node tools/verze.mjs",
     "prepare": "node tools/install-hooks.mjs"
   },

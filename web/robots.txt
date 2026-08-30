@@ -1,0 +1,11 @@
+# MeteoTrace — https://meteotrace.com
+#
+# ⚠️ /api/ se neindexuje. Jsou to odpovědi proxy, ne stránky: robot by
+# zbytečně čerpal kvótu cizích služeb (ORS má 2 000 dotazů denně) a do
+# výsledků hledání by se dostal syrový JSON.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://meteotrace.com/sitemap.xml
