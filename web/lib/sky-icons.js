@@ -138,17 +138,24 @@ export function pressureShape() {
 /**
  * Větrná růžice.
  *
- * 🚨 UKAZUJE, ODKUD FOUKÁ — jako korouhvička, která se do větru natáčí.
- * Appka vedle toho píše „severovýchodní vítr", což v češtině taky znamená
- * *od* severovýchodu. Kdyby střelka mířila po větru, ukazovala by přesný
- * opak toho, co je vedle ní napsané — a dvě protichůdná tvrzení vedle sebe
- * jsou horší než jedno bez obrázku.
+ * 🚨 HROT UKAZUJE, KAM VÍTR FOUKÁ. Otáčení dodává `app.js` a přičítá k němu
+ * 180°, protože `windDeg` je meteorologicky „odkud".
  *
- * Prstenec se **nikdy neotáčí**, otáčí se jen střelka (`app.js` na ni dá
- * `rotate`). Sever je proto pořád nahoře — jinak by růžice nebyla růžice,
- * ale jen šipka v kroužku.
+ * ♻️ **Obráceno 30. 8. 2026** a stojí za to vědět proč. Do 29. 8. to byla
+ * korouhvička: malá špička proti větru a proti ní prázdný ocas — a hrot
+ * mířící PROTI proudění tam dával smysl, protože korouhvička se do větru
+ * natáčí. Když se tvar změnil na jeden plný hrot přes celý kruh, změnilo se
+ * i to, jak ho lidi čtou: **plná šipka znamená směr pohybu a korouhvičku
+ * v ní nikdo nevidí.** Michal na to narazil hned: *„vane od jihozápadu,
+ * ale ty ukazuješ šipkou na jihozápad."*
  *
- * @returns {{kruh: number[], cara: string[], plocha: string, ocas: string}}
+ * Poučení: **tvar si vynutil význam.** Změna kresby nebyla jen kosmetická,
+ * i když tak vypadala.
+ *
+ * Prstenec se **nikdy neotáčí**, otáčí se jen střelka. Sever je proto pořád
+ * nahoře — jinak by růžice nebyla růžice, ale jen šipka v kroužku.
+ *
+ * @returns {{kruh: number[], cara: string[], plocha: string}}
  */
 export function windRoseShape() {
   return {

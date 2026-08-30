@@ -133,8 +133,8 @@ body {
      značkou — NE u dotykové plochy tlačítek: ta zůstává 44 px (viz
      `.brand-toggle` a `.icon-btn.settings`), protože menší se palcem
      netrefí a z úspory by byla vada. */
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
-  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding: 5px 16px calc(5px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(5px + env(safe-area-inset-top, 0px));
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -144,9 +144,9 @@ body {
    o výšce 20 px řádek vysoký 30 — deset pixelů vzduchu, který na sticky
    liště zabírá displej pořád. */
 .brand { display: flex; align-items: center; gap: 8px; line-height: 1; }
-.brand-mark { color: var(--accent); font-size: 20px; }
+.brand-mark { color: var(--accent); font-size: 17px; }
 .brand-mark.big { font-size: 44px; }
-.brand-name { font-weight: 700; letter-spacing: -.01em; }
+.brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
 
 /* ── Značka jako tlačítko nabídky ──────────────────────────────────────── */
 /* Celý řádek se značkou je tlačítko: na telefonu je to ta největší plocha,
@@ -159,7 +159,7 @@ body {
      němu nezvětší. Na výšku je to o něco míň než doporučených 44, ale
      tlačítko je široké přes půl displeje — palcem se netrefí jen ten, kdo
      mine celý řádek. */
-  padding: 10px 4px; margin: -10px 0 -10px -4px;
+  padding: 13px 4px; margin: -13px 0 -13px -4px;
   font: inherit; text-align: left;
   color: var(--text); background: none; border: 0;
   cursor: pointer;
@@ -214,7 +214,7 @@ body {
    toho nikdo nevšiml, protože kolo drželo výšku od okolního řádku.
    Odsazení s protějším záporným okrajem dá terč přes 40 px a lištu
    přitom nezvětší. */
-.icon-btn.settings { padding: 11px 0; margin: -11px 0; }
+.icon-btn.settings { padding: 13px 0; margin: -13px 0; }
 
 .results {
   list-style: none; margin: 8px 0 0; padding: 0;

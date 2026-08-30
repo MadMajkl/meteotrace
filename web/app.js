@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.9.2';
+const VERZE = '0.9.3';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1629,12 +1629,26 @@ function render(forecast, air) {
     tlak.append(el('span', 'dir', tf('now.pressureLocal', { value: c.pressureLocal }, state.lang)));
   }
 
-  // Piktogramy. ⚠️ Růžice se natáčí podle skutečného směru — a ukazuje,
-  // ODKUD fouká, tedy totéž, co říká slovo vedle ní.
+  // Piktogramy.
+  //
+  // 🚨 RŮŽICE UKAZUJE, KAM VÍTR FOUKÁ — ne odkud. Michal 30. 8. 2026:
+  // *„máš převrácený smysl větrné růžice, vane od jihozápadu, ale ty
+  // ukazuješ šipkou na jihozápad."* Měl pravdu, a příčina je poučná:
+  // původně to byla KOROUHVIČKA (špička proti větru, proti ní prázdný ocas)
+  // a hrot proti proudění tam dával smysl. 29. 8. se tvar změnil na JEDEN
+  // PLNÝ HROT přes celý kruh — a tím se změnilo, jak ho lidi čtou. Plná
+  // šipka znamená směr pohybu, korouhvičku v ní nikdo nevidí.
+  // **Tvar si vynutil význam.**
+  //
+  // Je to zároveň to, co dělají mapy větru (Windy a spol.): šipka jede
+  // po proudu. Slovo vedle („jihozápadní vítr") pořád říká, odkud —
+  // obojí je pravda, jen z opačné strany.
+  //
+  // ⚠️ Proto +180°: windDeg je meteorologicky „odkud", šipka míří „kam".
   vlozIkonu('ico-sunrise', sunriseShape());
   vlozIkonu('ico-sunset', sunsetShape());
   vlozIkonu('ico-pressure', pressureShape());
-  vlozIkonu('ico-wind', windRoseShape(), c.windDeg);
+  vlozIkonu('ico-wind', windRoseShape(), Number.isFinite(c.windDeg) ? c.windDeg + 180 : null);
   vlozIkonu('ico-uv', uvShape());
   vlozIkonu('ico-note-now', noteShape());
   vlozIkonu('ico-note-route', noteShape());

@@ -114,7 +114,7 @@ test('🚨 růžice má pevný prstenec a otáčivou střelku zvlášť', () => 
   const r = windRoseShape();
   assert.ok(r.kruh, 'prstenec');
   assert.equal(r.cara.length, 4, 'čtyři světové strany');
-  assert.ok(r.plocha, 'hrot (odkud fouká)');
+  assert.ok(r.plocha, 'hrot (kam vítr fouká)');
 });
 
 test('🚨 růžice je JEDEN hrot, ne špička s ocasem', () => {
@@ -221,4 +221,17 @@ test('trend: nesmyslný vstup nespadne', () => {
   assert.equal(moonTrendShape(null), null);
   assert.equal(moonTrendShape('nesmysl'), null);
   assert.equal(moonTrendShape(undefined), null);
+});
+
+test('🚨 hrot růžice míří NAHORU — otočení dodává app.js', () => {
+  // Tvar sám musí být v základní poloze (sever), jinak by se otočení
+  // z `windDeg` skládalo s vlastním posunem tvaru a nikdo by nedohledal,
+  // proč šipka ukazuje o kus vedle.
+  const cisla = windRoseShape().plocha.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const ys = cisla.filter((_, i) => i % 2 === 1);
+  const xs = cisla.filter((_, i) => i % 2 === 0);
+  // Nejvyšší bod (nejmenší y) je hrot a leží uprostřed vodorovně.
+  const iHrot = ys.indexOf(Math.min(...ys));
+  assert.equal(xs[iHrot], 12, 'hrot je na svislé ose');
+  assert.ok(ys[iHrot] < 6, 'a míří nahoru');
 });
