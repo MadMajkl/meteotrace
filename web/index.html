@@ -100,8 +100,25 @@
          ⚠️ Znak, ne emoji: v hlavičce už jsou ◈ ⚙ ⌖ ▾ a emoji by se mezi
          nimi kreslilo jinou sadou, jinou velikostí a v barvě, kterou
          motivu nevnutíš. -->
-    <button id="btn-donate-top" class="icon-btn srdce" type="button"
-            data-i18n-attr="aria-label:donate.open|title:donate.open">♥</button>
+    <button id="btn-donate-top" class="icon-btn mince" type="button"
+            data-i18n-attr="aria-label:donate.open|title:donate.open">
+      <!-- ⚠️ TOTÁŽ MINCE JAKO V GULPCE, ne vlastní výmysl. Zlatý kotouč se
+           srdcem uvnitř; kdo zná jednu appku, pozná ji i tady. Gradient má
+           vlastní `id`, protože v dokumentu smí být jen jednou. -->
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="mince-zlato" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="#FFEFA8"/>
+            <stop offset="48%"  stop-color="#F6C544"/>
+            <stop offset="100%" stop-color="#D2920F"/>
+          </linearGradient>
+        </defs>
+        <circle cx="12" cy="12" r="9.3" fill="url(#mince-zlato)" stroke="#A9750C" stroke-width="1.2"/>
+        <circle cx="12" cy="12" r="6.7" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1"/>
+        <path d="M12 15.6 C12 15.6 8.1 13.2 8.1 10.7 C8.1 9.4 9.05 8.6 10.05 8.6 C10.8 8.6 11.5 9.05 12 9.8 C12.5 9.05 13.2 8.6 13.95 8.6 C14.95 8.6 15.9 9.4 15.9 10.7 C15.9 13.2 12 15.6 12 15.6 Z"
+              fill="#fff7e0" stroke="#A9750C" stroke-width="0.6"/>
+      </svg>
+    </button>
     <button id="btn-settings" class="icon-btn settings" type="button"
             data-i18n-attr="aria-label:settings.title|title:settings.title">⚙</button>
   </div>

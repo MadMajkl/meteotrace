@@ -128,7 +128,7 @@ tohle je jen shrnutí.**
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Ochrana proxy (R19) | `web/lib/rate-limit.js` — omezovač na tazatele, strop na instanci, povolené `Origin`. Třída se odvozuje z `needsKey`, ne z ručního seznamu. 🚨 Omezuje se AŽ ZA CACHE a strop na instanci NENÍ globální |
-| Dar (R7, R18) | srdíčko ♥ v hlavičce vedle ⚙ (Michal 30. 8.: „přes to vlak nejede") + řádek v nastavení. `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
+| Dar (R7, R18) | **zlatá mince se srdcem — TÁŽ JAKO V GULPCE**, v hlavičce vedle ⚙ (Michal 30. 8.: „přes to vlak nejede") + řádek v nastavení. Pulz 2,6 s, respektuje `prefers-reduced-motion`. `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
@@ -163,7 +163,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.14.2**; na `1.0.0` až s vydáním na Play.
+  Teď **0.14.3**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -199,6 +199,20 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 VZOR Z GULPKY SE OPISUJE, NEVYMÝŠLÍ.** `R7` říká „model přenesený
+  z Gulpky jedna k jedné" — a to platí i na VZHLED, ne jen na mechaniku.
+  Do donate tlačítka jsem nakreslil červený znak `♥`; Gulpka má zlatou minci
+  se srdcem uvnitř a Michal to vrátil. **Sjednocená značka napříč jeho appkami
+  je víc než jeden hezký znak.** Než něco kreslíš, jdi se podívat do
+  `C:\develop\napij_se-pracovni\napij_se\` — barvy, poloměry i doby animací
+  se dají opsat.
+- **🚨 VÝMĚNA ZNAKU ZA OBRÁZEK NAFOUKNE ŘÁDEK.** Obrázek 22 px je vyšší než
+  textový znak, takže `.brand` narostl z 20 na 27 px a lišta z 30 na 38 —
+  přesně ta vada, kterou Michal reklamoval o dvě zprávy dřív. **Layoutová
+  kontrola mlčela:** nic nepřeteklo, nic se nepřekrylo, kontext nebyl useknutý.
+  **Výška lišty se zatím neměří ničím** — po každém zásahu do hlavičky ji
+  změř ručně (`.top` má být ~30 px). Řešení: napevno `height` na tlačítku
+  a záporné okraje, aby do řádku přispělo jen tolik co ozubené kolo.
 - **🚨 PŘETEČENÍ A PŘEKRYV JSOU JEN DVĚ ZE TŘÍ VAD ROZVRŽENÍ. Třetí je
   USEKNUTÝ TEXT.** Srdíčko přidané do hlavičky ukouslo 52 px a ze sbaleného
   řádku „Místo · Praha" zbylo „Mí…" — z okna přitom nic nepřeteklo a nic se

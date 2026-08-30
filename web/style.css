@@ -1085,23 +1085,57 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 .r-name { display: block; font-size: 15px; }
 .r-meta { display: block; margin-top: 2px; font-size: 13px; color: var(--text-soft); }
 
-/* ── Srdíčko a ozubené kolo v řádku se značkou ───────────────────────────
+/* ── Mince a ozubené kolo v řádku se značkou ─────────────────────────────
    Appka, která mluví cizí řečí, je k nepotřebě hned — proto je nastavení
-   v hlavičce, ne až za proklikem. A od 30. 8. 2026 vedle něj srdíčko:
+   v hlavičce, ne až za proklikem. A od 30. 8. 2026 vedle něj mince:
    dar, který se musí hledat v nastavení, nikdo nedá.
 
-   ⚠️ Volný prostor ukusuje SRDÍČKO (`margin-left: auto`), ne kolo. Kdyby
+   ⚠️ Volný prostor ukusuje MINCE (`margin-left: auto`), ne kolo. Kdyby
    ho měly obě, rozdělily by si mezeru mezi sebe a rozjely by se od sebe
    na opačné konce řádku. */
-.icon-btn.srdce {
-  padding: 13px 0; margin: -13px 0 -13px auto;
-  font-size: 17px;
-  /* Vlastní barva, ne `--accent`: srdce v modré appku nepožádá o nic.
-     Drží se ve všech motivech včetně růžových, protože je to konstanta,
-     ne odvozenina z jejich palety. */
-  color: #d9455f;
+/* 🚨 ZLATÁ MINCE SE SRDCEM — TÁŽ JAKO V GULPCE, ne vlastní výmysl.
+   Michal 30. 8. 2026: *„podívej se, jak to srdíčko vypadá v gulpce, takhle
+   to musí být i na meteotrace."* Napoprvé jsem nakreslil červený znak ♥;
+   sjednocená značka napříč jeho appkami je ale víc než jeden hezký znak —
+   kdo pozná minci v Gulpce, pozná ji i tady. Barvy, poloměry i doba pulzu
+   jsou proto opsané, ne odhadnuté. */
+/* 🚨 VÝŠKA SE MUSÍ ZADAT, JINAK MINCE NAFOUKNE LIŠTU.
+   Znak ♥ byl vysoký jako řádek textu; obrázek 22 px je vyšší, takže se
+   `.brand` roztáhl z 20 na 27 px a lišta z 30 na 38 — tedy přesně to,
+   na co si Michal stěžoval o dvě zprávy dřív. Terč zůstává 44 px vysoký
+   (dotyk), ale záporné okraje ho vytáhnou z toku, takže do řádku přispěje
+   jen 20 px — stejně jako ozubené kolo vedle. */
+.icon-btn.mince {
+  height: 44px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  margin: -12px 0 -12px auto;
 }
-.icon-btn.srdce:active { background: color-mix(in srgb, #d9455f 14%, transparent); }
+
+/* ⚠️ Pulzuje SVG, ne tlačítko. V Gulpce je tlačítko průhledné, tady má
+   rámeček a podklad jako ozubené kolo — škálovat celý rámeček by vypadalo,
+   jako by se hýbala lišta. */
+.icon-btn.mince svg {
+  /* `block` kvůli tomu, aby pod obrázkem nezůstal proužek na dotažení
+     účaří — u řádkového SVG je to pár pixelů, které se sečtou do výšky. */
+  display: block;
+  width: 22px; height: 22px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .25));
+  animation: mince-pulz 2.6s ease-in-out infinite;
+}
+
+/* Dlouhá prodleva a krátké kubrnutí: mince na sebe upozorní, ale netančí.
+   Poměry z Gulpky. */
+@keyframes mince-pulz {
+  0%, 70%, 100% { transform: scale(1); }
+  80%           { transform: scale(1.12); }
+  90%           { transform: scale(.97); }
+}
+
+/* ⚠️ Kdo si v systému vypnul animace, má k tomu důvod (nevolnost z pohybu,
+   epilepsie). Mince zůstane, jen přestane skákat. */
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.mince svg { animation: none; }
+}
 
 .icon-btn.settings {
   margin-left: 0;
