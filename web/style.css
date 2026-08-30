@@ -1414,10 +1414,23 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
 .uvitani-tecky i.je { background: var(--accent); }
 
 /* ── Proužek přes živou appku (poslední dva kroky) ──────────────────── */
+/* 🚨 PRAVÝ DOLNÍ ROH PATŘÍ NĚKOMU JINÉMU. Na webu tam Netlify vykresluje
+   svůj odznak „hosted on Netlify" — a ten leží NAD stránkou, mimo náš DOM
+   (ověřeno: v DOM meteotrace.com se nedá najít), takže se před ním nedá
+   uhnout výpočtem. Michal 30. 8. 2026: *„když zobrazí netlify reklamu,
+   tak nejde klepnout na Dál."*
+
+   Řeší se to tak, aby na velikosti odznaku nezáleželo:
+   · na širokém displeji se proužek drží U LEVÉHO KRAJE a zabírá nejvýš
+     polovinu, takže pravý roh zůstane volný (viz media dole);
+   · na úzkém je zvednutý nad spodní hranu, protože z poloviny z 390 px
+     by zbylo 195 px a text s tlačítkem by se do toho nevešel čitelně.
+
+   ⚠️ Nestačí jen zúžit ani jen zvednout — každé řeší jinou šířku displeje. */
 .uvitani-pruh {
   position: fixed; z-index: 55;
   left: 12px; right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: center; gap: 12px;
   padding: 14px 16px;
   background: var(--surface);
@@ -1430,6 +1443,15 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
 .uvitani-pruh-text strong { display: block; margin-bottom: 2px; font-size: 15px; }
 .uvitani-pruh-text span { color: var(--text-soft); }
 .uvitani-pruh .primary { flex: none; }
+
+/* Na širokém displeji stačí uhnout do strany a proužek může zase dolů. */
+@media (min-width: 760px) {
+  .uvitani-pruh {
+    right: auto;
+    width: min(50%, 460px);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
 
 /* Záhlaví tabulky ve správě míst. Tytéž sloupce jako `.manage-row` —
    ⚠️ třetí sloupec je prázdný, ale MUSÍ tam být, jinak by se popisky
