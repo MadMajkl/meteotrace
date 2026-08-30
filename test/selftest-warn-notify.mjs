@@ -11,7 +11,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { noveVystrahy, textUpozorneni, staciNa, VYCHOZI_PRAH } from '../web/lib/warn-notify.js';
+import {
+  noveVystrahy, textUpozorneni, staciNa, vystrahySkoncily, VYCHOZI_PRAH,
+} from '../web/lib/warn-notify.js';
 
 const TEĎ = Date.parse('2026-08-29T12:00:00Z');
 const ZA_HODINU = '2026-08-29T13:00:00Z';
@@ -179,4 +181,35 @@ test('anglicky to není česky', () => {
   const cs = textUpozorneni({ nove: [v(), v({ id: 'b' })], misto: 'Brno', lang: 'cs' });
   assert.notEqual(en.nadpis, cs.nadpis);
   assert.ok(!/výstrah/i.test(en.telo), en.telo);
+});
+
+/* ── konec výstrah ────────────────────────────────────────────────────── */
+
+test('konec výstrah se pozná: bylo, a teď je doložené ticho', () => {
+  assert.equal(vystrahySkoncily({ stav: 'zadne', jizOznameno: ['a'] }), true);
+});
+
+test('🚨 „nepodařilo se načíst" NENÍ konec výstrah', () => {
+  // Prázdný seznam mají i výpadek a nepokrytá oblast. Oznámit na ně
+  // „už je po všem" by byla nepravda v tom nejhorším možném okamžiku:
+  // člověk by přestal být ve střehu, protože appka mlčí.
+  assert.equal(vystrahySkoncily({ stav: 'nedostupne', jizOznameno: ['a'] }), false);
+  assert.equal(vystrahySkoncily({ stav: 'mimo', jizOznameno: ['a'] }), false);
+  assert.equal(vystrahySkoncily({ stav: 'nejiste', jizOznameno: ['a'] }), false);
+});
+
+test('🚨 kdo výstrahu nezažil, nedostane zprávu o jejím konci', () => {
+  // Kdo appku otevře poprvé za hezkého dne, nemá dostat radostnou zprávu
+  // o konci něčeho, co nikdy neviděl.
+  assert.equal(vystrahySkoncily({ stav: 'zadne', jizOznameno: [] }), false);
+  assert.equal(vystrahySkoncily({ stav: 'zadne' }), false);
+});
+
+test('výstrahy trvají dál — nic se neoznamuje', () => {
+  assert.equal(vystrahySkoncily({ stav: 'vystrahy', jizOznameno: ['a'] }), false);
+});
+
+test('nesmyslný vstup nespadne', () => {
+  assert.equal(vystrahySkoncily(), false);
+  assert.equal(vystrahySkoncily({}), false);
 });

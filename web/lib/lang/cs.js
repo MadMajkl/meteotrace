@@ -63,6 +63,8 @@ export default {
      platí pravidlo z 26. 8. 2026: u výstrah a nebezpečí se nežertuje. */
   notify: {
     title: 'Meteo výstraha',
+    endedTitle: 'Je po výstrahách',
+    endedBody: 'Pro {place} už žádná výstraha neplatí.',
     titleFor: 'Meteo výstraha — {place}',
     setting: 'Upozorňovat na výstrahy',
     off: 'Neupozorňovat',
@@ -370,6 +372,10 @@ export default {
     unsure: 'Nevím, kterých míst se týkají, tak ukazuju všechny.',
     unavailable: 'Výstrahy se nepodařilo načíst.',
     unnamed: 'Výstraha',
+    // ⚠️ Konec nebezpečí je zpráva, na kterou se čeká. Řekne se JEDNOU
+    // a pak karta zmizí — opakovat dobrou zprávu znamená ji znehodnotit.
+    ended: 'Výstrahy skončily. Pro {place} teď žádná neplatí.',
+    endedNoPlace: 'Výstrahy skončily. Teď už žádná neplatí.',
     appliesTo: 'Platí pro {place}.',
     areaUncertain: 'Nepodařilo se přesně určit, kde platí.',
     from: 'od {time}',

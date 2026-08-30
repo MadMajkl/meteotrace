@@ -36,7 +36,7 @@ import {
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
-import { noveVystrahy, textUpozorneni } from './lib/warn-notify.js';
+import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
 import { kamMiri, coRict } from './lib/drift.js';
 import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
 import { maSeSpustit, createOnboarding } from './lib/onboarding.js';
@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.9.3';
+const VERZE = '0.9.4';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -824,7 +824,7 @@ function zmenUpozorneni(hodnota) {
  * upozornění zazvonilo na všechno, co zrovna platí — tedy na věci, které
  * uživatel dávno zná.
  */
-function upozorniPokudNove(payload) {
+function upozorniPokudNove(payload, stav) {
   const { nove, klice } = noveVystrahy({
     warnings: payload?.warnings,
     jizOznameno: state.oznameno,
@@ -833,8 +833,25 @@ function upozorniPokudNove(payload) {
   });
 
   const prvniPohled = !state.oznameno.length;
+  // 🚨 Konec výstrah se pozná JEŠTĚ PŘED přepsáním paměti — potom už by
+  // nebylo z čeho poznat, že tu nějaké byly.
+  const konec = vystrahySkoncily({ stav, jizOznameno: state.oznameno });
+
   state.oznameno = klice;
   save();
+
+  // Dobrá zpráva: „už je po nich". ⚠️ Řekne se JEDNOU — paměť se právě
+  // vyprázdnila, takže se to příště nemá z čeho spustit znovu. Opakovaná
+  // dobrá zpráva svoji cenu ztratí a začne otravovat stejně jako špatná.
+  if (konec && state.notify && !obal()
+      && typeof Notification === 'function' && Notification.permission === 'granted') {
+    try {
+      new Notification(t('notify.endedTitle', state.lang), {
+        body: tf('notify.endedBody', { place: state.place?.name || '' }, state.lang),
+        tag: 'meteotrace-vystrahy',
+      });
+    } catch { /* prohlížeč odmítl; karta to řekne tak jako tak */ }
+  }
 
   if (!state.notify || !nove.length) return;
   // 🚨 Při prvním pohledu se MLČÍ. Zapnout upozornění a hned dostat pět
@@ -1531,18 +1548,25 @@ function renderWarnings(payload) {
   // když tuhle oblast nesledujeme (`mimo`). Po schování vypadají oba stavy
   // úplně stejně jako klid — appka by mlčky tvrdila „nic nehrozí" o něčem,
   // o čem nic neví. A právě u výstrah je to ten nejdražší možný omyl.
-  const klid = view.stav === 'zadne';
+  // 🚨 A JEDNOU se ukáže i konec výstrah. Michal 30. 8. 2026: *„když poprvé
+  // zjistíš, že už žádné výstrahy nejsou, tak to jednou oznámíš v té
+  // speciální dlaždici a to stačí."* Konec nebezpečí je zpráva, na kterou
+  // člověk čeká — dosud appka jen mlčky přestala svítit.
+  //
+  // ⚠️ Rozhoduje STAV, ne prázdný seznam: „nepodařilo se načíst" i „oblast
+  // nesledujeme" mají taky prázdno, a oznámit na ně „už je po všem" by byla
+  // nepravda v tom nejhorším okamžiku. Viz `vystrahySkoncily()`.
+  const konec = vystrahySkoncily({ stav: view.stav, jizOznameno: state.oznameno });
+  const klid = view.stav === 'zadne' && !konec;
   $('warnings-card').hidden = klid;
 
-  // ⚠️ Že je klid, se říct MUSÍ — jen tiše, jedním řádkem u „aktualizováno".
-  // Sledovaný klid se jinak nedá odlišit od appky, které se výstrahy rozbily.
-  const tise = $('warnings-quiet');
-  tise.textContent = klid ? view.zprava : '';
-  tise.hidden = !klid;
-
   const note = $('warnings-note');
-  note.textContent = view.zprava;
-  note.hidden = !view.zprava;
+  note.textContent = konec
+    ? (view.misto
+      ? tf('warnings.ended', { place: view.misto }, state.lang)
+      : t('warnings.endedNoPlace', state.lang))
+    : view.zprava;
+  note.hidden = !note.textContent;
 
   // Obrys do mapy: kreslí se podle NEJZÁVAŽNĚJŠÍ výstrahy, protože pohled na
   // mapu má odpovídat tomu, co je nahoře na kartě. Mapa se zakládá později
@@ -1555,7 +1579,7 @@ function renderWarnings(payload) {
   zapisHlidani();
   // A když appka zrovna běží, umí upozornit sama: obal by o nové výstraze
   // věděl až při příští kontrole, tedy klidně za čtvrt hodiny.
-  upozorniPokudNove(payload);
+  upozorniPokudNove(payload, view.stav);
 
   const list = $('warnings-list');
   list.replaceChildren();

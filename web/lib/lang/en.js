@@ -58,6 +58,8 @@ export default {
      ⚠️ Plain tone. Quips may be playful; a storm alert may not. */
   notify: {
     title: 'Weather warning',
+    endedTitle: 'All clear',
+    endedBody: 'The warnings for {place} are over.',
     titleFor: 'Weather warning — {place}',
     setting: 'Warning notifications',
     off: 'Off',
@@ -337,6 +339,10 @@ export default {
     unsure: 'We could not tell which places these apply to, so all warnings are shown.',
     unavailable: 'Warnings could not be loaded.',
     unnamed: 'Warning',
+    // ⚠️ Konec nebezpečí je zpráva, na kterou se čeká. Řekne se JEDNOU
+    // a pak karta zmizí — opakovat dobrou zprávu znamená ji znehodnotit.
+    ended: 'The warnings are over. Nothing is in force for {place} now.',
+    endedNoPlace: 'The warnings are over. Nothing is in force now.',
     appliesTo: 'Applies to {place}.',
     areaUncertain: 'It was not possible to tell exactly where this applies.',
     from: 'from {time}',

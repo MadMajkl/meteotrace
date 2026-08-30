@@ -52,6 +52,32 @@ export function noveVystrahy({ warnings, jizOznameno = [], nowMs = 0, prah = VYC
 }
 
 /**
+ * Skončily výstrahy, o kterých se vědělo?
+ *
+ * Michal 30. 8. 2026: *„když poprvé zjistíš, že už žádné výstrahy nejsou,
+ * tak to jednou oznámíš v té speciální dlaždici a to stačí (i s notifikací,
+ * že už to bude dobré)."* Konec nebezpečí je zpráva, na kterou člověk čeká —
+ * a dosud ji appka neuměla říct, jen přestala mlčky svítit.
+ *
+ * 🚨 ROZHODUJE STAV, NE PRÁZDNÝ SEZNAM. „Výstrahy se nepodařilo načíst"
+ * a „tuhle oblast nesledujeme" mají taky prázdný seznam — a oznámit na ně
+ * „už je po všem" by byla nepravda v tom nejhorším možném okamžiku.
+ * Proto se ptáme na `stav === 'zadne'`, což znamená doložené ticho.
+ *
+ * ⚠️ Musí se o nich předtím VĚDĚT. Kdo appku otevře poprvé za hezkého dne,
+ * nemá dostat radostnou zprávu o konci něčeho, co nezažil.
+ *
+ * @param {object} a
+ * @param {string} a.stav              z `buildWarningsView()`
+ * @param {Iterable<string>} [a.jizOznameno]
+ * @returns {boolean}
+ */
+export function vystrahySkoncily({ stav, jizOznameno = [] } = {}) {
+  if (stav !== 'zadne') return false;
+  return [...jizOznameno].length > 0;
+}
+
+/**
  * Text upozornění.
  *
  * ⚠️ Nadpis nese ZÁVAŽNOST a MÍSTO, ne značku appky. Na zamčeném displeji je
