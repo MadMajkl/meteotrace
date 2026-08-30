@@ -172,8 +172,8 @@ export default {
     computing: 'Working out the route…',
     failed: 'The route did not work out. Shall we try again?',
     noWeather: 'We have the route, but its weather could not be loaded.',
-    result: 'Distance {distance}, arriving at {arrival}',
-    arrival: 'Arriving at {time} — {what}.',
+    result: 'Distance {distance}, arriving {arrival}',
+    arrival: 'Arriving {time} — {what}.',
     estimated: 'Times are estimates: we have no data on hold-ups along the way.',
     beyond: 'The end of the route is beyond the forecast range.',
     hazards: {
@@ -377,6 +377,15 @@ export default {
     vtcleaner: 'A safe Windows cleaner',
     itrady: 'Practical tips from the world of IT',
     mailnino: 'An e-mail client that speaks to Czech data boxes',
+  },
+
+  /* When it will be.
+     🚨 The day is spelled out as soon as it is not today. Prague to Nuremberg
+     on foot is 60 hours, and without a date it read as tonight.
+     See `lib/when.js`. */
+  when: {
+    tomorrow: 'tomorrow {time}',
+    date: '{date} {time}',
   },
 
   warnings: {

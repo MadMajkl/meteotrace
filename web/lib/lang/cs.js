@@ -180,10 +180,10 @@ export default {
     computing: 'Počítám trasu…',
     failed: 'Trasu se spočítat nepovedlo. Zkusíme to ještě jednou?',
     noWeather: 'Trasu známe, počasí k ní se ale nepodařilo načíst.',
-    // ⚠️ Popisek před číslem, ne holé „205 km, příjezd v 18:12". Bez něj se
+    // ⚠️ Popisek před číslem, ne holé „205 km, příjezd 18:12". Bez něj se
     // údaj dá číst jako cokoli — zbývající kilometry, ujetá vzdálenost, dojezd.
-    result: 'Vzdálenost {distance}, příjezd v {arrival}',
-    arrival: 'Příjezd v {time} — {what}.',
+    result: 'Vzdálenost {distance}, příjezd {arrival}',
+    arrival: 'Příjezd {time} — {what}.',
     estimated: 'Časy jsou odhadnuté: nemáme informace o překážkách na trati.',
     beyond: 'Konec trasy je mimo rozsah předpovědi.',
     hazards: {
@@ -420,6 +420,15 @@ export default {
     vtcleaner: 'Bezpečný čistič Windows',
     itrady: 'Praktické rady a tipy ze světa IT',
     mailnino: 'E-mailový klient, který umí datovky',
+  },
+
+  /* Kdy to bude.
+     🚨 Den se připisuje, jakmile není dnešní. Praha → Norimberk pěšky je
+     60 hodin a bez data z toho bylo „příjezd v 22:31" — vypadalo to jako
+     dnes večer. Viz `lib/when.js`. */
+  when: {
+    tomorrow: 'zítra {time}',
+    date: '{date} {time}',
   },
 
   warnings: {

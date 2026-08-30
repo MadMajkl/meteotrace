@@ -99,6 +99,7 @@ tohle je jen shrnutí.**
 | Kde nejblíž prší / kam za sluncem | `web/lib/probes.js` — **u místa i u trasy**, sondy jedním dotazem; jméno místa z vlastních hranic ORP (R15). 🚨 Strop na počet sond ořezává PO PRSTENCÍCH a `reachKm()` říká, kam se opravdu dohlédlo |
 | Směr větru | v appce se píše **celým slovem** („severovýchodní"), ne zkratkou — bublina na telefonu neexistuje |
 | Patra oblačnosti | 🚨 „zataženo" jen vysoko NENÍ zataženo — `jenZavoj()` ve `weather-code.js`; platí na stanici, na trase i u sond |
+| Kdy to bude | `web/lib/when.js` — k času se připíše den, jakmile není dnešní (`zítra 02:16`, `1. 9. 03:17`). 🚨 Bez toho vypadala dvoudenní pěší cesta jako dnes večer. Zkratky dnů česky nejdou: „příjezd po 08:41" se čte jako „po osmé" |
 | Fáze Měsíce | `web/lib/moon.js` — **počítá se, nestahuje**; je to astronomie, ne předpověď |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
@@ -130,7 +131,7 @@ tohle je jen shrnutí.**
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**730 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**741 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -161,7 +162,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.13.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.13.1**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -197,6 +198,11 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Správně spočítaný údaj umí sdělovat nepravdu.** Čas příjezdu se počítal
+  na milisekundy přesně a všechny testy ETA byly zelené — jenže se vypisoval jako
+  holé `HH:MM`, takže z pěší cesty na 60 hodin bylo „příjezd v 22:31", tedy zdánlivě
+  dnes večer. **Ptej se nejen, jestli je číslo správné, ale co si z něj přečte člověk.**
+  Viz `lib/when.js`.
 - **🚨 Kód, který je sám se sebou v souladu, o své správnosti neříká nic.**
   QR enkodér skládal generující polynom **pozpátku**, takže korekční slova nebyla
   platná. „Ověření" přepočtem korekce přitom sedělo na bajt — enkodér i kontrola

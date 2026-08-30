@@ -24,7 +24,8 @@ import {
 } from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
-import { buildStationView, FORECAST_PARAMS, AIR_PARAMS, formatClock } from './lib/station.js';
+import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
+import { momentParts } from './lib/when.js';
 import { sampleRoute, planRoute, departureOptions, distanceM } from './lib/eta.js';
 import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs, spojUseky,
@@ -61,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.13.0';
+const VERZE = '0.13.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2165,10 +2166,37 @@ async function ukazMapuTrasy(trasaProMapu) {
   }
 }
 
+/**
+ * Čas na trase — a k němu den, jakmile to není dnes.
+ *
+ * 🚨 Michal 30. 8. 2026: *„to je blbost, ne?"* Praha → Norimberk pěšky je
+ * podle ORS 301 km a 60 hodin, tedy dva a půl dne — appka z toho napsala
+ * „příjezd v 22:31" a vypadalo to jako dnes večer. **Vzdálenost i rychlost
+ * byly správně, lhal jenom ciferník.** U bodů to bylo ještě hůř: šly
+ * `16:09, 21:09, 02:09, 07:09…` a nedalo se poznat, kolikátý je to den.
+ *
+ * Den se píše, **jakmile není dnešní** — ne až od nějakého prahu. První
+ * půlnoc se na kole potká po pár hodinách a na hranici mezi „dnes" a
+ * „zítra" není nic, co by šlo prohlédnout.
+ *
+ * Rozhodování je v `lib/when.js`, slova v `lang/` — tady se to jen skládá.
+ */
+function kdy(ms, pasmo) {
+  const p = momentParts(ms, Date.now(), pasmo, state.lang);
+  if (!p) return '—';
+  if (p.shift === 0) return p.time;
+  // Zítřek slovem, dál datem. „Zítra" se čte líp než „13. 9."; u vzdálenějších
+  // dnů je to naopak — ze zkratky dne v týdnu se nepozná, který týden to je.
+  // ⚠️ A česky se zkratky dnů použít NEDÁ: „příjezd po 08:41" se přečte
+  // jako „po osmé", ne jako pondělí.
+  if (p.shift === 1) return tf('when.tomorrow', { time: p.time }, state.lang);
+  return tf('when.date', { date: p.date, time: p.time }, state.lang);
+}
+
 /** Trasa pro mapu. Rozhodování je v `route-view.js`, tady zbývá formát času. */
 function trasaProMapu(view, trasa, pasmo) {
   return routeMapData(view, trasa.points, (p) => [
-    formatClock(p.etaMs, pasmo, state.lang), p.condition, p.temp,
+    kdy(p.etaMs, pasmo), p.condition, p.temp,
   ].filter(Boolean).join(" · "));
 }
 
@@ -3104,7 +3132,7 @@ function vykresliUseky(useky, odjezdMs, pasmo) {
     box.append(el('li', 'leg', [
       el('span', 'leg-kam', `${r.from} → ${r.to}`),
       el('span', 'leg-km', formatDistance(r.distanceM, state.units, state.lang)),
-      el('span', 'leg-cas', formatClock(r.arrivalMs, pasmo, state.lang)),
+      el('span', 'leg-cas', kdy(r.arrivalMs, pasmo)),
     ]));
   }
 
@@ -3114,7 +3142,7 @@ function vykresliUseky(useky, odjezdMs, pasmo) {
   box.append(el('li', 'leg leg-soucet', [
     el('span', 'leg-kam', t('route.total', state.lang)),
     el('span', 'leg-km', formatDistance(data.totalDistanceM, state.units, state.lang)),
-    el('span', 'leg-cas', formatClock(data.arrivalMs, pasmo, state.lang)),
+    el('span', 'leg-cas', kdy(data.arrivalMs, pasmo)),
   ]));
 }
 
@@ -3197,7 +3225,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   renderRoutes();
   $('route-summary').textContent = tf('route.result', {
     distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
-    arrival: formatClock(plan.arrivalMs, pasmo, state.lang),
+    arrival: kdy(plan.arrivalMs, pasmo),
   }, state.lang);
 
   // ⚠️ Věty o nejistotě se PŘIDÁVAJÍ, nenahrazují souhrn. Odhadnutý čas
@@ -3217,7 +3245,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
 
   // 🚨 Co tam zastihneš, je celý smysl appky — souhrn to musí říct, ne jen
   // kolik je to kilometrů. Viz `arrivalSentence()`.
-  const veta = arrivalSentence(view, formatClock(plan.arrivalMs, pasmo, state.lang), state.lang);
+  const veta = arrivalSentence(view, kdy(plan.arrivalMs, pasmo), state.lang);
   const cil = $('route-arrival');
   cil.hidden = !veta;
   cil.textContent = veta;
@@ -3263,7 +3291,7 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
     li.className = 'route-point';
     if (p.hazard) li.dataset.hazard = '1';
 
-    const cas = el('span', 'rp-time', formatClock(p.etaMs, pasmo, state.lang));
+    const cas = el('span', 'rp-time', kdy(p.etaMs, pasmo));
     // ⚠️ Nula je platná nadmořská výška (hladina moře), takže se testuje
     // konečnost, ne pravdivost. Jinak by pobřežní bod vypadal, jako by se
     // výška neznala.

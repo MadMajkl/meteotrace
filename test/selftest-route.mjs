@@ -589,7 +589,7 @@ function bodCile(navic = {}) {
 test('věta mluví o CÍLI, ne o průměru trasy', () => {
   // Průměr by u cesty z mlhy do slunce vyšel jako „oblačno" a nesedělo by ani jedno.
   const v = arrivalSentence(bodCile(), '15:12', 'cs');
-  assert.match(v, /^Příjezd v 15:12 — polojasno, 22 °C, vítr 12 km\/h JZ\.$/);
+  assert.match(v, /^Příjezd 15:12 — polojasno, 22 °C, vítr 12 km\/h JZ\.$/);
 });
 
 test('🚨 pocitovka se píše, jen když se liší od teploměru', () => {
@@ -607,7 +607,7 @@ test('🚨 náraz větru se hlásí, až když je citelně nad průměrem', () =
 
 test('co se neví, se vynechá — věta se nerozpadne na čárky', () => {
   const v = arrivalSentence({ points: [{ known: true, condition: 'Jasno' }] }, '15:12', 'cs');
-  assert.equal(v, 'Příjezd v 15:12 — jasno.');
+  assert.equal(v, 'Příjezd 15:12 — jasno.');
   assert.ok(!v.includes(', ,'));
 });
 
