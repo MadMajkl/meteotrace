@@ -46,7 +46,7 @@ import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
   saveRoute, forgetRoute, touchRoute, routeKey, renameRoute, savedShortcuts,
-  findNearby, savedAs, renamePlace, MAX_PLACES, MAX_NAME, MAX_ROUTES,
+  findNearby, savedAs, renamePlace, placeAddress, MAX_PLACES, MAX_NAME, MAX_ROUTES,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
@@ -56,7 +56,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.9.4';
+const VERZE = '0.10.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -193,13 +193,27 @@ function toggleSave() {
   const existing = findNearby(state.places, state.place);
   if (existing) {
     state.places = forgetPlace(state.places, existing.key);
-  } else {
-    const res = savePlace(state.places, state.place, Date.now());
-    state.places = res.store;
-    if (res.full) notice(t('places.full', state.lang));
+    persistPlaces();
+    renderSaved();
+    return;
   }
+
+  const res = savePlace(state.places, state.place, Date.now());
+  state.places = res.store;
+  if (res.full) notice(t('places.full', state.lang));
   persistPlaces();
   renderSaved();
+
+  // 🚨 A HNED SE OTEVŘE SPRÁVA. Michal 30. 8. 2026: *„pokud vyhledám místo
+  // a klepnu na uložit, hned bys měl otevřít spravování uložených míst."*
+  //
+  // Pojmenovat místo dává smysl právě teď, kdy člověk ví, proč si ho ukládá.
+  // Za týden už bude v seznamu pět adres a nikdo se k přejmenování nevrátí —
+  // uložení bez jména je totiž funkční, jen k ničemu.
+  //
+  // ⚠️ Jen při UKLÁDÁNÍ, ne při odebírání (viz `return` výš). Otevřít správu
+  // po smazání by vypadalo, že se něco nepovedlo.
+  if (!state.places.readOnly && !res.full) openPlaces();
 }
 
 function renderSaved() {
@@ -937,15 +951,31 @@ function renderManage() {
   else if (!list.length) note.textContent = t('places.empty', state.lang);
   else note.textContent = tf('places.count', { count: list.length, max: MAX_PLACES }, state.lang);
   note.hidden = false;
+  // Záhlaví jen když je co popisovat.
+  $('places-hlavicka').hidden = !list.length;
 
   fill($('places-manage'), list, (p) => {
     const li = document.createElement('li');
     li.className = 'manage-row';
 
+    // 🚨 ADRESA VLEVO JAKO PEVNÝ TEXT, jméno vpravo jako pole. Michal
+    // 30. 8. 2026: *„je divné přepisovat názvem adresu… levý sloupec adresa
+    // (jako nepřepisovatelné pole) a pravý sloupec Název místa."*
+    //
+    // Do té doby se jméno psalo PŘES adresu, takže po přejmenování zbylo
+    // v seznamu pět řádků „Domov, Práce, Babička" bez jediné stopy, kde
+    // vlastně jsou. Adresa je od 30. 8. vlastní pole ve `places.js`
+    // a přejmenování na ni nesahá.
+    const adresa = el('span', 'manage-adresa', placeAddress(p));
+    adresa.title = placeAddress(p);
+
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'manage-name';
-    input.value = p.name;
+    // ⚠️ Pole je PRÁZDNÉ, dokud si člověk jméno nedal — a placeholder říká,
+    // co se od něj čeká. Předvyplněná adresa vypadala jako hotová hodnota,
+    // takže ji nikdo nepřepisoval; prázdné pole s „Zadej název" je výzva.
+    input.value = p.name === placeAddress(p) ? '' : p.name;
     // Strop délky je vidět rovnou v poli — ořezat jméno až při ukládání
     // a nic neříct by vypadalo jako chyba.
     input.maxLength = MAX_NAME;
@@ -980,7 +1010,7 @@ function renderManage() {
       renderSaved();
     });
 
-    li.append(input, del);
+    li.append(adresa, input, del);
     return li;
   });
 }
@@ -994,16 +1024,24 @@ function setRemoveLabel(btn, armed) {
 }
 
 function commitRename(place, input) {
-  const nove = input.value;
-  if (nove === place.name) return;
+  const nove = input.value.trim();
+  const adresa = placeAddress(place);
+
+  // ⚠️ PRÁZDNÉ POLE JE VÝCHOZÍ STAV, NE CHYBA. Od 30. 8. 2026 se do pole
+  // nepředvyplňuje adresa (je vedle, ve vlastním sloupci), takže prázdno
+  // znamená prostě „vlastní jméno jsem si nedal". Hlásit na to chybu by
+  // znamenalo vytknout člověku, že neudělal nic — a to při každém zavření
+  // dialogu.
+  const cil = nove || adresa;
+  if (cil === place.name) return;
 
   const pred = state.places;
-  state.places = renamePlace(state.places, place.key, nove);
+  state.places = renamePlace(state.places, place.key, cil);
 
-  // Sklad se nezměnil → jméno bylo prázdné. Musí se to říct, jinak se pole
-  // jen samo od sebe vrátí a vypadá to jako chyba appky.
+  // Sklad se nezměnil → ani adresa nebyla k dispozici. Musí se to říct,
+  // jinak se pole jen samo od sebe vrátí a vypadá to jako chyba appky.
   if (state.places === pred) {
-    input.value = place.name;
+    input.value = place.name === adresa ? '' : place.name;
     notice(t('places.nameEmpty', state.lang));
     return;
   }

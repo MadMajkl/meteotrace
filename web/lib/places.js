@@ -135,15 +135,45 @@ export function normalizePlace(raw) {
   const key = placeKey(raw);
   if (!key) return null;
 
+  const jmeno = cleanName(raw.name) || key;
   return {
     key,
     // Souřadnice se ukládají v původní přesnosti — klíč je jen pro porovnání,
     // předpověď se ptá na skutečný bod.
     lat: raw.lat,
     lon: raw.lon,
-    name: cleanName(raw.name) || key,
+    name: jmeno,
     country: cleanName(raw.country) || null,
+    /**
+     * 🚨 PŮVODNÍ ADRESA, KTEROU PŘEJMENOVÁNÍ NESMÍ SEBRAT. Michal
+     * 30. 8. 2026: *„je divné přepisovat názvem adresu."* Měl pravdu —
+     * dokud tohle pole nebylo, přepsáním „Horšovský Týn" na „Domov" se
+     * adresa nenávratně ztratila a v seznamu pak stálo pět „Domov, Práce,
+     * Babička" bez jediné stopy, kde vlastně jsou.
+     *
+     * ⚠️ Zapisuje se jen při VZNIKU záznamu. Přejmenování mění `name`,
+     * `address` zůstává — o to tu celou dobu jde.
+     *
+     * ⚠️ Starší uložená místa ho nemají. Tam se sáhne po `name`, které
+     * u nepřejmenovaných adresou pořád je (viz `placeAddress`).
+     */
+    address: cleanName(raw.address) || jmeno,
   };
+}
+
+/**
+ * Adresa místa, jak ji appka umí ukázat.
+ *
+ * ⚠️ Fallback na `name` je kvůli záznamům uloženým před 30. 8. 2026. U nich
+ * `name` adresou pořád je — pokud si ho uživatel nepřejmenoval; a když ano,
+ * ta adresa už se nedá získat zpátky. Ukázat aspoň jméno je lepší než
+ * prázdná buňka, která vypadá jako chyba.
+ */
+export function placeAddress(place) {
+  if (!place) return '';
+  const adresa = cleanName(place.address);
+  if (adresa) return adresa;
+  return cleanName(place.name) || '';
 }
 
 /**

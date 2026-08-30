@@ -184,6 +184,13 @@
        nenašel (25. 8. 2026). Řekne se to rovnou, i s příklady. -->
   <p class="hint" data-i18n="places.renameHint"></p>
   <p id="places-note" class="hint" hidden></p>
+
+  <!-- Záhlaví tabulky. ⚠️ Skryje se, když nemá co popisovat — dva popisky
+       nad prázdným seznamem vypadají jako rozbité vykreslení. -->
+  <div class="manage-hlavicka" id="places-hlavicka" hidden aria-hidden="true">
+    <span data-i18n="places.addressCol"></span>
+    <span data-i18n="places.nameCol"></span>
+  </div>
   <ul id="places-manage" class="manage-list"></ul>
 
   <!-- Trasy ve stejném dialogu jako místa: je to jedno „co mám uložené".

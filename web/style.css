@@ -826,10 +826,29 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
 
 .manage-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 
-.manage-row { display: flex; align-items: center; gap: 8px; }
+/* ── Správa míst: adresa vlevo, jméno vpravo ─────────────────────────────
+   Michal 30. 8. 2026: *„je divné přepisovat názvem adresu — levý sloupec
+   adresa (jako nepřepisovatelné pole) a pravý sloupec Název místa."*
+
+   Mřížka, ne prostý flex: sloupce se tak srovnají přes všechny řádky a dá
+   se to číst jako tabulka. Na úzkém displeji dostane adresa méně místa,
+   ale nikdy nezmizí — je to jediné, podle čeho se pozná, kde to „Doma"
+   vlastně je. */
+.manage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto;
+  align-items: center; gap: 8px;
+}
+
+/* Adresa je TEXT, ne pole. ⚠️ Nesmí vypadat jako něco, do čeho se dá psát —
+   právě ta záměna byla ten původní problém. */
+.manage-adresa {
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; color: var(--text-soft);
+}
 
 .manage-name {
-  flex: 1;
   min-width: 0;
   padding: 9px 10px;
   border: 1px solid var(--line);
@@ -1411,3 +1430,16 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
 .uvitani-pruh-text strong { display: block; margin-bottom: 2px; font-size: 15px; }
 .uvitani-pruh-text span { color: var(--text-soft); }
 .uvitani-pruh .primary { flex: none; }
+
+/* Záhlaví tabulky ve správě míst. Tytéž sloupce jako `.manage-row` —
+   ⚠️ třetí sloupec je prázdný, ale MUSÍ tam být, jinak by se popisky
+   posunuly proti řádkům pod nimi. */
+.manage-hlavicka {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto;
+  gap: 8px;
+  margin: 4px 0 2px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.manage-hlavicka[hidden] { display: none; }

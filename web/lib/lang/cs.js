@@ -110,8 +110,12 @@ export default {
     alreadySaved: 'Uložené už jako „{name}“.',
     manage: 'Spravovat uložená místa',
     manageTitle: 'Uložená místa',
-    renameHint: 'Klepni na jméno a přepiš ho — Domov, Práce, Babička.',
-    namePlaceholder: 'Domov, Práce, Babička…',
+    renameHint: 'Vlevo je adresa, vpravo si místo pojmenuj — Domov, Práce, Babička.',
+    // ⚠️ Výzva, ne příklad. Pole je prázdné a musí být jasné, že se do něj
+    // něco čeká — „Domov, Práce, Babička…" vypadalo jako už vyplněná nabídka.
+    namePlaceholder: 'Zadej název',
+    addressCol: 'Adresa',
+    nameCol: 'Název místa',
     close: 'Zavřít',
     nameLabel: 'Jméno uloženého místa',
     removeOne: 'Odebrat',

@@ -103,8 +103,12 @@ export default {
     alreadySaved: 'Already saved as “{name}”.',
     manage: 'Manage saved places',
     manageTitle: 'Saved places',
-    renameHint: 'Tap a name and rewrite it — Home, Work, Grandma.',
-    namePlaceholder: 'Home, Work, Grandma…',
+    renameHint: 'The address is on the left; name the place on the right — Home, Work, Grandma.',
+    // ⚠️ A prompt, not an example. The field is empty and it has to be
+    // clear that something is expected there.
+    namePlaceholder: 'Name it',
+    addressCol: 'Address',
+    nameCol: 'Name',
     close: 'Close',
     nameLabel: 'Name of the saved place',
     removeOne: 'Remove',

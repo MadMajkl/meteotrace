@@ -14,7 +14,7 @@ import {
   emptyStore, parseStore, serializeStore,
   savePlace, saveRoute, forgetPlace, forgetRoute,
   renamePlace, renameRoute, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
-  savedShortcuts, SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
+  savedShortcuts, placeAddress, SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
 } from '../web/lib/places.js';
 
 const PRAHA = { name: 'Praha', country: 'Czechia', lat: 50.0755, lon: 14.4378 };
@@ -532,4 +532,48 @@ test('🚨 pořadí uvnitř skupiny se nepřerovnává podle použití', () => {
 test('prázdný sklad vrátí prázdný řádek, ne výjimku', () => {
   assert.deepEqual(savedShortcuts(emptyStore()), []);
   assert.deepEqual(savedShortcuts(null), []);
+});
+
+/* ============================================================
+   ADRESA VS. JMÉNO (30. 8. 2026)
+
+   🚨 Michal: „je divné přepisovat názvem adresu." Dokud místo neslo jen
+   jedno pole, přejmenováním se adresa NENÁVRATNĚ ZTRATILA a v seznamu
+   pak stálo pět „Domov, Práce, Babička" bez jediné stopy, kde vlastně jsou.
+   ============================================================ */
+
+test('🚨 přejmenování NESMÍ sebrat adresu', () => {
+  let s = savePlace(emptyStore(), {
+    lat: 49.53, lon: 12.94, name: 'Horšovský Týn', country: 'Česko',
+  }, 1).store;
+  const klic = s.places[0].key;
+
+  s = renamePlace(s, klic, 'Domov');
+  assert.equal(s.places[0].name, 'Domov');
+  assert.equal(placeAddress(s.places[0]), 'Horšovský Týn', 'adresa zůstává');
+});
+
+test('adresa přežije uložení a načtení', () => {
+  let s = savePlace(emptyStore(), { lat: 49.53, lon: 12.94, name: 'Plzeň' }, 1).store;
+  s = renamePlace(s, s.places[0].key, 'Babička');
+  const znovu = parseStore(serializeStore(s));
+  assert.equal(znovu.places[0].name, 'Babička');
+  assert.equal(placeAddress(znovu.places[0]), 'Plzeň');
+});
+
+test('⚠️ starší záznam bez adresy spadne na jméno, ne na prázdno', () => {
+  // Místa uložená před 30. 8. 2026 `address` nemají. U nepřejmenovaných
+  // je `name` adresou pořád; prázdná buňka by vypadala jako chyba.
+  const stary = parseStore(JSON.stringify({
+    version: 1,
+    places: [{ key: '50.076,14.438', lat: 50.0755, lon: 14.4378, name: 'Praha', savedAt: 1, usedAt: 1 }],
+    routes: [],
+  }));
+  assert.equal(placeAddress(stary.places[0]), 'Praha');
+});
+
+test('placeAddress nespadne na nesmyslech', () => {
+  assert.equal(placeAddress(null), '');
+  assert.equal(placeAddress({}), '');
+  assert.equal(placeAddress(undefined), '');
 });
