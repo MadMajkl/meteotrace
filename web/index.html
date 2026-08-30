@@ -394,39 +394,70 @@
             data-i18n-attr="aria-label:places.close|title:places.close">✕</button>
   </div>
 
-  <p data-i18n="donate.intro"></p>
-  <p class="hint" data-i18n="donate.nothing"></p>
+  <!-- Táž mince jako v hlavičce, jen velká a pulzující. Michal 30. 8. 2026:
+       *„po rozklepnutí page tam má být taky a pulsovat."*
+       ⚠️ Vlastní `id` přechodu. Sdílet ho s hlavičkou by šlo, ale svázalo
+       by to dvě nezávislé věci: kdyby jednou zmizelo tlačítko z lišty,
+       mince tady by se odbarvila do černa a nikdo by netušil proč. -->
+  <div class="donate-hero" aria-hidden="true">
+    <svg viewBox="0 0 24 24" focusable="false">
+      <defs>
+        <linearGradient id="mince-zlato-velka" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#FFEFA8"/>
+          <stop offset="48%"  stop-color="#F6C544"/>
+          <stop offset="100%" stop-color="#D2920F"/>
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="9.3" fill="url(#mince-zlato-velka)" stroke="#A9750C" stroke-width="1.2"/>
+      <circle cx="12" cy="12" r="6.7" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1"/>
+      <path d="M12 15.6 C12 15.6 8.1 13.2 8.1 10.7 C8.1 9.4 9.05 8.6 10.05 8.6 C10.8 8.6 11.5 9.05 12 9.8 C12.5 9.05 13.2 8.6 13.95 8.6 C14.95 8.6 15.9 9.4 15.9 10.7 C15.9 13.2 12 15.6 12 15.6 Z"
+            fill="#fff7e0" stroke="#A9750C" stroke-width="0.6"/>
+    </svg>
+  </div>
 
-  <h3 data-i18n="donate.qrTitle"></h3>
-  <p class="hint" data-i18n="donate.qrNote"></p>
+  <p class="donate-intro" data-i18n="donate.intro"></p>
+  <p class="donate-nic" data-i18n="donate.nothing"></p>
 
-  <div class="donate-amounts" id="donate-amounts" role="group"
-       data-i18n-attr="aria-label:donate.amount"></div>
+  <!-- QR platba jako karta, ne jako volný sloupec: patří k sobě částka,
+       kód, účet i věta o tom, co v kódu je. Struktura opsaná z Gulpky. -->
+  <section class="donate-card">
+    <h3 class="donate-card-title" data-i18n="donate.qrTitle"></h3>
+    <p class="donate-card-note" data-i18n="donate.qrNote"></p>
 
-  <label class="donate-custom">
-    <span data-i18n="donate.customLabel"></span>
-    <input id="donate-custom" type="number" inputmode="decimal" min="1" step="1">
-  </label>
+    <div class="donate-amounts" id="donate-amounts" role="group"
+         data-i18n-attr="aria-label:donate.amount"></div>
 
-  <!-- ⚠️ Když se QR nepovede nakreslit, MUSÍ to být vidět — a hlavně musí
-       zůstat cesta k zaplacení. Číslo účtu pod kódem není ozdoba, je to
-       záloha, která funguje i bez obrázku. -->
-  <div class="donate-qr" id="donate-qr"></div>
-  <p class="donate-acc" id="donate-acc"></p>
-  <p class="hint" id="donate-amount-note"></p>
+    <label class="donate-custom">
+      <span data-i18n="donate.customLabel"></span>
+      <input id="donate-custom" type="number" inputmode="decimal" min="1" step="1">
+    </label>
 
-  <a class="donate-method" id="donate-revolut" target="_blank" rel="noopener">
-    <span class="donate-method-name">Revolut</span>
-    <span class="donate-method-note" data-i18n="donate.opensOut"></span>
-    <span class="donate-method-arrow" aria-hidden="true">↗</span>
+    <!-- ⚠️ Když se QR nepovede nakreslit, MUSÍ to být vidět — a hlavně musí
+         zůstat cesta k zaplacení. Číslo účtu pod kódem není ozdoba, je to
+         záloha, která funguje i bez obrázku. -->
+    <div class="donate-qr" id="donate-qr"></div>
+    <p class="donate-acc" id="donate-acc"></p>
+    <p class="donate-amount-note" id="donate-amount-note"></p>
+  </section>
+
+  <a class="donate-method donate-revolut" id="donate-revolut" target="_blank" rel="noopener">
+    <span class="donate-method-ico" aria-hidden="true">R</span>
+    <span class="donate-method-text">
+      <strong>Revolut</strong>
+      <small data-i18n="donate.opensOut"></small>
+    </span>
+    <span class="donate-method-arrow" aria-hidden="true">›</span>
   </a>
-  <a class="donate-method" id="donate-paypal" target="_blank" rel="noopener">
-    <span class="donate-method-name">PayPal</span>
-    <span class="donate-method-note" data-i18n="donate.opensOut"></span>
-    <span class="donate-method-arrow" aria-hidden="true">↗</span>
+  <a class="donate-method donate-paypal" id="donate-paypal" target="_blank" rel="noopener">
+    <span class="donate-method-ico" aria-hidden="true">P</span>
+    <span class="donate-method-text">
+      <strong>PayPal</strong>
+      <small data-i18n="donate.opensOut"></small>
+    </span>
+    <span class="donate-method-arrow" aria-hidden="true">›</span>
   </a>
 
-  <p class="hint" data-i18n="donate.thanks"></p>
+  <p class="donate-thanks" data-i18n="donate.thanks"></p>
 </dialog>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->

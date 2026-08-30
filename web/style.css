@@ -1578,64 +1578,126 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 /* Nápověda ke klepání na bod. Drobná, ale musí tam být — viz index.html. */
 .legenda-tip { margin: 8px 0 0; font-size: 12px; color: var(--text-soft); }
 
-/* ── Dar a crosslinky (R7) ───────────────────────────────────────────────
-   Dar je odkaz ven a NIC neodemyká. Obrazovka proto nemá nic, co by
-   vypadalo jako nákup: žádné ceny, žádné „získáš", jen účet a odkazy. */
+/* ── Stránka daru (R7) ───────────────────────────────────────────────────
+   Struktura opsaná z Gulpky: mince nahoře, vycentrovaný úvod, QR jako KARTA
+   (částka, kód, účet a věta o něm patří k sobě), pak způsoby jako řádky.
+
+   🚨 Michal 30. 8. 2026: *„máš rozbité formátování na donation page a žádné
+   pulsující srdce tam nevidím."* Napoprvé to byl jeden plochý sloupec bez
+   členění a bez mince — vypadalo to jako nedodělek, protože to nedodělek byl.
+
+   ⚠️ Nic tady nesmí vypadat jako nákup: žádné ceny za funkce, žádné
+   „získáš". Dar NIC neodemyká (R7). */
 
 .donate-open { width: 100%; margin: 4px 0 12px; }
 
-.donate-amounts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+/* Velká mince nahoře. Táž kresba jako v hlavičce, týž pulz. */
+.donate-hero { display: flex; justify-content: center; margin: 6px 0 14px; }
+.donate-hero svg {
+  display: block; width: 76px; height: 76px;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, .22));
+  animation: mince-pulz 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .donate-hero svg { animation: none; }
+}
+
+.donate-intro { margin: 0 0 8px; font-size: 15px; line-height: 1.5; text-align: center; }
+.donate-nic { margin: 0 0 16px; font-size: 13px; color: var(--text-soft); text-align: center; }
+
+/* Karta uvnitř listu. ⚠️ Podklad `--surface-2`, ne `--surface`: dialog
+   sám je `--surface` a karta na kartě by nebyla vidět. */
+.donate-card {
+  margin: 0 0 14px; padding: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.donate-card-title { margin: 0 0 4px; font-size: 15px; font-weight: 700; text-align: center; }
+.donate-card-note { margin: 0 0 14px; font-size: 13px; color: var(--text-soft); text-align: center; }
+
+.donate-amounts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+/* 🚨 Tři částky se musí vejít na JEDEN řádek i na 320 px. Napoprvé měly
+   `min-width: 72px` a chybělo 8 px, takže se zlomily na 2 + 1 — a „200 Kč"
+   pak stálo samo přes celou šířku jako hlavní volba, kterou není. */
 .donate-amount {
-  min-height: 44px; padding: 0 16px;
-  font: inherit; font-size: 15px;
-  color: var(--text); background: var(--surface-2);
-  border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  flex: 1 1 0; min-width: 60px; min-height: 44px;   /* 44 px = trefitelné prstem */
+  padding: 0 6px;
+  font: inherit; font-size: 15px; font-weight: 600;
+  color: var(--text); background: var(--surface);
+  border: 2px solid transparent; border-radius: 12px; cursor: pointer;
 }
 .donate-amount[aria-pressed="true"] {
   color: var(--accent); border-color: var(--accent); background: var(--accent-soft);
 }
 
-.donate-custom { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; font-size: 14px; }
-.donate-custom input {
-  padding: 8px 10px;
-  font: inherit; color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line); border-radius: 10px;
+/* Vlastní částka pod nabídnutými, ne vedle: je to náhradní cesta, ne čtvrtá
+   možnost, a v řádku by se na úzkém displeji zlomila do nesmyslu. */
+.donate-custom {
+  display: block; margin: 0 0 14px;
+  font-size: 13px; color: var(--text-soft); text-align: center;
 }
+.donate-custom input {
+  display: block; width: 100%; margin-top: 6px;
+  padding: 11px 12px;
+  font: inherit; font-weight: 600; text-align: center;
+  color: var(--text); background: var(--surface);
+  border: 2px solid transparent; border-radius: 12px;
+}
+.donate-custom input:focus { outline: none; border-color: var(--accent); }
 
 /* 🚨 QR se kreslí na BÍLÉ, i v tmavém motivu. Čtečky počítají s tmavým
    kódem na světlém podkladu; obrácený kontrast část z nich nepřečte —
    a nepozná se to jinak než tím, že platba neprojde. */
 .donate-qr {
-  display: flex; justify-content: center;
-  margin: 12px 0;
-  padding: 12px;
-  background: #fff;
-  border: 1px solid var(--line); border-radius: 12px;
-  color: #16202b;
+  width: 220px; max-width: 100%;
+  margin: 0 auto 12px; padding: 10px;
+  background: #fff; color: #16202b;
+  border-radius: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
   font-size: 13px; text-align: center;
 }
-.donate-qr svg { width: min(260px, 70vw); height: auto; }
+.donate-qr svg { display: block; width: 100%; height: auto; }
 
 /* Číslo účtu je záloha pro případ, že se kód nenaskenuje — musí jít opsat,
    tak dostane pevnou šířku písma a smí se označit. */
 .donate-acc {
-  margin: 0 0 4px;
+  margin: 0 0 2px; text-align: center;
   font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
-  font-size: 13px;
+  font-size: 13px; letter-spacing: .3px;
   user-select: text; -webkit-user-select: text;
 }
+.donate-amount-note { margin: 0; font-size: 13px; color: var(--text-soft); text-align: center; }
 
+/* Způsoby platby jako řádky se značkou služby — barvy jejich, ne naše. */
 .donate-method {
-  display: flex; align-items: center; gap: 10px;
-  min-height: 48px; padding: 0 14px; margin-top: 8px;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 10px;
   color: var(--text); text-decoration: none;
   background: var(--surface-2);
-  border: 1px solid var(--line); border-radius: 12px;
+  border: 1px solid var(--line); border-radius: 14px;
 }
-.donate-method-name { font-weight: 600; font-size: 15px; }
-.donate-method-note { flex: 1; font-size: 12px; color: var(--text-soft); }
-.donate-method-arrow { color: var(--text-soft); }
+.donate-method:active { transform: scale(.985); }
+.donate-method-ico {
+  flex: none; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+  border-radius: 12px;
+}
+.donate-revolut .donate-method-ico { background: #0066ff; }
+.donate-paypal .donate-method-ico { background: #003087; }
+.donate-method-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.donate-method-text strong { font-size: 15px; }
+.donate-method-text small { font-size: 12px; color: var(--text-soft); }
+.donate-method-arrow { flex: none; font-size: 22px; color: var(--text-soft); }
+
+.donate-thanks { margin: 14px 0 0; font-size: 13px; color: var(--text-soft); text-align: center; }
+
+/* Na nejužších displejích ubere karta z okrajů, ať zbyde na tři částky
+   vedle sebe. Míň vzduchu je pořád lepší než rozpadlá řada. */
+@media (max-width: 380px) {
+  .donate-card { padding: 14px 10px; }
+}
 
 /* Crosslinky. Naše projekty, ne reklama — proto strohé řádky bez obrázků
    a bez lákání. */
