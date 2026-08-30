@@ -346,6 +346,39 @@ export default {
     sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ via MeteoAlarm. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
   },
 
+  /* Donations (R7).
+     🚨 A donation never unlocks anything — and the app says so out loud.
+     An offer to pay inside a free app looks like a trap unless it is
+     spelled out that nothing is behind it. */
+  donate: {
+    open: 'Support the app',
+    title: 'Support MeteoTrace',
+    intro: 'The app is free, has no ads and nothing hidden behind a payment. If it has ever kept you dry, you can throw in a coin.',
+    nothing: 'A donation unlocks nothing — there is nothing to unlock. The whole app is free and stays that way.',
+    qrTitle: 'Czech QR payment',
+    qrNote: 'Scan it in your banking app — the account and the amount fill themselves in.',
+    amount: 'Amount',
+    customLabel: 'Or your own amount (CZK)',
+    account: 'Account: {iban}',
+    noAmount: 'No amount in the code — your bank will ask.',
+    withAmount: 'The code carries {amount} CZK.',
+    /* ⚠️ Když se kód nepovede nakreslit, musí zůstat cesta k zaplacení. */
+    qrFailed: 'The code could not be drawn. The account number above works just as well.',
+    opensOut: 'Opens in a browser',
+    thanks: 'Thank you for even reading this far.',
+  },
+
+  /* Crosslinks on our own projects (R7). Settings, never the main screen —
+     an offer of other products in the middle of a forecast is an ad. */
+  more: {
+    title: 'More from us',
+    note: 'Our own projects, not third-party ads.',
+    gulpka: 'Drink up — a water reminder',
+    vtcleaner: 'A safe Windows cleaner',
+    itrady: 'Practical tips from the world of IT',
+    mailnino: 'An e-mail client that speaks to Czech data boxes',
+  },
+
   warnings: {
     title: 'Warnings',
     none: 'No weather warnings right now.',

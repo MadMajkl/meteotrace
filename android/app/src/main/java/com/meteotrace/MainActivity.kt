@@ -1,9 +1,12 @@
 package com.meteotrace
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -108,12 +111,32 @@ class MainActivity : AppCompatActivity() {
                 return assetLoader.shouldInterceptRequest(url)
             }
 
-            // Vlastní obsah zůstává uvnitř. Cizí odkazy tu zatím nejsou žádné —
-            // až budou (dary, licence), otevřou se v prohlížeči jako u Gulpky.
+            /**
+             * Vlastní obsah zůstává uvnitř, cizí odkaz jde do PROHLÍŽEČE.
+             *
+             * 🚨 Vrátit jen `true` nestačí. `true` znamená „postaráno",
+             * jenže se pak nestane vůbec nic: klepnutí na dar nebo na
+             * crosslink by mlčky nic neudělalo a od rozbitého tlačítka
+             * by se to nedalo odlišit. Odkaz proto musí někdo otevřít —
+             * a je to systém, ne WebView. Uvnitř obalu by cizí stránka
+             * navíc vypadala jako součást appky.
+             *
+             * ⚠️ Když si adresu nemá kdo vzít (telefon bez prohlížeče,
+             * `ActivityNotFoundException`), zůstane odkaz nefunkční —
+             * ale aspoň se to nestane potichu v běžném případě.
+             */
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest,
-            ): Boolean = request.url.host != HOSTITEL
+            ): Boolean {
+                if (request.url.host == HOSTITEL) return false
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                } catch (e: ActivityNotFoundException) {
+                    Log.w("MeteoTrace", "odkaz nemá kdo otevřít: ${request.url}", e)
+                }
+                return true
+            }
         }
 
 

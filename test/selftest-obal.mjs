@@ -141,3 +141,44 @@ test('hledač cest si nesplete komentář ani https://', () => {
     ['/fonts/a.pbf'],
   );
 });
+
+/* ============================================================
+   ODKAZY VEN
+
+   🚨 Dar a crosslinky jsou první cizí adresy v appce vůbec. Do 30. 8. 2026
+   obal na cizí odkaz vracel jen `true` („postaráno") a NIC neotevřel —
+   klepnutí by mlčky nic neudělalo. Test hlídá, že se o adresu opravdu
+   někdo postará; kód obalu se jinak nespouští, tak se čte jako text.
+   ============================================================ */
+
+const OBAL = join(dirname(fileURLToPath(import.meta.url)), '..', 'android', 'app', 'src',
+  'main', 'java', 'com', 'meteotrace', 'MainActivity.kt');
+
+test('🚨 cizí odkaz obal předá systému, nespolkne ho', () => {
+  const kt = readFileSync(OBAL, 'utf8');
+  const telo = kt.slice(kt.indexOf('shouldOverrideUrlLoading'));
+  assert.ok(telo.includes('Intent.ACTION_VIEW'),
+    'cizí odkaz se musí otevřít v prohlížeči, ne jen vrátit true');
+  assert.ok(telo.includes('ActivityNotFoundException'),
+    'telefon bez prohlížeče nesmí shodit appku');
+});
+
+test('vlastní obsah zůstává uvnitř obalu', () => {
+  const kt = readFileSync(OBAL, 'utf8');
+  const telo = kt.slice(kt.indexOf('shouldOverrideUrlLoading'));
+  assert.match(telo, /host == HOSTITEL\) return false/,
+    'na vlastní adresu se WebView nesmí obcházet');
+});
+
+test('🚨 každý odkaz ven ve stránce má rel="noopener"', () => {
+  // Bez něj dostane cizí stránka odkaz na naše okno (`window.opener`)
+  // a může nás přesměrovat, kam chce. V appce zdarma to nikoho nenapadne
+  // hledat — proto to hlídá stroj.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const odkazy = [...html.matchAll(/<a\b[^>]*href="https?:[^"]*"[^>]*>/g)].map((m) => m[0]);
+  assert.ok(odkazy.length > 0, 'žádný odkaz ven — test by nic nekontroloval');
+  for (const a of odkazy) {
+    assert.match(a, /rel="[^"]*noopener/, a);
+    assert.match(a, /target="_blank"/, a);
+  }
+});

@@ -310,11 +310,98 @@
     <select id="set-distance"></select>
   </div>
 
+  <!-- Podpora appky (R7).
+       🚨 Dar NIC neodemyká a nikdy nesmí — jinak z něj je platba za digitální
+       obsah a spadne pod povinný Play Billing. Že se nic neodemyká, se tady
+       taky NAPÍŠE: nabídka platby v jinak bezplatné appce jinak vypadá jako
+       past na peníze a člověk ji radši obejde. -->
+  <h3 data-i18n="donate.title"></h3>
+  <p class="hint" data-i18n="donate.nothing"></p>
+  <button id="btn-donate" class="primary donate-open" type="button" data-i18n="donate.open"></button>
+
+  <!-- Crosslinky na vlastní projekty (R7).
+       ⚠️ Patří do nastavení, ne na hlavní obrazovku: appka na počasí má
+       odpovídat na počasí a nabídka jiných produktů uprostřed předpovědi
+       je reklama, i když je naše vlastní.
+       ⚠️ Odkazy vedou VEN. V obalu je otevře prohlížeč (`shouldOverrideUrlLoading`),
+       ne WebView — uvnitř by to byla cizí stránka vydávající se za appku. -->
+  <h3 data-i18n="more.title"></h3>
+  <p class="hint" data-i18n="more.note"></p>
+  <div class="more-links">
+    <a class="more-card" href="https://gulpka.app" target="_blank" rel="noopener">
+      <span class="more-name">Gulpka</span>
+      <span class="more-what" data-i18n="more.gulpka"></span>
+      <span class="more-domain">gulpka.app</span>
+    </a>
+    <a class="more-card" href="https://vtcleaner.cz" target="_blank" rel="noopener">
+      <span class="more-name">Viktor čistič</span>
+      <span class="more-what" data-i18n="more.vtcleaner"></span>
+      <span class="more-domain">vtcleaner.cz</span>
+    </a>
+    <a class="more-card" href="https://itrady.cz" target="_blank" rel="noopener">
+      <span class="more-name">ITRADY.CZ</span>
+      <span class="more-what" data-i18n="more.itrady"></span>
+      <span class="more-domain">itrady.cz</span>
+    </a>
+    <a class="more-card" href="https://mailnino.cz" target="_blank" rel="noopener">
+      <span class="more-name">mailniño</span>
+      <span class="more-what" data-i18n="more.mailnino"></span>
+      <span class="more-domain">mailnino.cz</span>
+    </a>
+  </div>
+
   <!-- ⚠️ Uvedení zdrojů není zdvořilost, ale podmínka licence: podklad mapy
        stojí na datech OpenStreetMap (ODbL) a ta se musí přiznat. -->
   <h3 data-i18n="settings.about"></h3>
   <p class="hint" id="about-version"></p>
   <p class="hint" data-i18n="settings.sources"></p>
+</dialog>
+
+<!-- Dar. Vlastní dialog, ne sekce v nastavení: QR kód potřebuje místo
+     a nastavení je seznam přepínačů.
+     🚨 QR kreslí VLASTNÍ kód (`lib/qr.js`), ne cizí knihovna — tenhle
+     obrázek nese číslo účtu a chybně zakódovaný QR pošle peníze jinam,
+     aniž by to appka jakkoli poznala. -->
+<dialog id="donate-dialog" class="sheet" aria-labelledby="donate-dialog-title">
+  <div class="sheet-head">
+    <h2 id="donate-dialog-title" data-i18n="donate.title"></h2>
+    <button id="donate-close" class="icon-btn" type="button"
+            data-i18n-attr="aria-label:places.close|title:places.close">✕</button>
+  </div>
+
+  <p data-i18n="donate.intro"></p>
+  <p class="hint" data-i18n="donate.nothing"></p>
+
+  <h3 data-i18n="donate.qrTitle"></h3>
+  <p class="hint" data-i18n="donate.qrNote"></p>
+
+  <div class="donate-amounts" id="donate-amounts" role="group"
+       data-i18n-attr="aria-label:donate.amount"></div>
+
+  <label class="donate-custom">
+    <span data-i18n="donate.customLabel"></span>
+    <input id="donate-custom" type="number" inputmode="decimal" min="1" step="1">
+  </label>
+
+  <!-- ⚠️ Když se QR nepovede nakreslit, MUSÍ to být vidět — a hlavně musí
+       zůstat cesta k zaplacení. Číslo účtu pod kódem není ozdoba, je to
+       záloha, která funguje i bez obrázku. -->
+  <div class="donate-qr" id="donate-qr"></div>
+  <p class="donate-acc" id="donate-acc"></p>
+  <p class="hint" id="donate-amount-note"></p>
+
+  <a class="donate-method" id="donate-revolut" target="_blank" rel="noopener">
+    <span class="donate-method-name">Revolut</span>
+    <span class="donate-method-note" data-i18n="donate.opensOut"></span>
+    <span class="donate-method-arrow" aria-hidden="true">↗</span>
+  </a>
+  <a class="donate-method" id="donate-paypal" target="_blank" rel="noopener">
+    <span class="donate-method-name">PayPal</span>
+    <span class="donate-method-note" data-i18n="donate.opensOut"></span>
+    <span class="donate-method-arrow" aria-hidden="true">↗</span>
+  </a>
+
+  <p class="hint" data-i18n="donate.thanks"></p>
 </dialog>
 
 <!-- Pruh se objeví jen když jsou data stará nebo se něco nepovedlo. -->

@@ -42,6 +42,11 @@ import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
 import { maSeSpustit, createOnboarding } from './lib/onboarding.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
+import {
+  DONATE, AMOUNTS, DEFAULT_AMOUNT, ibanPretty, normalizeAmount, spdString,
+  revolutUrl, paypalUrl,
+} from './lib/donate.js';
+import { qrEncode, qrPath } from './lib/qr.js';
 import { formatDistance } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
@@ -56,7 +61,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.12.1';
+const VERZE = '0.13.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -740,6 +745,88 @@ function openSettings() {
 
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
+}
+
+/* ============================================================
+   DAR (R7)
+
+   🚨 Dar NIC neodemyká a nikdy nesmí. Jinak z něj je platba za digitální
+   obsah a spadne pod povinný Play Billing. Proto tady není jediný zápis
+   do `state` — obrazovka jen ukáže údaje a odkazy ven.
+
+   Kód QR kreslí vlastní `lib/qr.js`: obrázek nese číslo účtu a chybně
+   zakódovaný kód pošle peníze jinam, aniž by to appka poznala.
+   ============================================================ */
+
+/** Vybraná částka pro QR. `null` = bez částky, banka se zeptá. */
+let darCastka = DEFAULT_AMOUNT;
+
+function openDonate() {
+  // ⚠️ Nastavení se zavře. Dva zamčené dialogy nad sebou znamenají, že
+  // Escape zavře ten horní a člověk zůstane v tom, ze kterého odešel.
+  $('settings-dialog').close();
+
+  vykresliCastky();
+  $('donate-custom').value = '';
+  vykresliDar();
+  $('donate-dialog').showModal();
+}
+
+/** Tlačítka s nabídnutými částkami. Vlastní číslo se píše do pole pod nimi. */
+function vykresliCastky() {
+  const tlacitka = AMOUNTS.map((castka) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'donate-amount';
+    b.textContent = `${castka} Kč`;
+    b.dataset.amount = String(castka);
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => {
+      darCastka = castka;
+      $('donate-custom').value = '';   // ⚠️ jinak by svítily dvě částky naráz
+      vykresliDar();
+    });
+    return b;
+  });
+  $('donate-amounts').replaceChildren(...tlacitka);
+}
+
+/**
+ * Překreslí QR, číslo účtu a odkazy podle vybrané částky.
+ *
+ * ⚠️ Pod kódem je vždycky ČÍSLO ÚČTU a věta o tom, co v kódu je. Samotný
+ * QR mlčí: z obrázku se nepozná, jestli v něm je stovka, nula, nebo
+ * překlep — a přijít na to až v bankovní appce je pozdě.
+ */
+function vykresliDar() {
+  for (const b of $('donate-amounts').children) {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.amount) === darCastka));
+  }
+
+  $('donate-acc').textContent = tf('donate.account', { iban: ibanPretty(DONATE.iban) }, state.lang);
+  $('donate-amount-note').textContent = darCastka === null
+    ? t('donate.noAmount', state.lang)
+    : tf('donate.withAmount', { amount: darCastka }, state.lang);
+
+  $('donate-revolut').href = revolutUrl(darCastka);
+  $('donate-paypal').href = paypalUrl(darCastka);
+
+  const box = $('donate-qr');
+  try {
+    const qr = qrEncode(spdString({ amount: darCastka }));
+    const okraj = 4;
+    const strana = qr.size + okraj * 2;
+    // Jeden `<path>` místo tisíce obdélníků; `shape-rendering` vypne
+    // vyhlazování, aby hrany modulů zůstaly ostré i po zvětšení.
+    box.innerHTML = `<svg viewBox="0 0 ${strana} ${strana}" role="img" aria-label="${
+      t('donate.qrTitle', state.lang)}" shape-rendering="crispEdges">`
+      + `<rect width="${strana}" height="${strana}" fill="#fff"/>`
+      + `<path d="${qrPath(qr, okraj)}" fill="#000"/></svg>`;
+  } catch (e) {
+    // Cesta k zaplacení musí zůstat i bez obrázku — číslo účtu je pod ním.
+    box.textContent = t('donate.qrFailed', state.lang);
+    console.warn('[MeteoTrace] QR se nepovedl:', e.message);
+  }
 }
 
 /* ============================================================
@@ -3419,6 +3506,14 @@ function init() {
   pripojVyber('route-to', 'route-to-results', 'to');
   vykresliZpusoby();
   vykresliMezibody();
+  $('btn-donate').addEventListener('click', openDonate);
+  $('donate-close').addEventListener('click', () => $('donate-dialog').close());
+  // Vlastní částka: prázdné pole neznamená chybu, ale „bez částky" —
+  // QR bez ní je platný a banka se zeptá sama.
+  $('donate-custom').addEventListener('input', (e) => {
+    darCastka = normalizeAmount(e.target.value);
+    vykresliDar();
+  });
   $('places-close').addEventListener('click', () => $('places-dialog').close());
   // Rozepsané jméno se má uložit i tehdy, když se dialog zavře klávesou Esc
   // nebo klepnutím vedle — jinak by práce zmizela bez varování.

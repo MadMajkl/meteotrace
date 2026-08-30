@@ -86,6 +86,17 @@ for (const w of WIDTHS) {
   frames.push({ w, f });
 }
 
+/**
+ * Jméno prvku do hlášky.
+ *
+ * ⚠️ `el.className` je u SVG objekt, ne řetězec — vypsalo by se
+ * „svg.[object SVGAnimatedString]" a viník by se z hlášky nepoznal.
+ */
+function popisPrvku(el) {
+  const trida = (el.getAttribute('class') || '').split(' ')[0];
+  return el.tagName.toLowerCase() + (trida ? '.' + trida : '');
+}
+
 /** Přeteklo něco vodorovně? Vrací i viníka, ať se nemusí hádat. */
 function overflow(doc) {
   const root = doc.documentElement;
@@ -101,7 +112,7 @@ function overflow(doc) {
   }
   return {
     total, limit,
-    culprit: worst ? `${worst.tagName.toLowerCase()}${worst.className ? '.' + String(worst.className).split(' ')[0] : ''}` : '?',
+    culprit: worst ? popisPrvku(worst) : '?',
     right: Math.round(worstRight),
   };
 }
@@ -218,6 +229,27 @@ function nasypVystrahy(doc) {
   }
 }
 
+/**
+ * 🚨 DIALOG SE NEMĚŘÍ SÁM: je užší než okno a vycentrovaný, takže obsah,
+ * který z něj vyleze, ještě nemusí přetéct ze STRÁNKY — a `overflow()` ho
+ * proto neuvidí. Nejtěsnější je tu QR kód: má pevnou velikost a na úzkém
+ * displeji je to jediná věc v appce, která se nemá jak zalomit.
+ *
+ * Vrací popis vady, nebo `null`.
+ */
+function dialogPreteceni(doc, id) {
+  const d = doc.getElementById(id);
+  if (!d) return `dialog #${id} ve stránce není`;
+  const box = d.getBoundingClientRect();
+  let worst = null, worstRight = box.right;
+  for (const el of d.querySelectorAll('*')) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.right > worstRight + 1) { worstRight = r.right; worst = el; }
+  }
+  if (!worst) return null;
+  return `${popisPrvku(worst)} leze z dialogu o ${Math.round(worstRight - box.right)} px`;
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -257,6 +289,17 @@ async function run() {
       const o2 = overflow(doc);
       if (o2) vady.push(`Trasa: přetéká o ${o2.total - o2.limit} px (${o2.culprit} sahá na ${o2.right})`);
       for (const p of prekryvy(doc)) vady.push(`Trasa: překryv ${p}`);
+
+      // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
+      //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek
+      //    v celé appce.
+      doc.getElementById('btn-settings').click();
+      const vNastaveni = dialogPreteceni(doc, 'settings-dialog');
+      if (vNastaveni) vady.push(`Nastavení: ${vNastaveni}`);
+      doc.getElementById('btn-donate').click();
+      const vDaru = dialogPreteceni(doc, 'donate-dialog');
+      if (vDaru) vady.push(`Dar: ${vDaru}`);
+      doc.getElementById('donate-dialog').close();
     } catch (e) {
       vady.push('nešlo změřit: ' + e.message);
     }

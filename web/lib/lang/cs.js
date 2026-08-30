@@ -389,6 +389,39 @@ export default {
     sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ přes MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
 
+  /* Dary (R7).
+     🚨 Dar nikdy nic neodemyká — a appka to říká nahlas. Nabídka platby
+     v jinak bezplatné appce vypadá jako past, dokud se nedopoví, že za ní
+     nic není. */
+  donate: {
+    open: 'Podpořit appku',
+    title: 'Podpořit MeteoTrace',
+    intro: 'Appka je zdarma, bez reklam a nic v ní není schované za platbu. Jestli tě někdy nechala dojet suchého, můžeš přihodit korunu.',
+    nothing: 'Dar nic neodemyká — není co odemykat. Celá appka je zdarma a zůstane.',
+    qrTitle: 'QR platba',
+    qrNote: 'Naskenuj ji v bankovní appce — účet i částka se vyplní samy.',
+    amount: 'Částka',
+    customLabel: 'Nebo vlastní částka (Kč)',
+    account: 'Účet: {iban}',
+    noAmount: 'V kódu není částka — banka se zeptá.',
+    withAmount: 'V kódu je {amount} Kč.',
+    /* ⚠️ Když se kód nepovede nakreslit, musí zůstat cesta k zaplacení. */
+    qrFailed: 'Kód se nepodařilo nakreslit. Číslo účtu nad ním funguje stejně dobře.',
+    opensOut: 'Otevře se v prohlížeči',
+    thanks: 'Díky i za to, že jsi dočetl až sem.',
+  },
+
+  /* Crosslinky na vlastní projekty (R7). Do nastavení, nikdy na hlavní
+     obrazovku — nabídka jiných produktů uprostřed předpovědi je reklama. */
+  more: {
+    title: 'Další od nás',
+    note: 'Naše vlastní projekty, ne reklama třetí strany.',
+    gulpka: 'Napij se — připomínač pitného režimu',
+    vtcleaner: 'Bezpečný čistič Windows',
+    itrady: 'Praktické rady a tipy ze světa IT',
+    mailnino: 'E-mailový klient, který umí datovky',
+  },
+
   warnings: {
     title: 'Výstrahy',
     none: 'Aktuálně nemáme žádné meteo výstrahy.',

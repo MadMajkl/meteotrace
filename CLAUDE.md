@@ -126,9 +126,11 @@ tohle je jen shrnutí.**
 | Semafor dlaždic | `web/lib/tile-tone.js` — prahy pro vítr, UV, tlak a soumrak. 🚨 Barva NIKDY nenese údaj sama; „nevíme" a „je klid" se nebarví obojí stejně, nebarví se vůbec |
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
+| Dar (R7, R18) | `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
+| Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**695 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách.
+**730 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -159,7 +161,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.12.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.13.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -195,6 +197,21 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 Kód, který je sám se sebou v souladu, o své správnosti neříká nic.**
+  QR enkodér skládal generující polynom **pozpátku**, takže korekční slova nebyla
+  platná. „Ověření" přepočtem korekce přitom sedělo na bajt — enkodér i kontrola
+  sdílely tutéž chybu, takže se shodly. Ukázalo to až dosazení kořenů (syndromy),
+  tedy **jiná cesta k témuž výsledku**. U každého vlastního kodéru, formátu nebo
+  kontrolního součtu si žádej ověření, které nevede přes tentýž kód. Viz `R18`.
+- **🚨 `shouldOverrideUrlLoading` vrací `true` = „postaráno", ne „otevřeno".**
+  WebView pak odkaz nenačte a nikdo jiný ho neotevře — klepnutí mlčky neudělá nic
+  a od rozbitého tlačítka se to nedá odlišit. Cizí adresu musí převzít
+  `Intent(ACTION_VIEW)`. Hlídá `selftest-obal.mjs` čtením zdrojáku obalu.
+- **🚨 Dialog se v layoutové kontrole neměří sám.** Je užší než okno a
+  vycentrovaný, takže obsah, který z něj vyleze, nemusí přetéct ze STRÁNKY —
+  a kontrola přetečení ho neuvidí. Měří to `dialogPreteceni()` v `test/layout.html`.
+  ⚠️ A když takovou kontrolu zkoušíš rozbít, sabotuj `min-width`, ne `width`:
+  flexbox položku zmenší zpátky a bude to vypadat, že kontrola neměří.
 - **🚨 Práh, pod kterým se mlčí, je návrhové rozhodnutí — a když je moc vysoko,
   vypadá hotová funkce jako chybějící.** Hlášky o větru začínaly až na 12 km/h,
   takže se většinu dní spadlo na obecnou větu a Michal usoudil, že vítr nikdo
