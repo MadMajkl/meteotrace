@@ -128,7 +128,7 @@ tohle je jen shrnutí.**
 | Jazyk a jednotky | odhad podle zařízení + ruční přepnutí (⚙ v hlavičce); jednotky jsou samostatná osa (R10) |
 | PWA (R1) | manifest, ikony z jednoho SVG (`npm run icons`), service worker JEN na webu |
 | Ochrana proxy (R19) | `web/lib/rate-limit.js` — omezovač na tazatele, strop na instanci, povolené `Origin`. Třída se odvozuje z `needsKey`, ne z ručního seznamu. 🚨 Omezuje se AŽ ZA CACHE a strop na instanci NENÍ globální |
-| Dar (R7, R18) | `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
+| Dar (R7, R18) | srdíčko ♥ v hlavičce vedle ⚙ (Michal 30. 8.: „přes to vlak nejede") + řádek v nastavení. `web/lib/donate.js` (SPD 1.0, kontrola IBANu) + **vlastní QR enkodér** `web/lib/qr.js`; obrazovka je dialog v ⚙. 🚨 Dar NIC neodemyká a appka to i **napíše** — jinak by z něj byla platba za digitální obsah pod Play Billing |
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
@@ -163,7 +163,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.14.1**; na `1.0.0` až s vydáním na Play.
+  Teď **0.14.2**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -199,6 +199,14 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 PŘETEČENÍ A PŘEKRYV JSOU JEN DVĚ ZE TŘÍ VAD ROZVRŽENÍ. Třetí je
+  USEKNUTÝ TEXT.** Srdíčko přidané do hlavičky ukouslo 52 px a ze sbaleného
+  řádku „Místo · Praha" zbylo „Mí…" — z okna přitom nic nepřeteklo a nic se
+  nepřekrylo, takže kontrola hlásila ✓. Ve sbalené hlavičce jsou záložky
+  schované, takže ten řádek je jediná zpráva o tom, kde člověk je.
+  Měří to `useknutyKontext()` v `test/layout.html` — **na obou obrazovkách**,
+  protože na trase je kontext krátký („Trasa") a vejde se vždycky. Kontrola,
+  která běží na špatné obrazovce, je zelená vždycky.
 - **🚨 SYSTÉMOVÉ OKRAJE JSOU V PROHLÍŽEČI NULOVÉ, V APK NE.** `.top` mělo
   `padding-bottom: calc(5px + env(safe-area-inset-bottom))` — výšku gesto-lišty
   nalepenou zespodu na HORNÍ lištu. Na webu 5 px a vypadalo to správně; v appce

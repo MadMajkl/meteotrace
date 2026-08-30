@@ -205,6 +205,40 @@ function rozbalNabidku(doc) {
   if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
 }
 
+function sbalNabidku(doc) {
+  const btn = doc.getElementById('btn-menu');
+  if (btn && btn.getAttribute('aria-expanded') === 'true') btn.click();
+}
+
+/**
+ * 🚨 SBALENÝ ŘÁDEK MUSÍ JÍT PŘEČÍST CELÝ.
+ *
+ * Ve sbalené hlavičce jsou záložky schované, takže „Místo · Praha" je
+ * jediná zpráva o tom, na co se člověk vlastně dívá. Useknuté „Mí…"
+ * neřekne nic — a přitom z okna nic nepřeteče a nic se nepřekryje, takže
+ * to dosavadní kontrola pustila.
+ *
+ * Vzniklo 30. 8. 2026: srdíčko přidané vedle ozubeného kola ukouslo z řádku
+ * 52 px a na 320 i 360 px kontext useklo. Našlo se to okem na snímku,
+ * ne testem — proto se to měří.
+ */
+function useknutyKontext(doc) {
+  sbalNabidku(doc);
+  const k = doc.getElementById('brand-kontext');
+  if (!k) { rozbalNabidku(doc); return 'kontext ve sbaleném řádku chybí'; }
+  // ⚠️ Změřit VŠECHNO ještě před rozbalením: v rozbalené hlavičce je kontext
+  // schovaný a `scrollWidth` je pak nula. Do hlášky by se dostalo
+  // „potřebuje 0 px", což je nesmysl, který pošle hledat jinam.
+  const text = k.textContent.trim();
+  const potreba = k.scrollWidth;
+  const misto = k.clientWidth;
+  rozbalNabidku(doc);
+  if (!text) return null;               // není co ukazovat, není co měřit
+  return potreba > misto + 1
+    ? `sbalený řádek je useknutý („${text}" potřebuje ${potreba} px, má ${misto})`
+    : null;
+}
+
 /** Nejhorší případy do karty výstrah — jinak by se měřila prázdná karta. */
 function nasypVystrahy(doc) {
   const card = doc.getElementById('warnings-card');
@@ -281,6 +315,12 @@ async function run() {
       const o = overflow(doc);
       if (o) vady.push(`Místo: přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})`);
       for (const p of prekryvy(doc)) vady.push(`Místo: překryv ${p}`);
+      // 🚨 Sbalený řádek se měří NA KAŽDÉ OBRAZOVCE ZVLÁŠŤ. Napoprvé se měřil
+      //    jen na trase, kde je kontext krátký („Trasa") a vždycky se vejde —
+      //    takže kontrola mlčky nic nekontrolovala. Dlouhý je na meteostanici
+      //    („Místo · Praha"), a právě tam se to useklo.
+      const vKontextuMisto = useknutyKontext(doc);
+      if (vKontextuMisto) vady.push(`Místo: ${vKontextuMisto}`);
 
       // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
       //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.
@@ -289,6 +329,9 @@ async function run() {
       const o2 = overflow(doc);
       if (o2) vady.push(`Trasa: přetéká o ${o2.total - o2.limit} px (${o2.culprit} sahá na ${o2.right})`);
       for (const p of prekryvy(doc)) vady.push(`Trasa: překryv ${p}`);
+
+      const vKontextuTrasa = useknutyKontext(doc);
+      if (vKontextuTrasa) vady.push(`Trasa: ${vKontextuTrasa}`);
 
       // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
       //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek

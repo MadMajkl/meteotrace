@@ -156,6 +156,19 @@ body {
 .brand-mark.big { font-size: 44px; }
 .brand-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
 
+/* 🚨 NA ÚZKÉM DISPLEJI USTOUPÍ JMÉNO APPKY, NE KONTEXT.
+   Srdíčko vedle ozubeného kola (30. 8. 2026) ukouslo z řádku 52 px a na
+   320 i 360 px se z „Místo · Praha" stalo „Mí…". Změřeno, ne odhadnuto:
+   kontext potřebuje 77 px a dostával 35.
+   Ze dvou věcí musela jedna ustoupit — a je to jméno appky. Kdo appku
+   otevřel, ví, jak se jmenuje; **co je vidět dole, neví**, protože záložky
+   jsou ve sbalené hlavičce schované. Značka ◈ zůstává, takže tlačítko
+   nabídky je pořád vidět i trefitelné.
+   Hranice 380 px: na 390 px se vejde všechno (změřeno). */
+@media (max-width: 380px) {
+  .brand-name { display: none; }
+}
+
 /* ── Značka jako tlačítko nabídky ──────────────────────────────────────── */
 /* Celý řádek se značkou je tlačítko: na telefonu je to ta největší plocha,
    která v hlavičce zbývá, a trefí se palcem naslepo. */
@@ -1072,11 +1085,26 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 .r-name { display: block; font-size: 15px; }
 .r-meta { display: block; margin-top: 2px; font-size: 13px; color: var(--text-soft); }
 
-/* ── Nastavení: jazyk a jednotky ─────────────────────────────────────────
-   Ozubené kolo je vpravo v řádku se značkou — appka, která mluví cizí řečí,
-   je k nepotřebě hned, ne až se člověk někam proklikne. */
+/* ── Srdíčko a ozubené kolo v řádku se značkou ───────────────────────────
+   Appka, která mluví cizí řečí, je k nepotřebě hned — proto je nastavení
+   v hlavičce, ne až za proklikem. A od 30. 8. 2026 vedle něj srdíčko:
+   dar, který se musí hledat v nastavení, nikdo nedá.
+
+   ⚠️ Volný prostor ukusuje SRDÍČKO (`margin-left: auto`), ne kolo. Kdyby
+   ho měly obě, rozdělily by si mezeru mezi sebe a rozjely by se od sebe
+   na opačné konce řádku. */
+.icon-btn.srdce {
+  padding: 13px 0; margin: -13px 0 -13px auto;
+  font-size: 17px;
+  /* Vlastní barva, ne `--accent`: srdce v modré appku nepožádá o nic.
+     Drží se ve všech motivech včetně růžových, protože je to konstanta,
+     ne odvozenina z jejich palety. */
+  color: #d9455f;
+}
+.icon-btn.srdce:active { background: color-mix(in srgb, #d9455f 14%, transparent); }
+
 .icon-btn.settings {
-  margin-left: auto;
+  margin-left: 0;
   font-size: 17px;
   color: var(--text-soft);
 }

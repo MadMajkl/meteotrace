@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.14.1';
+const VERZE = '0.14.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3554,6 +3554,7 @@ function init() {
   vykresliZpusoby();
   vykresliMezibody();
   $('btn-donate').addEventListener('click', openDonate);
+  $('btn-donate-top').addEventListener('click', openDonate);
   $('donate-close').addEventListener('click', () => $('donate-dialog').close());
   // Vlastní částka: prázdné pole neznamená chybu, ale „bez částky" —
   // QR bez ní je platný a banka se zeptá sama.
