@@ -133,7 +133,15 @@ body {
      značkou — NE u dotykové plochy tlačítek: ta zůstává 44 px (viz
      `.brand-toggle` a `.icon-btn.settings`), protože menší se palcem
      netrefí a z úspory by byla vada. */
-  padding: 5px 16px calc(5px + env(safe-area-inset-bottom, 0px));
+  /* 🚨 SPODNÍ SYSTÉMOVÝ OKRAJ SEM NEPATŘÍ. Do 30. 8. 2026 tu stálo
+     `calc(5px + env(safe-area-inset-bottom))` — tedy výška gesto-lišty
+     nalepená ZESPODU na HORNÍ lištu. V prohlížeči je ten okraj nulový,
+     takže tam bylo 5 px a vypadalo to správně; v APK ale běží
+     `enableEdgeToEdge()` a `viewport-fit=cover`, takže je reálný, a lišta
+     kvůli němu narostla z 30 px na skoro 80. Michal: „horní lišta je moc
+     vysoká, hlavní panel by měl lícovat těsně pod kolečkem nastavení."
+     Nahoru patří `inset-top`, dolů `inset-bottom` — a ten je u `main`. */
+  padding: 5px 16px;
   padding-top: calc(5px + env(safe-area-inset-top, 0px));
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
@@ -365,7 +373,10 @@ body {
 
 /* ⚠️ Nahoře 10 px, ne 16. Karta má vlastní odsazení 18 px, takže mezi
    lištou a prvním textem bylo 34 px vzduchu — „celé od sebe odražené“. */
-main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
+/* ⚠️ Spodní systémový okraj (gesto-lišta) patří SEM, na konec obsahu —
+   appka kreslí pod systémové lišty (`enableEdgeToEdge()`), takže bez něj
+   by poslední karta končila pod gesto-lištou. */
+main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe-area-inset-bottom, 0px)); }
 
 .card {
   margin-bottom: 16px; padding: 18px;

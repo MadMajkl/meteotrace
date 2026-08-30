@@ -182,3 +182,65 @@ test('🚨 každý odkaz ven ve stránce má rel="noopener"', () => {
     assert.match(a, /target="_blank"/, a);
   }
 });
+
+/* ============================================================
+   SYSTÉMOVÉ OKRAJE (safe area)
+
+   🚨 VZNIKLO Z VADY, KTEROU PROHLÍŽEČ UKÁZAT NEMOHL. Michal 30. 8. 2026:
+   *„v APK je stále horní lišta moc vysoká, hlavní panel by měl lícovat
+   těsně pod kolečkem nastavení."*
+
+   `.top` mělo `padding-bottom: calc(5px + env(safe-area-inset-bottom))` —
+   výšku gesto-lišty nalepenou ZESPODU na HORNÍ lištu. Na webu je ten okraj
+   nulový, takže tam bylo 5 px a všechno vypadalo správně. V appce běží
+   `enableEdgeToEdge()` a `viewport-fit=cover`, takže je reálný: lišta
+   narostla z 30 px na skoro 80 a mezi kolečkem a panelem zůstal pruh
+   prázdna. **Layoutová kontrola to nemohla najít** — měří v prohlížeči,
+   kde jsou všechny okraje nulové.
+   ============================================================ */
+
+/** Rozseká CSS na bloky `selektor { deklarace }`. Komentáře se vyhodí. */
+export function cssBloky(zdroj) {
+  const bez = zdroj.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...bez.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map((m) => ({ selektor: m[1].trim(), telo: m[2] }));
+}
+
+test('🚨 horní lišta nesmí používat SPODNÍ systémový okraj', () => {
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+
+  for (const { selektor, telo } of cssBloky(css)) {
+    if (!telo.includes('safe-area-inset-bottom')) continue;
+    // Prvek přilepený nahoře poznáš podle `top: 0` u sticky/fixed. Spodní
+    // okraj tam nemá co dělat: přidá prázdno přesně tam, kde má být obsah.
+    const nahore = /position:\s*(sticky|fixed)/.test(telo) && /(^|[;{\s])top:\s*0/.test(telo);
+    assert.ok(!nahore,
+      `„${selektor}" je přilepený nahoře a bere spodní systémový okraj — v prohlížeči to nepoznáš`);
+  }
+});
+
+test('🚨 obsah musí spodní systémový okraj naopak respektovat', () => {
+  // Opačná polovina téže vady: appka kreslí POD systémové lišty, takže bez
+  // toho by poslední karta skončila pod gesto-lištou a nešla by přečíst.
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  const main = cssBloky(css).find((b) => b.selektor === 'main');
+  assert.ok(main, 'blok `main` ve stylu chybí');
+  assert.match(main.telo, /safe-area-inset-bottom/,
+    'spodní odsazení obsahu musí počítat s gesto-lištou');
+});
+
+test('🚨 horní lišta naopak HORNÍ systémový okraj respektovat musí', () => {
+  // Bez něj by značka a ozubené kolo skončily pod stavovým řádkem telefonu.
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  const top = cssBloky(css).find((b) => b.selektor === '.top');
+  assert.ok(top, 'blok `.top` ve stylu chybí');
+  assert.match(top.telo, /padding-top:\s*calc\([^)]*safe-area-inset-top/);
+});
+
+test('hledač bloků si nesplete komentář s pravidlem', () => {
+  // Kdyby se komentáře nevyhazovaly, našel by se `safe-area-inset-bottom`
+  // v poznámce nad pravidlem — a test by hlásil vadu tam, kde není.
+  const bloky = cssBloky('/* .top { safe-area-inset-bottom } */\n.a { color: red; }');
+  assert.equal(bloky.length, 1);
+  assert.equal(bloky[0].selektor, '.a');
+});

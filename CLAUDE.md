@@ -132,7 +132,7 @@ tohle je jen shrnutí.**
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**763 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**767 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -163,7 +163,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.14.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.14.1**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -199,6 +199,17 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 SYSTÉMOVÉ OKRAJE JSOU V PROHLÍŽEČI NULOVÉ, V APK NE.** `.top` mělo
+  `padding-bottom: calc(5px + env(safe-area-inset-bottom))` — výšku gesto-lišty
+  nalepenou zespodu na HORNÍ lištu. Na webu 5 px a vypadalo to správně; v appce
+  (`enableEdgeToEdge()` + `viewport-fit=cover`) je inset reálný a lišta narostla
+  z 30 px na 80. **Layoutová kontrola to najít nemohla** — měří v prohlížeči.
+  Nahoru patří `inset-top`, dolů `inset-bottom` (ten je u `main`).
+  Hlídá `selftest-obal.mjs` čtením CSS.
+- **⚠️ `web/style.css`, `index.html` a `lib/lang/*.js` mají CRLF.** Hledaný
+  řetězec s `
+` se v nich nenajde a skript mlčky „nic nenahradí" — vypadá to,
+  že chyba je jinde. Konce řádků si v nahrazovacím skriptu zjisti.
 - **🚨 Trefa do CDN cache jde MIMO ochranu proxy.** Cizí `Origin` dostane na
   `/api/radar` v produkci **200**, protože odpověď leží v edge cache Netlify
   a funkce se vůbec nespustí. Není to vada — co nejde ven, nestojí kvótu nic —
