@@ -34,12 +34,12 @@ export default {
     step: 'Step {n} of {total}',
 
     homeTitle: 'Welcome to MeteoTrace',
-    homeText: 'Weather along your route — at every point, at the time you actually get there. Start with where you live.',
+    homeText: 'Not just a weather station for one place you pick, but for a whole route — at every point of the way, at the time you actually get there. Start with where you live.',
     homeLabel: 'Find your home',
     homeLocate: 'Use my location',
 
     goalTitle: 'And where do you go often?',
-    goalText: 'Work, grandma, friends. We will keep the route there for you.',
+    goalText: 'Work, grandma, friends. We will work out the route right away and show you on it how the app works.',
     goalLabel: 'Find the destination',
     goalSkip: 'I do not need routes',
 

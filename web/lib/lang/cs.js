@@ -37,12 +37,12 @@ export default {
     step: 'Krok {n} ze {total}',
 
     homeTitle: 'Vítej v MeteoTrace',
-    homeText: 'Počasí na trase — v každém bodě cesty v čase, kdy tam doopravdy dorazíš. Začneme tím, kde bydlíš.',
+    homeText: 'Předpověď počasí nejen jako statická meteostanice pro místo, které určíš, ale i pro trasu — v každém bodě cesty v čase, kdy tam doopravdy dorazíš. Začneme tím, kde bydlíš.',
     homeLabel: 'Najdi svůj domov',
     homeLocate: 'Použít moji polohu',
 
     goalTitle: 'A kam jezdíš nejčastěji?',
-    goalText: 'Práce, babička, kamarádi. Cestu tam ti pak podržíme.',
+    goalText: 'Práce, babička, kamarádi. Trasu tam ti hned vytvoříme a ukážeme na ní, jak appka funguje.',
     goalLabel: 'Najdi cíl cesty',
     goalSkip: 'Trasy nepotřebuju',
 
