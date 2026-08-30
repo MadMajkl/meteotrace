@@ -457,6 +457,19 @@
     <span class="donate-method-arrow" aria-hidden="true">›</span>
   </a>
 
+  <!-- 🚨 Poznámka k platbě. Revolut ani PayPal ji do odkazu předvyplnit
+       NEUMÍ (ověřeno 30. 8. 2026) — jde tam jen částka a měna. Bez ní je
+       dar přes ně nerozeznatelný od daru pro kteroukoli jinou appku:
+       chodí na týž účet a nenesou ani variabilní symbol. Proto se text
+       ukáže a dá zkopírovat; je to jediná cesta, která opravdu funguje. -->
+  <div class="donate-poznamka">
+    <span class="donate-poznamka-label" data-i18n="donate.noteLabel"></span>
+    <code class="donate-poznamka-text" id="donate-note"></code>
+    <button id="donate-note-copy" class="donate-poznamka-btn" type="button"
+            data-i18n="donate.copy"></button>
+  </div>
+  <p class="donate-poznamka-proc hint" data-i18n="donate.noteWhy"></p>
+
   <p class="donate-thanks" data-i18n="donate.thanks"></p>
 </dialog>
 

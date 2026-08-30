@@ -408,6 +408,14 @@ export default {
     /* ⚠️ Když se kód nepovede nakreslit, musí zůstat cesta k zaplacení. */
     qrFailed: 'Kód se nepodařilo nakreslit. Číslo účtu nad ním funguje stejně dobře.',
     opensOut: 'Otevře se v prohlížeči',
+    /* 🚨 Revolut ani PayPal poznámku předvyplnit neumí — jde do nich jen
+       částka. Bez téhle věty by dar přes ně splynul s dary pro ostatní
+       appky: chodí na týž účet a nenesou variabilní symbol. */
+    noteLabel: 'Do poznámky napiš:',
+    noteWhy: 'Revolut ani PayPal poznámku samy nevyplní. Podle ní se pozná, že dar mířil na MeteoTrace.',
+    copy: 'Kopírovat',
+    copied: 'Zkopírováno',
+    copyFailed: 'Označeno — zkopíruj sám',
     thanks: 'Díky i za to, že jsi dočetl až sem.',
   },
 

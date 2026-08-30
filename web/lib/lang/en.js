@@ -365,6 +365,15 @@ export default {
     /* ⚠️ Když se kód nepovede nakreslit, musí zůstat cesta k zaplacení. */
     qrFailed: 'The code could not be drawn. The account number above works just as well.',
     opensOut: 'Opens in a browser',
+    /* 🚨 Neither Revolut nor PayPal can prefill a note — only an amount
+       goes into the link. Without this line a donation through them is
+       indistinguishable from one for another app: same account, no
+       variable symbol. */
+    noteLabel: 'Put this in the note:',
+    noteWhy: 'Revolut and PayPal will not fill the note in for you. It is how we can tell the donation was meant for MeteoTrace.',
+    copy: 'Copy',
+    copied: 'Copied',
+    copyFailed: 'Selected — copy it yourself',
     thanks: 'Thank you for even reading this far.',
   },
 

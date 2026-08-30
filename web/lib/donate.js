@@ -32,6 +32,20 @@ export const DONATE = {
   currency: 'CZK',
   revolut: 'michalsx3n',
   paypal: 'madmajkl',
+
+  /**
+   * 🚨 VARIABILNÍ SYMBOL — JEDINÉ, PODLE ČEHO SE VE VÝPISU POZNÁ APPKA.
+   *
+   * Na týž účet chodí dary z Gulpky, z MeteoTrace i z čehokoli dalšího.
+   * Jméno příjemce a zpráva se liší, jenže **zprávu smí plátce přepsat**
+   * a některé banky ji zkrátí — takže podle ní se počítat nedá. Variabilní
+   * symbol je samostatné číselné pole, banka ho ukazuje ve vlastním sloupci
+   * a dá se podle něj filtrovat.
+   *
+   * Číslování: `101` Gulpka, `102` MeteoTrace, další appky dál. Gulpka ho
+   * zatím nemá — až se doplní, ať dostane `101`.
+   */
+  vs: '102',
 };
 
 /** Nabízené částky v korunách. Čtvrtá možnost je vlastní číslo. */
@@ -129,16 +143,43 @@ export function spdString(volby = {}) {
     currency = DONATE.currency,
     recipient = DONATE.recipient,
     message = DONATE.message,
+    vs = DONATE.vs,
   } = volby;
 
   const castka = normalizeAmount(amount);
   const pole = [`ACC:${String(iban).replace(/\s+/g, '').toUpperCase()}`];
   if (castka !== null) pole.push(`AM:${castka.toFixed(2)}`);
   pole.push(`CC:${currency}`);
+  // ⚠️ `X-VS` je rozšiřující pole normy: jen číslice, nejvýš deset.
+  // Nesmysl se raději nepošle, než aby banka odmítla celý příkaz.
+  const symbol = vsSafe(vs);
+  if (symbol) pole.push(`X-VS:${symbol}`);
   if (recipient) pole.push(`RN:${spdSafe(recipient, 35)}`);
   if (message) pole.push(`MSG:${spdSafe(message, 60)}`);
 
   return `SPD*1.0*${pole.join('*')}`;
+}
+
+/** Variabilní symbol pro SPD: jen číslice, nejvýš deset. Jinak `null`. */
+export function vsSafe(vs) {
+  const cisla = String(vs ?? '').replace(/\D/g, '');
+  return cisla && cisla.length <= 10 ? cisla : null;
+}
+
+/**
+ * Poznámka k platbě pro Revolut a PayPal.
+ *
+ * 🚨 ANI `revolut.me`, ANI `paypal.me` POZNÁMKU PŘEDVYPLNIT NEUMÍ — do
+ * odkazu jde jen částka a měna (ověřeno 30. 8. 2026). Kdyby se do adresy
+ * přilepil parametr navíc, mlčky by se zahodil a vypadalo by to, že appka
+ * poznámku posílá. Proto se text **ukáže a dá zkopírovat** a člověk si ho
+ * vloží sám; je to jediná cesta, která opravdu funguje.
+ *
+ * Bez ní je dar přes Revolut nerozeznatelný od daru pro kteroukoli jinou
+ * appku — chodí na týž účet a nenese žádné pole navíc.
+ */
+export function paymentNote() {
+  return `${DONATE.recipient} — dar`;
 }
 
 /* ============================================================

@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import {
   DONATE, AMOUNTS, DEFAULT_AMOUNT, MAX_AMOUNT,
   ibanValid, ibanPretty, normalizeAmount, spdSafe, spdString,
-  revolutUrl, paypalUrl,
+  revolutUrl, paypalUrl, vsSafe, paymentNote,
 } from '../web/lib/donate.js';
 import { qrEncode, MAX_VERSION } from '../web/lib/qr.js';
 
@@ -168,5 +168,57 @@ test('🚨 modul darů nesahá na stav appky ani na úložiště', () => {
   for (const zakazano of ['localStorage', 'sessionStorage', 'import ', 'state.', 'window.']) {
     assert.ok(!zdroj.includes(zakazano),
       `dar se nesmí vázat na stav appky — nalezeno „${zakazano}"`);
+  }
+});
+
+/* ============================================================
+   ODLIŠENÍ OD OSTATNÍCH APPEK
+
+   🚨 Na týž účet chodí dary z Gulpky i z MeteoTrace. Michal 30. 8. 2026:
+   *„je tam nějaký symbol, že to je za podporu meteotrace a ne gulpky?"*
+   Nebyl. Jméno příjemce a zpráva se sice liší, jenže zprávu smí plátce
+   přepsat a některé banky ji zkrátí — podle ní se počítat nedá.
+   ============================================================ */
+
+test('🚨 v platbě je variabilní symbol, jinak se appky ve výpisu nerozliší', () => {
+  const s = spdString({ amount: 100 });
+  assert.match(s, /\*X-VS:\d+\*/, s);
+  assert.ok(DONATE.vs, 'variabilní symbol musí být v konfiguraci');
+});
+
+test('variabilní symbol splňuje meze normy', () => {
+  // Jen číslice a nejvýš deset — delší nebo písmenný by banka odmítla,
+  // a to by shodilo celý příkaz, ne jen symbol.
+  assert.match(DONATE.vs, /^\d{1,10}$/);
+  assert.equal(vsSafe('102'), '102');
+  assert.equal(vsSafe(102), '102');
+  assert.equal(vsSafe('VS-102'), '102', 'oddělovače se zahodí, číslo zůstane');
+  assert.equal(vsSafe('12345678901'), null, 'jedenáct číslic je moc');
+  assert.equal(vsSafe('abc'), null);
+  assert.equal(vsSafe(''), null);
+  assert.equal(vsSafe(null), null);
+});
+
+test('bez symbolu se pole vůbec nevypíše, nevznikne prázdné', () => {
+  // ⚠️ `X-VS:` bez hodnoty je poškozený řetězec, ne „bez symbolu".
+  const s = spdString({ amount: 50, vs: null });
+  assert.ok(!s.includes('X-VS'), s);
+  assert.ok(s.includes('ACC:'), 'zbytek platby musí zůstat');
+});
+
+test('🚨 poznámka k platbě pojmenuje appku', () => {
+  // Pro Revolut a PayPal je to JEDINÁ stopa: chodí na týž účet a nenesou
+  // ani variabilní symbol.
+  const p = paymentNote();
+  assert.match(p, /MeteoTrace/);
+  assert.ok(p.length <= 40, 'do pole poznámky se musí vejít');
+});
+
+test('🚨 odkazy ven poznámku NENESOU — a nesmí to nikdo předstírat', () => {
+  // `revolut.me` ani `paypal.me` předvyplnit poznámku neumí (ověřeno
+  // 30. 8. 2026). Kdyby se do adresy přilepil parametr navíc, mlčky by se
+  // zahodil a vypadalo by to, že appka poznámku posílá.
+  for (const url of [revolutUrl(100), paypalUrl(100)]) {
+    assert.ok(!/note|message|reference|memo/i.test(url), `v adrese nemá co dělat poznámka: ${url}`);
   }
 });

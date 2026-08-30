@@ -45,7 +45,7 @@ import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import {
   DONATE, AMOUNTS, DEFAULT_AMOUNT, ibanPretty, normalizeAmount, spdString,
-  revolutUrl, paypalUrl,
+  revolutUrl, paypalUrl, paymentNote,
 } from './lib/donate.js';
 import { qrEncode, qrPath } from './lib/qr.js';
 import { formatDistance } from './lib/units.js';
@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.14.4';
+const VERZE = '0.14.5';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -830,6 +830,7 @@ function vykresliDar() {
 
   $('donate-revolut').href = revolutUrl(darCastka);
   $('donate-paypal').href = paypalUrl(darCastka);
+  $('donate-note').textContent = paymentNote();
 
   const box = $('donate-qr');
   try {
@@ -3555,6 +3556,26 @@ function init() {
   vykresliMezibody();
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
+  // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:
+  // tlačítko, které mlčí, se od nefunkčního nedá odlišit — a člověk pak
+  // vloží do poznámky to, co měl ve schránce předtím.
+  $('donate-note-copy').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(paymentNote());
+      btn.textContent = t('donate.copied', state.lang);
+    } catch {
+      // Bez povolení ke schránce (starší WebView, odepřené právo) se text
+      // aspoň označí, ať stačí jedno dlouhé stisknutí.
+      btn.textContent = t('donate.copyFailed', state.lang);
+      const r = document.createRange();
+      r.selectNodeContents($('donate-note'));
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    setTimeout(() => { btn.textContent = t('donate.copy', state.lang); }, 2500);
+  });
   $('donate-close').addEventListener('click', () => $('donate-dialog').close());
   // Vlastní částka: prázdné pole neznamená chybu, ale „bez částky" —
   // QR bez ní je platný a banka se zeptá sama.
