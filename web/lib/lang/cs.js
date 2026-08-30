@@ -227,6 +227,13 @@ export default {
     legendRain: 'déšť',
     legendHazard: 'nebezpečné počasí',
     legendUnknown: 'za obzorem předpovědi',
+    // 🚨 Bublina po klepnutí na bod v mapě EXISTOVALA od začátku (čas
+    // příjezdu, počasí, teplota) — jen o ní nikdo nevěděl. Michal
+    // 30. 8. 2026 si vysvětlivky u bodů vyžádal jako novou funkci,
+    // přestože hotová byla; mlčení z ní udělalo neexistující.
+    // ⚠️ Na telefonu není kurzor, který by ručičkou napověděl, takže to
+    // musí být napsané.
+    legendTap: 'Klepni na bod v mapě a uvidíš, kdy tam budeš a co tam bude.',
   },
 
   now: {

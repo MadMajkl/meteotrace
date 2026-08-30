@@ -205,6 +205,7 @@ export default {
     legendRain: 'rain',
     legendHazard: 'hazardous weather',
     legendUnknown: 'beyond the forecast',
+    legendTap: 'Tap a point on the map to see when you get there and what it will be like.',
   },
 
   now: {

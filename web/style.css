@@ -1501,3 +1501,6 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px 48px; }
   border: 1.5px solid var(--surface);
   box-shadow: 0 0 0 1px var(--line);
 }
+
+/* Nápověda ke klepání na bod. Drobná, ale musí tam být — viz index.html. */
+.legenda-tip { margin: 8px 0 0; font-size: 12px; color: var(--text-soft); }
