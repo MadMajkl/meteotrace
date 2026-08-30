@@ -100,8 +100,10 @@ export default {
     savedAll: 'Uložená místa a trasy',
     mine: 'Moje místa',
     save: 'Uložit tohle místo',
-    saveShort: 'Uložit',
-    savedShort: 'Uloženo',
+    // ⚠️ Sloveso s předmětem, ne holé „Uložit" — symetricky s trasou.
+    // Z pouhého slovesa nepoznáš, co se vlastně uloží.
+    saveShort: 'Uložit místo',
+    savedShort: 'Místo uloženo',
     remove: 'Odebrat z uložených',
     removeNamed: 'Odebrat „{name}“ z uložených',
     empty: 'Klepni na hvězdičku a místo se ti sem uloží ⭐',

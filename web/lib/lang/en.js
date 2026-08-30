@@ -93,8 +93,9 @@ export default {
     savedAll: 'Saved places and routes',
     mine: 'My places',
     save: 'Save this place',
-    saveShort: 'Save',
-    savedShort: 'Saved',
+    // ⚠️ Verb with an object, not a bare „Save" — symmetrical with the route.
+    saveShort: 'Save place',
+    savedShort: 'Place saved',
     remove: 'Remove from saved',
     removeNamed: 'Remove “{name}” from saved',
     empty: 'Tap the star and the place lands here ⭐',
