@@ -172,3 +172,43 @@ test('věty ke klepnutí existují v obou jazycích', async () => {
     assert.ok(en[obor]?.[klic], `chybí anglický text pro ${obor}.${klic}`);
   }
 });
+
+/* ── mezibody z mapy ──────────────────────────────────────────────────── */
+
+test('🚨 prázdný mezibod má přednost před přepsáním cíle', () => {
+  // Kdo klepne na „Přidat mezibod", řekl tím, co chce zadat jako další.
+  // Do 31. 8. 2026 mu klepnutí do mapy místo toho přepsalo cíl.
+  const b = { lat: 50, lon: 14 };
+  assert.deepEqual(klepnutiDoMapy({ from: b, to: b, via: [null] }),
+    { pole: 0, klic: 'route.pickHintVia' });
+});
+
+test('bere se PRVNÍ prázdný mezibod, ne poslední', () => {
+  // Pole jsou v pořadí cesty a člověk je vyplňuje odshora.
+  const b = { lat: 50, lon: 14 };
+  assert.equal(klepnutiDoMapy({ from: b, to: b, via: [null, null] }).pole, 0);
+  assert.equal(klepnutiDoMapy({ from: b, to: b, via: [b, null] }).pole, 1);
+});
+
+test('když jsou mezibody vyplněné, klepnutí zase mění cíl a mlčí o tom', () => {
+  const b = { lat: 50, lon: 14 };
+  assert.deepEqual(klepnutiDoMapy({ from: b, to: b, via: [b] }),
+    { pole: 'to', klic: null });
+});
+
+test('🚨 start a cíl mají přednost před mezibodem', () => {
+  // Prázdný mezibod nesmí přeskočit nevyplněný start ani cíl — jinak by
+  // vznikla trasa, která má zastávku, ale neví odkud kam.
+  const b = { lat: 50, lon: 14 };
+  assert.equal(klepnutiDoMapy({ via: [null] }).pole, 'from');
+  assert.equal(klepnutiDoMapy({ from: b, via: [null] }).pole, 'to');
+});
+
+test('věta o mezibodu existuje v obou jazycích', async () => {
+  const cs = (await import('../web/lib/lang/cs.js')).default;
+  const en = (await import('../web/lib/lang/en.js')).default;
+  for (const klic of ['pickHintVia', 'pickedVia']) {
+    assert.ok(cs.route?.[klic], `chybí český text pro route.${klic}`);
+    assert.ok(en.route?.[klic], `chybí anglický text pro route.${klic}`);
+  }
+});

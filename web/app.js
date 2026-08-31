@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.17.4';
+const VERZE = '0.17.5';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2365,8 +2365,17 @@ function vyberZMapy(misto) {
   // napíše cíl."* Přesně to: poznámka se vypsala, protože ta je tady, ale
   // špendlík ne, protože ten visí na trychtýři.
   zapisMisto(kam, misto);
-  $(kam === 'from' ? 'route-from' : 'route-to').value = misto.name;
-  poznamkaTrasy(t(kam === 'from' ? 'route.pickedFrom' : 'route.pickedTo', state.lang));
+
+  // ⚠️ `kam` může být i ČÍSLO — pořadí mezibodu. Pole mezibodů vznikají až za
+  // běhu (`vykresliMezibody`), takže se hledá podle indexu.
+  const poleId = typeof kam === 'number' ? `route-via-${kam}`
+    : kam === 'from' ? 'route-from' : 'route-to';
+  const pole = $(poleId);
+  if (pole) pole.value = misto.name;
+
+  const zprava = typeof kam === 'number' ? 'route.pickedVia'
+    : kam === 'from' ? 'route.pickedFrom' : 'route.pickedTo';
+  poznamkaTrasy(t(zprava, state.lang));
 }
 
 /**
@@ -3141,6 +3150,9 @@ function vykresliMezibody() {
     pryc.addEventListener('click', () => {
       state.route.via.splice(i, 1);
       vykresliMezibody();
+      // ⚠️ Uložit: od 31. 8. 2026 přežívá zadání trasy obnovení stránky,
+      // takže odebraný mezibod se musí ztratit i v úložišti.
+      save();
       skryjVysledekTrasy();
     });
 
@@ -3854,9 +3866,14 @@ function init() {
     $('route-from').focus();
   });
   $('route-add-via').addEventListener('click', () => {
-    // Nový mezibod je zatím prázdný — vyplní ho až výběr z nabídky.
+    // Nový mezibod je zatím prázdný — vyplní ho výběr z nabídky nebo
+    // klepnutí do mapy.
     state.route.via.push(null);
     vykresliMezibody();
+    // ⚠️ Přidáním prázdného pole se MĚNÍ, co udělá klepnutí do mapy (nově
+    // vyplní mezibod, ne cíl). Nápověda pod mapou to musí říct hned —
+    // jinak by se o té možnosti nikdo nedozvěděl.
+    vypisNapoveduMapy();
     $(`route-via-${state.route.via.length - 1}`)?.focus();
   });
   $('btn-save-route').addEventListener('click', toggleSaveRoute);

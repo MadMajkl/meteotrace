@@ -199,6 +199,8 @@ export default {
     badgeClear: 'clear',
     now: 'Now',
     pickHintTo: 'Tap the map to set the destination.',
+    pickHintVia: 'Tap the map to set the waypoint.',
+    pickedVia: 'Waypoint set from the map.',
     pickHint: 'Tap the map to set the start, then the destination.',
     mapWaiting: 'The map appears once the route is worked out.',
     pickedFrom: 'Start set from the map. Now pick the destination.',

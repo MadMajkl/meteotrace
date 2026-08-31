@@ -119,12 +119,22 @@ export function placeFromMap(point, labels = []) {
  * ⚠️ Chování klepnutí se NEMĚNÍ, mizí jen ten slib. Že se cíl přepsal, řekne
  * poznámka u formuláře (`route.pickedTo`), tedy tam, kde je to vidět.
  *
- * @param {{from?: object|null, to?: object|null}} route
- * @returns {{pole: 'from'|'to', klic: string|null}} kam se zapíše a klíč
- *   do slovníku; `null` = nic se nepíše
+ * 🚨 PRÁZDNÝ MEZIBOD MÁ PŘEDNOST PŘED PŘEPSÁNÍM CÍLE. Kdo klepne na „Přidat
+ * mezibod", řekl tím, co chce zadat jako další — a do 31. 8. 2026 mu klepnutí
+ * do mapy místo toho přepsalo cíl. Michal: *„rozklepnu mezibod a klepnu do
+ * mapy a skočí mi tam zase cíl, a mezibod se kliknutím takto nevytvoří."*
+ *
+ * ⚠️ Bere se PRVNÍ prázdný mezibod, ne poslední: pole jsou v pořadí cesty
+ * a člověk vyplňuje odshora.
+ *
+ * @param {{from?: object|null, to?: object|null, via?: Array}} route
+ * @returns {{pole: 'from'|'to'|number, klic: string|null}} kam se zapíše
+ *   (číslo = pořadí mezibodu) a klíč do slovníku; `null` = nic se nepíše
  */
 export function klepnutiDoMapy(route = {}) {
   if (!route.from) return { pole: 'from', klic: 'route.pickHint' };
   if (!route.to) return { pole: 'to', klic: 'route.pickHintTo' };
+  const volny = (route.via || []).findIndex((m) => !m);
+  if (volny >= 0) return { pole: volny, klic: 'route.pickHintVia' };
   return { pole: 'to', klic: null };
 }
