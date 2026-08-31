@@ -153,7 +153,9 @@ export default {
     fromPlaceholder: 'Začátek cesty…',
     toPlaceholder: 'Cíl…',
     swap: 'Prohodit start a cíl',
-    edit: 'Změnit',
+    // ⚠️ Sloveso s předmětem, ne holé „Změnit" — na sbaleném řádku stojí
+    //    vedle jména trasy a samo o sobě neřekne, co se vlastně změní.
+    edit: 'Změnit trasu',
     collapsed: '{from} → {to} · {mode}',
     via: 'Mezibod',
     viaPlaceholder: 'Zastávka po cestě…',

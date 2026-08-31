@@ -139,7 +139,7 @@ tohle je jen shrnutí.**
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**799 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**821 kontrol, všechny zelené.** Žádný modul ve `web/lib/` nemá nulové pokrytí (ověřeno 31. 8. 2026). Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -170,7 +170,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.15.0**; na `1.0.0` až s vydáním na Play.
+  Teď **0.15.1**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 

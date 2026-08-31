@@ -145,7 +145,7 @@ export default {
     fromPlaceholder: 'Start…',
     toPlaceholder: 'Destination…',
     swap: 'Swap start and destination',
-    edit: 'Change',
+    edit: 'Change route',
     collapsed: '{from} → {to} · {mode}',
     via: 'Stop on the way',
     viaPlaceholder: 'Somewhere on the way…',
