@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.17.3';
+const VERZE = '0.17.4';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -644,9 +644,13 @@ function srovnejSpendliky() {
   if (!mapModule?.showRoutePins) return;
   if (state.screen === 'route') {
     mapModule.showPlacePin?.(false);
-    mapModule.showRoutePins(state.route.from, state.route.to, {
+    // ⚠️ Mezibody jen ty VYPLNĚNÉ. Klepnutí na „Přidat mezibod" založí prázdné
+    // pole; dokud v něm není místo, není co do mapy píchat.
+    const mezi = (state.route.via || []).filter(isUsablePoint);
+    mapModule.showRoutePins(state.route.from, state.route.to, mezi, {
       start: t('route.start', state.lang),
       cil: t('route.finish', state.lang),
+      mezi: t('route.via', state.lang),
     });
   } else {
     mapModule.hideRoutePins?.();

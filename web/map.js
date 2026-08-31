@@ -125,6 +125,8 @@ let znacka = null;
  */
 let znackaStart = null;
 let znackaCil = null;
+/** Mezibody — kolik jich je zadaných, tolik špendlíků. */
+let znackyMezi = [];
 /** Co se má stát, když si uživatel vybere místo klepnutím do mapy. */
 let priVyberu = null;
 /** Poslední obrys výstrahy — po přebarvení mapy se musí nakreslit znovu. */
@@ -417,18 +419,20 @@ export function showWarningArea(geometrie, trida = 'unknown') {
 /**
  * Špendlíky startu a cíle. Volá se při každé změně zadání.
  *
- * ⚠️ Barvy: start bere modrou appky, cíl **zlatou ze značky** (`#D2920F`).
- * Dvě modré vedle sebe by se na malé mapě nerozeznaly, a barvy legendy
- * (zelená, modrá, červená, šedá) jsou obsazené významem počasí — sáhnout po
- * nich by znamenalo tvrdit o špendlíku něco, co neplatí.
+ * ⚠️ Barvy jsou trojice, kterou zná každý navigační program (Michal
+ * 31. 8. 2026): **modrý start**, **oranžové mezibody**, **zelený cíl**.
+ * Zelená cíle (`#1e9e57`) je schválně sytější než tlumená zelená legendy
+ * (`ROUTE_COLORS.ok = #2f7d4f`, „beze srážek") — špendlík je něco jiného než
+ * tečka na čáře a nesmí se s ní splést.
  *
  * ⚠️ Popisek jde do `title` značky, ať se dá najet myší a poznat, co je co.
  *
  * @param {{lat:number,lon:number}|null} start
  * @param {{lat:number,lon:number}|null} cil
- * @param {{start?:string, cil?:string}} [popisky]
+ * @param {Array<object>} [mezibody]  jen ty vyplněné — prázdné pole špendlík nemá
+ * @param {{start?:string, cil?:string, mezi?:string}} [popisky]
  */
-export function showRoutePins(start, cil, popisky = {}) {
+export function showRoutePins(start, cil, mezibody = [], popisky = {}) {
   if (!map) return;
 
   // 🚨 VŽDYCKY OD NULY. Napoprvé se značky jen posouvaly a při neplatném bodu
@@ -449,13 +453,20 @@ export function showRoutePins(start, cil, popisky = {}) {
   };
 
   znackaStart = pridej(start, '#1a7fd4', popisky.start);
-  znackaCil = pridej(cil, '#D2920F', popisky.cil);
+  // ⚠️ Mezibod dostane špendlík, teprve když je opravdu vybraný. Prázdné pole
+  // po klepnutí na „Přidat mezibod" ještě nemá souřadnice, tak není co píchat.
+  znackyMezi = (mezibody || [])
+    .map((m, i) => pridej(m, '#D2920F', `${popisky.mezi || ''} ${i + 1}`.trim()))
+    .filter(Boolean);
+  znackaCil = pridej(cil, '#1e9e57', popisky.cil);
 }
 
 /** Schová špendlíky trasy (přechod na meteostanici). */
 export function hideRoutePins() {
   znackaStart?.remove(); znackaStart = null;
   znackaCil?.remove(); znackaCil = null;
+  for (const z of znackyMezi) z?.remove();
+  znackyMezi = [];
 }
 
 /** Schová nebo vrátí špendlík meteostanice — na trase nemá co dělat. */
