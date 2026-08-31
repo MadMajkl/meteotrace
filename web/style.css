@@ -1138,13 +1138,24 @@ main {
    volba se jen schovala za souseda uvnitř karty. Našlo se to až na snímku. */
 .modes { display: flex; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap; }
 
+/* ⚠️ Od 31. 8. 2026 jsou to KRESBY, ne texty (jméno zůstává v `title`
+   a `aria-label`). Čtyři popisky braly celý řádek a tlačítko „Ukázat počasí"
+   se kvůli nim zalamovalo pod ně.
+   🚨 Terč zůstává 44 px — menší se palcem netrefí, a tady se přepíná často. */
 .mode {
-  flex: 1 1 auto;
-  padding: 8px 10px;
-  font: inherit; font-size: 13px;
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  padding: 0;
+  font: inherit;
   color: var(--text-soft); background: var(--surface);
   border: 1px solid var(--line); border-radius: 999px;
-  cursor: pointer; white-space: nowrap;
+  cursor: pointer;
+}
+.mode-ikona {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
 .mode[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
@@ -1154,6 +1165,19 @@ main {
   font: inherit; font-size: 15px; font-weight: 600;
   color: #fff; background: var(--accent);
   border: 0; border-radius: 10px; cursor: pointer;
+}
+
+/* 🚨 Poznámka pod formulářem („Cíl je z mapy.", „Vyber start i cíl…").
+   Michal 31. 8. 2026: *„je to pěkně hnusné, neformátované a namačknuté
+   zespodu na Autem."* Byl to holý `.hint` bez vlastního odsazení, takže
+   se lepil na řádek se způsoby dopravy.
+   Teď je to tichý pruh se svislou linkou — pozná se jako sdělení k formuláři,
+   ale nekřičí jako varování (to má `.route-advice` a svou barvu). */
+#route-note {
+  margin: 12px 0 0;
+  padding: 8px 0 8px 10px;
+  border-left: 3px solid var(--line);
+  line-height: 1.4;
 }
 
 .route-summary { margin: 0; font-size: 17px; font-weight: 600; }

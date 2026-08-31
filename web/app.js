@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.10';
+const VERZE = '0.16.11';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2198,6 +2198,15 @@ function zpravaMistoMapy(text) {
   const box = $('map');
   if (!box) return;
   let p = box.querySelector('.map-zprava');
+  // 🚨 PRÁZDNÁ ZPRÁVA ZNAMENÁ ODSTRANIT, NE VYPRÁZDNIT. `.map-zprava` má
+  // `position: absolute; inset: 0`, takže leží přes CELOU mapu a polyká
+  // klepnutí. Do 31. 8. 2026 tahle funkce prvek jen vytvořila a přepisovala
+  // mu text — nikdy ho neodebrala. Jakmile jednou vznikla (třeba u vypnuté
+  // mapy), zůstala viset i potom, co se mapa vrátila: mapa byla vidět,
+  // ale klepnutí do ní nedělalo nic.
+  // ⚠️ Dvojče v `map.js` (`zpravaVMape`) to dělá správně — tahle kopie
+  // se s ním rozešla. Proto se chovají stejně.
+  if (!text) { p?.remove(); return; }
   if (!p) {
     p = document.createElement('p');
     p.className = 'map-zprava';
@@ -2811,6 +2820,46 @@ function pollenSvg(species) {
    ============================================================ */
 
 /** Způsoby dopravy. Klíč je profil ORS, ten se posílá jako dovětek cesty. */
+/**
+ * Kresby způsobů dopravy.
+ *
+ * 🚨 PIKTOGRAM MÍSTO TEXTU. Michal 31. 8. 2026: *„ty texty autem, pěšky atd.
+ * mají být jen piktogramy, a jen mouseover má ukázat text."* Čtyři popisky
+ * vedle sebe braly na telefonu celý řádek a tlačítko „Ukázat počasí" se kvůli
+ * nim zalamovalo pod ně.
+ *
+ * ⚠️ Text se NEZTRÁCÍ: jde do `title` (bublina na počítači) a do
+ * `aria-label` (čtečka obrazovky). Ikona bez jména by byla hádanka —
+ * a pro nevidomého prázdné tlačítko.
+ *
+ * ⚠️ Čárová kresba v témže duchu jako ostatní ikony appky: `currentColor`,
+ * jedna tloušťka, kulaté konce. Barvu si tak vezme z motivu i ze stavu
+ * „vybráno".
+ */
+const KRESBY = {
+  'driving-car': [
+    'M4.6 13.2l1.7-4.1a2.1 2.1 0 0 1 1.9-1.3h7.6a2.1 2.1 0 0 1 1.9 1.3l1.7 4.1',
+    'M3.9 13.2h16.2v3.4a1 1 0 0 1-1 1H4.9a1 1 0 0 1-1-1z',
+    'M7.6 17.6v1.2', 'M16.4 17.6v1.2',
+    'M6.4 15.2h1.6', 'M16 15.2h1.6',
+  ],
+  'cycling-regular': [
+    'M6.2 18.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8z',
+    'M17.8 18.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8z',
+    'M6.2 15h5.1l3.4-5.1h2.6', 'M11.3 15l3.4-5.1', 'M14.7 9.9l3.1 5.1',
+    'M9.6 9.9h3',
+  ],
+  'foot-walking': [
+    'M13.2 6.1a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z',
+    'M13.6 8.1l-2.9 3.1 2.4 2.4.8 5.8',
+    'M10.7 11.2l-1.2 4.1-2.3 3.2',
+    'M13.9 9.4l2.8 1.7 1.9-.6',
+  ],
+  straight: [
+    'M4.6 19.4L19.4 4.6', 'M13.9 4.6h5.5v5.5',
+  ],
+};
+
 const ZPUSOBY = [
   { profil: 'driving-car', klic: 'route.car' },
   { profil: 'cycling-regular', klic: 'route.bike' },
@@ -3151,9 +3200,25 @@ function pripojVyber(inputId, resultsId, kam) {
 }
 
 function vykresliZpusoby() {
+  const NS = 'http://www.w3.org/2000/svg';
   fill($('route-modes'), ZPUSOBY, (z) => {
-    const b = el('button', 'mode', t(z.klic, state.lang));
+    const b = el('button', 'mode');
     b.type = 'button';
+    const jmeno = t(z.klic, state.lang);
+    // ⚠️ Jméno musí zůstat dosažitelné: bublina pro myš, popisek pro čtečku.
+    b.title = jmeno;
+    b.setAttribute('aria-label', jmeno);
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'mode-ikona');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const d of KRESBY[z.profil] || []) {
+      const cesta = document.createElementNS(NS, 'path');
+      cesta.setAttribute('d', d);
+      svg.append(cesta);
+    }
+    b.append(svg);
     b.dataset.profil = z.profil;
     b.setAttribute('aria-pressed', String(state.route.profil === z.profil));
     b.addEventListener('click', () => {
