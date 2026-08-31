@@ -171,10 +171,18 @@ function nasypPyl(doc) {
  * nepřekrývala, ačkoli tlačítka uvnitř ano, a kontrola tu vadu propásla
  * všude kromě nejužšího displeje. Nástroj, který měří něco jiného, než si
  * myslí, je horší než žádný.
+ *
+ * 🚨 JEDNA DVOJICE SE PŘEKRÝVAT MÁ: ⌖ uvnitř vstupního pole
+ * (`.vstup-s-akci`, od 31. 8. 2026 u hledání místa i u pole Odkud).
+ * ⚠️ Ta výjimka se ale NESMÍ jen mlčky přeskočit — to by byl přesně ten
+ * nástroj, co tiše ořezává a pak mlčí i o tom, že ořezal. Místo přeskočení
+ * se ptá na to, co tam doopravdy má platit: **vejde se tlačítko celé do
+ * pole?** Když z pole vyleze (užší displej, delší popisek, jiné písmo),
+ * hlásí se to jako vada — jen jinými slovy.
  */
 function prekryvy(doc) {
   const nalezy = [];
-  for (const pruh of doc.querySelectorAll('.route-controls, .tabs, .brand, .search')) {
+  for (const pruh of doc.querySelectorAll('.route-controls, .tabs, .brand, .search, .route-field')) {
     const deti = [...pruh.querySelectorAll('button, input, select, a')]
       .filter((el) => el.getBoundingClientRect().width > 0);
     for (let i = 0; i < deti.length; i++) {
@@ -183,9 +191,24 @@ function prekryvy(doc) {
         const b = deti[j].getBoundingClientRect();
         const vodorovne = a.right > b.left + 1 && b.right > a.left + 1;
         const svisle = a.bottom > b.top + 1 && b.bottom > a.top + 1;
-        if (vodorovne && svisle) {
-          nalezy.push(`${deti[i].id || deti[i].className} × ${deti[j].id || deti[j].className}`);
+        if (!vodorovne || !svisle) continue;
+
+        // Akce uvnitř vstupního pole: překryv je záměr, ale musí se VEJÍT.
+        const obal = deti[i].closest('.vstup-s-akci');
+        if (obal && obal === deti[j].closest('.vstup-s-akci')) {
+          const pole = deti[i].tagName === 'INPUT' ? deti[i] : deti[j];
+          const akce = pole === deti[i] ? deti[j] : deti[i];
+          const p = pole.getBoundingClientRect();
+          const k = akce.getBoundingClientRect();
+          const vejdeSe = k.left >= p.left - 1 && k.right <= p.right + 1
+                       && k.top >= p.top - 1 && k.bottom <= p.bottom + 1;
+          if (!vejdeSe) {
+            nalezy.push(`${akce.id || akce.className} vylézá z pole ${pole.id || pole.className}`);
+          }
+          continue;
         }
+
+        nalezy.push(`${deti[i].id || deti[i].className} × ${deti[j].id || deti[j].className}`);
       }
     }
   }

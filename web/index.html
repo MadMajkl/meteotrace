@@ -124,14 +124,6 @@
   </div>
 
   <div id="top-menu" class="top-menu">
-  <form class="search" id="search-form" role="search" autocomplete="off">
-    <input id="search-input" type="search"
-           data-i18n-attr="placeholder:search.placeholder|aria-label:search.placeholder">
-    <button type="button" id="btn-locate" class="icon-btn"
-            data-i18n-attr="title:search.myLocation|aria-label:search.myLocation">⌖</button>
-  </form>
-  <ul id="search-results" class="results" hidden></ul>
-
   <!-- Přepínač obrazovek. Dvě záložky, ne schované menu: appka umí dvě věci
        a obě mají být na dosah palce. -->
   <nav class="tabs" data-i18n-attr="aria-label:nav.sections">
@@ -169,6 +161,25 @@
       <ul id="places-panel" class="saved-panel" hidden></ul>
     </div>
   </nav>
+
+  <!-- 🚨 HLEDÁNÍ AŽ POD ZÁLOŽKAMI, ne nad nimi. Do 31. 8. 2026 sedělo pole
+       „Najít místo…" NAD přepínačem Trasa/Místo, kdežto formulář trasy je
+       POD ním — dvě obrazovky téže appky měly opačné pořadí. Michal:
+       *„u místa máš ten input form nad tlačítkem Místo a v Trasách je to
+       pod… sjednoť to u místa stejně jako u Trasy."*
+       Teď mají obě totéž pořadí: záložky → uložené → vstupní pole. -->
+  <form class="search" id="search-form" role="search" autocomplete="off">
+    <!-- ⚠️ ⌖ je UVNITŘ pole, ne vedle něj — táž konvence jako u pole Odkud
+         u trasy (`.vstup-s-akci`). Dřív to byl samostatný rámeček vpravo
+         od pole; vedle trasy to četlo jako jiný druh ovládání. -->
+    <span class="vstup-s-akci">
+      <input id="search-input" type="search"
+             data-i18n-attr="placeholder:search.placeholder|aria-label:search.placeholder">
+      <button type="button" id="btn-locate" class="vstup-akce"
+              data-i18n-attr="title:search.myLocation|aria-label:search.myLocation">⌖</button>
+    </span>
+  </form>
+  <ul id="search-results" class="results" hidden></ul>
   </div><!-- /#top-menu -->
 </header>
 
@@ -710,10 +721,10 @@
            člověk stojí — appka by ji spočítala a tvářila se, že je v pořádku. -->
       <label class="route-field">
         <span data-i18n="route.from"></span>
-        <span class="route-vstup">
+        <span class="vstup-s-akci">
           <input id="route-from" type="search" autocomplete="off"
                  data-i18n-attr="placeholder:route.fromPlaceholder">
-          <button type="button" id="route-from-locate" class="route-locate"
+          <button type="button" id="route-from-locate" class="vstup-akce"
                   data-i18n-attr="title:search.myLocation|aria-label:search.myLocation">⌖</button>
         </span>
         <ul id="route-from-results" class="results inline" hidden></ul>

@@ -276,10 +276,12 @@ body {
    mezery po prvcích, které nejsou vidět. Schování obstará `[hidden]`. */
 .top-menu { margin-top: 10px; }
 
-.search { display: flex; gap: 8px; }
+/* ⚠️ Už to není řádek „pole + tlačítko vedle". ⌖ sedí UVNITŘ pole
+   (`.vstup-s-akci`), takže formulář je prostý blok. */
+.search { display: block; }
 
 .search input {
-  flex: 1; min-width: 0;
+  width: 100%; box-sizing: border-box;
   padding: 11px 14px;
   font: inherit; color: var(--text);
   background: var(--surface);
@@ -1067,19 +1069,27 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 .route-form > .icon-btn { grid-row: span 2; align-self: center; height: 44px; }
 .route-field:nth-of-type(2) { grid-column: 1; }
 
-/* Pole Odkud nese uvnitř ⌖. `relative` je na obalu, ne na `.route-field` —
-   ten už drží nabídku výsledků a tlačítko by se vázalo k němu, tedy i pod
-   popisek nad polem. */
-.route-vstup { position: relative; display: block; }
+/* ── Vstupní pole s ⌖ uvnitř ────────────────────────────────────────────
+   🚨 JEDNA KONVENCE PRO OBĚ OBRAZOVKY. Michal 31. 8. 2026: *„ať máme
+   jednolitou konvenci, je to důležité pro dobré UX; takhle to je každý pes,
+   jiná ves."* Používá to pole *Odkud* u trasy i hledání místa v hlavičce —
+   proto je ta dvojice tříd obecná (`.vstup-s-akci` / `.vstup-akce`),
+   ne `route-`.
+
+   `relative` je na obalu, ne na `.route-field` — ten už drží nabídku
+   výsledků a tlačítko by se vázalo k němu, tedy i pod popisek nad polem. */
+.vstup-s-akci { position: relative; display: block; }
 /* Vpravo se uvolní místo, aby text nelezl pod tlačítko. */
-.route-vstup input { padding-right: 42px; }
+.vstup-s-akci input { padding-right: 46px; }
 
 /* ⚠️ Terč je 40 × 36 px. Menší se palcem netrefí, a je to jediná cesta, jak
    do trasy dostat vlastní polohu. */
-.route-locate {
-  position: absolute; top: 50%; right: 2px;
-  transform: translateY(-50%);
-  width: 40px; height: 36px;
+/* ⚠️ Terč se roztáhne na výšku pole (`top/bottom: 2px`), ne na pevných
+   36 px: pole hledání je vyšší než pole trasy a pevná výška by v něm
+   nechala nahoře i dole mrtvý proužek. */
+.vstup-akce {
+  position: absolute; top: 2px; right: 2px; bottom: 2px;
+  width: 42px;
   display: flex; align-items: center; justify-content: center;
   /* ⚠️ Velikost i barva jsou opsané z ⌖ v hlavičce (`#btn-locate`: 20 px,
      barva odkazu). Napoprvé tu bylo 18 px v `--text-soft` a vedle hlavičkového
@@ -1088,10 +1098,10 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
   color: var(--accent); background: none;
   border: 0; border-radius: 8px; cursor: pointer;
 }
-.route-locate:hover, .route-locate:focus-visible { background: var(--accent-soft); }
+.vstup-akce:hover, .vstup-akce:focus-visible { background: var(--accent-soft); }
 /* Zatímco se poloha zjišťuje, tlačítko je vypnuté — druhé klepnutí by
    poslalo druhý dotaz a odpovědi by se předběhly. */
-.route-locate[disabled] { opacity: .5; cursor: default; }
+.vstup-akce[disabled] { opacity: .5; cursor: default; }
 
 /* Výsledky hledání uvnitř karty, ne přes celou stránku. */
 .results.inline { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 4px; }
