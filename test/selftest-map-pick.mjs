@@ -9,7 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { nearestLabel, coordName, placeFromMap, MAX_VZDALENOST_M } from '../web/lib/map-pick.js';
+import { nearestLabel, coordName, placeFromMap, MAX_VZDALENOST_M, klepnutiDoMapy } from '../web/lib/map-pick.js';
 
 const PRAHA = { name: 'Praha', lat: 50.0875, lon: 14.4213 };
 const BRNO = { name: 'Brno', lat: 49.1951, lon: 16.6068 };
@@ -110,5 +110,52 @@ test('země se nehádá', () => {
 test('nesmyslné klepnutí vrátí null, ne rozbité místo', () => {
   for (const spatny of [null, undefined, [], [NaN, 14], ['50', '14']]) {
     assert.equal(placeFromMap(spatny, [PRAHA]), null);
+  }
+});
+
+/* ── co udělá klepnutí do mapy ────────────────────────────────────────── */
+
+test('🚨 klepnutí do mapy: nápověda říká, co se OPRAVDU stane', () => {
+  // Do 31. 8. 2026 se nad hotovou trasou psalo „zadáš start, dalším cíl" —
+  // jenže start byl zadaný, takže klepnutí přepisovalo CÍL. Michal: „je tam
+  // nepravda, když koukám na hotovou trasu."
+  const bod = { lat: 50, lon: 14 };
+
+  assert.deepEqual(klepnutiDoMapy({}),
+    { pole: 'from', klic: 'route.pickHint' }, 'prázdný formulář: první klepnutí je start');
+
+  assert.deepEqual(klepnutiDoMapy({ from: bod }),
+    { pole: 'to', klic: 'route.pickHintTo' }, 'start zadaný: další klepnutí je cíl');
+
+  assert.deepEqual(klepnutiDoMapy({ from: bod, to: bod }),
+    { pole: 'to', klic: 'route.pickHintReplace' }, 'hotová trasa: klepnutí MĚNÍ cíl, nezadává start');
+});
+
+test('🚨 pole i věta chodí z jednoho výrazu — nemají jak se rozejít', () => {
+  // Kdyby si nápověda počítala vlastní podmínku, appka by slibovala jedno
+  // a dělala druhé. Tenhle test drží obojí u sebe: ke každému poli patří
+  // právě jedna věta.
+  const bod = { lat: 50, lon: 14 };
+  const pary = [
+    [{}, 'from', 'route.pickHint'],
+    [{ from: bod }, 'to', 'route.pickHintTo'],
+    [{ from: bod, to: bod }, 'to', 'route.pickHintReplace'],
+    [{ to: bod }, 'from', 'route.pickHint'],   // jen cíl: chybí start, tak se plní start
+  ];
+  for (const [route, pole, klic] of pary) {
+    const v = klepnutiDoMapy(route);
+    assert.equal(v.pole, pole);
+    assert.equal(v.klic, klic);
+  }
+});
+
+test('věty ke klepnutí existují v obou jazycích', async () => {
+  const cs = (await import('../web/lib/lang/cs.js')).default;
+  const en = (await import('../web/lib/lang/en.js')).default;
+  const bod = { lat: 50, lon: 14 };
+  for (const route of [{}, { from: bod }, { from: bod, to: bod }]) {
+    const [obor, klic] = klepnutiDoMapy(route).klic.split('.');
+    assert.ok(cs[obor]?.[klic], `chybí český text pro ${obor}.${klic}`);
+    assert.ok(en[obor]?.[klic], `chybí anglický text pro ${obor}.${klic}`);
   }
 });

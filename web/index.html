@@ -831,9 +831,22 @@
     <p class="legenda-tip" data-i18n="route.legendTap"></p>
   </div>
 
-  <section class="card" id="route-points-card" hidden aria-labelledby="h-route-points">
-    <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>
-    <ol class="route-points" id="route-points"></ol>
+  <!-- 🚨 SBALENÉ. Rozpis bodů je nejdelší věc na obrazovce trasy a rozbalený
+       odsouval všechno ostatní pod displej. Michal 31. 8. 2026: *„udělal bych
+       to jen rozklepnutelné normálně na spodku dlaždice s trasou a vedle toho
+       tu šipečku na rozklepnutí, aby to bylo jasné, ale sbalené."*
+       ⚠️ Nadpis je proto TLAČÍTKO se šipkou, ne `<h2>` — vzor je `.saved-toggle`
+       v hlavičce, ať se v appce nerozklepává dvěma různými způsoby.
+       ⚠️ Počet bodů stojí rovnou v tlačítku: sbalený oddíl, ze kterého není
+       poznat, jestli v něm něco je, se od prázdného nedá odlišit. -->
+  <section class="card" id="route-points-card" hidden>
+    <button id="route-points-toggle" class="rozklep" type="button"
+            aria-expanded="false" aria-controls="route-points">
+      <span data-i18n="route.alongTheWay"></span>
+      <span class="rozklep-pocet" id="route-points-pocet"></span>
+      <span class="sipka" aria-hidden="true">▾</span>
+    </button>
+    <ol class="route-points" id="route-points" hidden></ol>
   </section>
 
 </main>

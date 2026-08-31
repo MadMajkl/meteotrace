@@ -41,6 +41,7 @@ import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notif
 import { kamMiri, coRict } from './lib/drift.js';
 import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
 import { maSeSpustit, createOnboarding } from './lib/onboarding.js';
+import { klepnutiDoMapy } from './lib/map-pick.js';
 import { routeQuip, placeQuip, okoliQuip } from './lib/quips.js';
 import { isHazard, jenZavoj, jeSlunecno } from './lib/weather-code.js';
 import {
@@ -62,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.3';
+const VERZE = '0.16.4';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -607,6 +608,15 @@ function zapniHodnoceni() {
   sekce.hidden = false;
 }
 
+/** Rozbalí nebo sbalí rozpis bodů na trase. */
+function rozklepBody(otevrit) {
+  const tlacitko = $('route-points-toggle');
+  const seznam = $('route-points');
+  if (!tlacitko || !seznam) return;
+  seznam.hidden = !otevrit;
+  tlacitko.setAttribute('aria-expanded', String(!!otevrit));
+}
+
 /** Hvězdička u souhrnu trasy: uložit / odebrat. */
 function toggleSaveRoute() {
   const { from, to, profil } = state.route;
@@ -635,6 +645,11 @@ function najdiUlozenouTrasu() {
 }
 
 function renderRoutes() {
+  // ⚠️ Nápověda pod mapou se přepisuje TADY, ne jen při přepnutí obrazovky.
+  // Její znění závisí na tom, co je zadané — a to se mění právě těmi akcemi,
+  // po kterých se `renderRoutes()` volá (výběr z nabídky, ⌖, prohození,
+  // načtení uložené trasy, vymazání).
+  vypisNapoveduMapy();
   const current = najdiUlozenouTrasu();
   const btn = $('btn-save-route');
   // Hvězdička dává smysl, jen když je co uložit — tedy až je start i cíl.
@@ -2198,8 +2213,7 @@ function presunMapu() {
 
   // Klepnutí do mapy dělá na každé obrazovce něco jiného, takže to musí
   // říkat i nápověda pod ní. Tichá změna významu je horší než žádná.
-  const hint = $('map-hint');
-  if (hint) hint.textContent = t(state.screen === 'route' ? 'route.pickHint' : 'radar.pickHint', state.lang);
+  vypisNapoveduMapy();
 
   // 🚨 Než se trasa spočítá, není mapu z čeho postavit — a prázdný obdélník
   // vypadá jako rozbitá appka. Michal 25. 8. 2026: „mapa tam není žádná."
@@ -2219,15 +2233,38 @@ function presunMapu() {
 }
 
 /**
+ * Nápověda pod mapou. Musí říkat, co klepnutí udělá **teď**.
+ *
+ * 🚨 Do 31. 8. 2026 tu stála jedna věta pro celou obrazovku trasy —
+ * *„Klepnutím do mapy zadáš start, dalším cíl."* — a nad hotovou trasou to
+ * byla **nepravda**: start je zadaný, takže klepnutí žádný start nepřidá,
+ * nýbrž PŘEPÍŠE CÍL. Michal: *„je tam nesmysl, je tam nepravda… když koukám
+ * na hotovou trasu."*
+ *
+ * ⚠️ Věty se řídí TÝMŽ výrazem, kterým se řídí `vyberZMapy()`. Kdyby si
+ * nápověda počítala vlastní podmínku, rozešly by se — a to je horší než
+ * mlčet, protože pak appka slibuje jedno a dělá druhé.
+ */
+function vypisNapoveduMapy() {
+  const hint = $('map-hint');
+  if (!hint) return;
+  if (state.screen !== 'route') {
+    hint.textContent = t('radar.pickHint', state.lang);
+    return;
+  }
+  hint.textContent = t(klepnutiDoMapy(state.route).klic, state.lang);
+}
+
+/**
  * Výběr místa klepnutím do mapy. Co se s ním stane, závisí na obrazovce:
  * na meteostanici je to nové místo, na trase start nebo cíl.
  */
 function vyberZMapy(misto) {
   if (state.screen !== 'route') { selectPlace(misto); return; }
 
-  // Prázdné pole se plní zleva doprava; když jsou obě plná, přepisuje se cíl.
-  // Je to nejčastější případ: start bývá „odsud" a mění se, kam se letí.
-  const kam = !state.route.from ? 'from' : 'to';
+  // ⚠️ TÝŽ VÝRAZ, jakým se řídí nápověda pod mapou (`klepnutiDoMapy`).
+  // Dvě podmínky by se rozešly a appka by slibovala jedno a dělala druhé.
+  const kam = klepnutiDoMapy(state.route).pole;
   state.route[kam] = misto;
   $(kam === 'from' ? 'route-from' : 'route-to').value = misto.name;
   poznamkaTrasy(t(kam === 'from' ? 'route.pickedFrom' : 'route.pickedTo', state.lang));
@@ -2885,6 +2922,10 @@ function ulozenaProNabidku(dotaz) {
 function zapisMisto(kam, misto) {
   if (typeof kam === 'number') state.route.via[kam] = misto;
   else state.route[kam] = misto;
+  // 🚨 Nápověda pod mapou závisí na tom, co je zadané — a tohle je jediná
+  // cesta, kudy zápis z polí chodí. Kdyby se přepisovala jen při přepnutí
+  // obrazovky, tvrdila by nad hotovou trasou, že klepnutí zadá start.
+  vypisNapoveduMapy();
 }
 
 /**
@@ -3065,8 +3106,14 @@ function vykresliRychlost() {
 }
 
 function skryjVysledekTrasy() {
+  // Zahození výsledku je taky změna stavu — a mění, co klepnutí do mapy udělá.
+  vypisNapoveduMapy();
   $('route-summary-card').hidden = true;
   $('route-points-card').hidden = true;
+  // ⚠️ Nová trasa začíná sbalená. Kdyby si oddíl nesl rozbalení z předchozí
+  // cesty, přišel by výsledek rovnou zavalený rozpisem — a přesně to Michal
+  // 31. 8. 2026 nechtěl.
+  rozklepBody(false);
   // ⚠️ Bez výsledku nemá co sbalit: sbalený formulář nad prázdnou
   // obrazovkou by vypadal, že se appka kouše.
   sbalFormularTrasy(false);
@@ -3387,6 +3434,11 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   vykresliUseky(useky, view.departureMs || Date.now(), pasmo);
 
   $('route-points-card').hidden = false;
+  // ⚠️ Počet patří do tlačítka: u sbaleného oddílu se jinak nedá poznat,
+  // jestli v něm něco je, a od prázdného se to neliší.
+  $('route-points-pocet').textContent = view.points.length
+    ? tf('route.alongTheWayCount', { count: view.points.length }, state.lang)
+    : '';
   fill($('route-points'), view.points, (p) => {
     const li = document.createElement('li');
     li.className = 'route-point';
@@ -3638,6 +3690,9 @@ function init() {
     skryjVysledekTrasy();
   });
   vykresliRychlost();
+  $('route-points-toggle').addEventListener('click', () => {
+    rozklepBody($('route-points').hidden);
+  });
   $('route-from-locate').addEventListener('click', polohaDoTrasy);
   pripojVyber('route-from', 'route-from-results', 'from');
   pripojVyber('route-to', 'route-to-results', 'to');

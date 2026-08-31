@@ -92,3 +92,28 @@ export function placeFromMap(point, labels = []) {
     fromMap: true,
   };
 }
+
+/**
+ * Co udělá klepnutí do mapy na obrazovce trasy — a jak se to řekne.
+ *
+ * 🚨 JEDEN VÝRAZ PRO OBOJÍ. Do 31. 8. 2026 měla nápověda pod mapou vlastní
+ * (žádnou) podmínku a psala pořád totéž: *„Klepnutím do mapy zadáš start,
+ * dalším cíl."* Nad hotovou trasou to byla **nepravda** — start je zadaný,
+ * takže klepnutí žádný start nepřidá, nýbrž přepíše cíl. Michal:
+ * *„je tam nesmysl, je tam nepravda… když koukám na hotovou trasu."*
+ *
+ * Proto se pole i věta počítají tady, z jednoho místa. Kdyby to zůstaly dvě
+ * podmínky, rozešly by se při první úpravě — a appka by slibovala jedno
+ * a dělala druhé, což je horší než mlčet.
+ *
+ * ⚠️ Prázdné pole se plní zleva doprava; když jsou obě plná, přepisuje se
+ * CÍL. Je to nejčastější případ: start bývá „odsud" a mění se, kam se jede.
+ *
+ * @param {{from?: object|null, to?: object|null}} route
+ * @returns {{pole: 'from'|'to', klic: string}} kam se zapíše a klíč do slovníku
+ */
+export function klepnutiDoMapy(route = {}) {
+  if (!route.from) return { pole: 'from', klic: 'route.pickHint' };
+  if (!route.to) return { pole: 'to', klic: 'route.pickHintTo' };
+  return { pole: 'to', klic: 'route.pickHintReplace' };
+}

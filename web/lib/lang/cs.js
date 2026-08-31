@@ -177,6 +177,11 @@ export default {
     compute: 'Ukázat počasí',
     summary: 'Souhrn trasy',
     total: 'Celkem',
+    // ⚠️ Jen číslo v závorce, žádné „bodů". Čeština by chtěla tři tvary
+    // (1 bod / 2–4 body / 5+ bodů) a rozpis má běžně 3–12 položek, takže by
+    // špatný tvar byl vidět skoro pokaždé. Závorka je správně u každého počtu
+    // a v každém jazyce.
+    alongTheWayCount: '({count})',
     alongTheWay: 'Po cestě',
     needBoth: 'Vyber start i cíl — jinak nemáme kam jet.',
     sameSpot: 'Start a cíl jsou totéž místo — vyber jiný cíl 😉',
@@ -222,7 +227,13 @@ export default {
     badgeRain: '{count}× déšť',
     badgeClear: 'beze srážek',
     now: 'Teď',
+    // 🚨 TŘI VĚTY, PROTOŽE KLEPNUTÍ DĚLÁ TŘI RŮZNÉ VĚCI. Do 31. 8. 2026 se
+    // psala jen ta první — i nad hotovou trasou, kde klepnutí start NEZADÁ,
+    // ale PŘEPÍŠE CÍL. Michal: *„je tam nepravda, že klepnutím do mapy
+    // přidáváš start a dalším cíl, když koukám na hotovou trasu."*
     pickHint: 'Klepnutím do mapy zadáš start, dalším cíl.',
+    pickHintTo: 'Klepnutím do mapy zadáš cíl.',
+    pickHintReplace: 'Klepnutím do mapy změníš cíl.',
     mapWaiting: 'Mapa se ukáže, až se spočítá trasa.',
     pickedFrom: 'Start je z mapy. Teď klepni na cíl.',
     pickedTo: 'Cíl je z mapy.',

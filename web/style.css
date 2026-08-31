@@ -1168,7 +1168,32 @@ main {
   border: 1px solid var(--warn-line); border-radius: 10px;
 }
 
-.route-points { list-style: none; margin: 0; padding: 0; }
+/* Rozklepávací nadpis oddílu uvnitř karty. Vzor je `.saved-toggle`
+   v hlavičce; tady je to celý řádek, protože v kartě je na něj místo
+   a větší terč se palcem trefí líp. */
+.rozklep {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+  font: inherit; font-size: 13px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-soft); background: none;
+  border: 0; cursor: pointer; text-align: left;
+}
+.rozklep .sipka {
+  margin-left: auto;
+  font-size: 12px; color: var(--accent);
+  transition: transform .18s;
+}
+.rozklep[aria-expanded="true"] .sipka { transform: rotate(180deg); }
+/* Počet v tlačítku: bez něj není u sbaleného oddílu poznat, jestli v něm
+   něco je. Nesmí ale křičet víc než jméno oddílu. */
+.rozklep-pocet {
+  font-weight: 400; letter-spacing: 0;
+  text-transform: none; color: var(--text-soft);
+}
+
+.route-points { list-style: none; margin: 8px 0 0; padding: 0; }
 
 .route-point {
   display: grid;
@@ -1362,6 +1387,45 @@ main {
 .dep-time { font-size: 14px; font-weight: 600; color: var(--text); }
 .dep-badge { font-size: 12px; white-space: nowrap; }
 .departure[data-hazard="1"] .dep-badge { color: var(--warn, #b3261e); }
+
+/* ── Bublina nad bodem trasy ─────────────────────────────────────────────
+   🚨 BÍLÁ NA BÍLÉ. MapLibre má v `.maplibregl-popup-content` napevno
+   `background:#fff`, ale barvu písma nenastavuje — takže se dědila z appky.
+   V tmavém motivu je `--text` skoro bílá (#e8eef5), takže bublina psala
+   **bílým na bílém**: kontrast 1,15 : 1. Michal 31. 8. 2026: *„na APK appce
+   nejde přečíst nic v bublinách, když klepnu na body trasy, a na webu
+   z mobilu taky ne, nečitelný font."* Nebylo to malé písmo, bylo to
+   neviditelné.
+
+   ⚠️ Nestačí přebarvit text: pozadí i špička musí jít z týchž proměnných
+   jako zbytek appky, jinak se to rozejde znovu při příští změně motivu.
+
+   ⚠️ Písmo je 14 px, ne 12 z MapLibre. Bublina nese čas příjezdu a počasí —
+   údaje, kvůli kterým se na bod klepá; drobné písmo v mapě se na telefonu
+   čte hůř než kdekoli jinde. */
+.maplibregl-popup-content {
+  padding: 9px 12px;
+  font-size: 14px; line-height: 1.4;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+/* Špička musí mít barvu pozadí bubliny, jinak zůstane bílá a trčí z ní. */
+.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--surface); }
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--surface); }
+.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--surface); }
+.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--surface); }
+.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: var(--surface); }
+.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--surface); }
+
+/* ⚠️ Na úzkém displeji se bublina nesmí roztáhnout přes celou mapu — text
+   se má zalomit. `max-width` dává MapLibre na `.maplibregl-popup`, ale
+   v px podle nastavení; tohle je pojistka proti mapě užší než ta hodnota. */
+.maplibregl-popup { max-width: min(260px, calc(100% - 24px)); }
 
 /* Sdělení místo mapy. Prázdný černý obdélník je nejhorší možná odpověď —
    kdo se dívá do plochy mapy, hledá vysvětlení v ní, ne o dva řádky níž. */
