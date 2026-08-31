@@ -199,3 +199,46 @@ export function offsetLabel(frame, nowMs = Date.now()) {
   if (Math.abs(rozdil) < 5) return { key: 'now', min: 0 };
   return rozdil < 0 ? { key: 'ago', min: -rozdil } : { key: 'in', min: rozdil };
 }
+
+/**
+ * Popis zdroje pro mapovou knihovnu — obrázek ČHMÚ, nebo dlaždice RainVieweru.
+ *
+ * 🚨 VZNIKLO Z VADY, KTERÁ TIŠE UMLČELA CELOU PŘEDPOVĚĎ (30. 8. 2026).
+ * Zdroj pro snímky ČHMÚ se skládal přímo v `map.js` a měl v sobě
+ * `attribution: '© ČHMÚ (CC BY 4.0)'` — jenže **zdroj typu `image` takovou
+ * vlastnost nemá.** MapLibre ho proto odmítl („unknown property") a hned nato
+ * hlásil, že vrstva svůj zdroj nenašla. Minulé snímky jsou `raster` bez
+ * popisky, takže se kreslily dál; **budoucí se nevykreslily nikdy.**
+ * Michal: *„od teď dopředu nemáme mraky."*
+ *
+ * Schovalo se to dokonale: data chodila správně, osa měla i budoucí část
+ * a v konzoli byla jen tichá poznámka, protože obsluha chyb chyby radarového
+ * zdroje schválně přeskakuje.
+ *
+ * Proto se popis zdroje skládá TADY, v čisté funkci, a hlídá ho samotest.
+ * ⚠️ Licenční popiska ČHMÚ se tím neztrácí — patří ale do popisky mapy
+ * a do „O aplikaci", ne do zdroje.
+ *
+ * @param {{chmi?: boolean, obrazek?: string}} frame
+ * @param {{url: string, rohy?: Array}} opts  `url` = hotová adresa (dlaždice nebo obrázek)
+ */
+export function radarSource(frame, opts) {
+  const url = opts?.url;
+  if (!url) return null;
+
+  if (frame?.chmi) {
+    // Předpověď ČHMÚ chodí jako HOTOVÝ OBRÁZEK s pevnými rohy, ne jako
+    // dlaždice: jeden výřez ve webovém Mercatoru.
+    return { type: 'image', url, coordinates: opts.rohy };
+  }
+  // ⚠️ `maxzoom` tu není kosmetika: bez něj si knihovna říká o dlaždice nad
+  // strop RainVieweru a ten místo chyby vrací obrázek s nápisem „Zoom Level
+  // Not Supported" přes celou mapu.
+  return { type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM };
+}
+
+/** Vlastnosti, které zdroj daného typu v MapLibre smí mít. */
+export const POVOLENE_VLASTNOSTI = {
+  image: ['type', 'url', 'coordinates'],
+  raster: ['type', 'tiles', 'tileSize', 'maxzoom', 'minzoom', 'bounds', 'scheme', 'attribution', 'volatile'],
+};

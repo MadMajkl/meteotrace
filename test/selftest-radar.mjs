@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import {
   radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, forecastSplit, offsetLabel,
   KROK_ANIMACE_MS, PAUZA_SMYCKY_MS, PAUZA_TED_MS,
-  TILE_SIZE, MAX_ZOOM,
-} from '../web/lib/radar.js';
+  TILE_SIZE, MAX_ZOOM, radarSource, POVOLENE_VLASTNOSTI } from '../web/lib/radar.js';
+
+const ROHY = [[11.267, 52.167], [20.77, 52.167], [20.77, 48.047], [11.267, 48.047]];
 
 /** Zmenšenina skutečné odpovědi RainVieweru (tvar ověřen 21. 8. 2026). */
 const FEED = {
@@ -228,4 +229,58 @@ test('bez předpovědi se nikde nezdržuje, jen na konci', () => {
   const f = [{ timeMs: 1, forecast: false }, { timeMs: 2, forecast: false }];
   assert.equal(nextFrame(f, 0).holdMs, KROK_ANIMACE_MS);
   assert.equal(nextFrame(f, 1).holdMs, PAUZA_SMYCKY_MS);
+});
+
+/* ============================================================
+   POPIS ZDROJE PRO MAPU
+
+   🚨 VZNIKLO Z VADY, KTERÁ TIŠE UMLČELA CELOU PŘEDPOVĚĎ (30. 8. 2026).
+   Zdroj pro snímky ČHMÚ měl `attribution` — jenže tu zdroj typu `image`
+   v MapLibre NEMÁ. Knihovna ho odmítla („unknown property") a vrstva pak
+   nenašla svůj zdroj. Minulé snímky jsou `raster` bez popisky, takže se
+   kreslily dál; **budoucí se nevykreslily nikdy.**
+
+   Data přitom chodila správně a osa měla i budoucí část — z appky to
+   vypadalo, že se od „teď" dopředu prostě nic nechystá. V konzoli byla
+   jen tichá poznámka, protože chyby radarového zdroje se přeskakují.
+   ============================================================ */
+
+test('🚨 zdroj pro obrázek ČHMÚ NESMÍ mít attribution', () => {
+  const zdroj = radarSource({ chmi: true }, { url: 'data:image/png;base64,AAA', rohy: ROHY });
+  assert.equal(zdroj.type, 'image');
+  assert.ok(!('attribution' in zdroj),
+    'MapLibre takový zdroj odmítne a předpověď se nevykreslí vůbec');
+});
+
+test('🚨 zdroj obrázku smí mít JEN vlastnosti, které norma zná', () => {
+  // Obecněji než jen `attribution`: kdyby se sem přidala jiná neznámá
+  // vlastnost, dopadlo by to úplně stejně — a stejně tiše.
+  const zdroj = radarSource({ chmi: true }, { url: 'data:image/png;base64,AAA', rohy: ROHY });
+  for (const klic of Object.keys(zdroj)) {
+    assert.ok(POVOLENE_VLASTNOSTI.image.includes(klic), `neznámá vlastnost „${klic}"`);
+  }
+});
+
+test('obrázek ČHMÚ nese adresu a rohy výřezu', () => {
+  const zdroj = radarSource({ chmi: true }, { url: 'data:image/png;base64,AAA', rohy: ROHY });
+  assert.equal(zdroj.url, 'data:image/png;base64,AAA');
+  assert.deepEqual(zdroj.coordinates, ROHY);
+});
+
+test('dlaždice RainVieweru mají strop přiblížení', () => {
+  // ⚠️ Bez `maxzoom` vrací RainViewer nad svým stropem obrázek s nápisem
+  // „Zoom Level Not Supported" přes celou mapu — a stavem 200, takže se
+  // to nepozná jinak než okem.
+  const zdroj = radarSource({ chmi: false }, { url: 'https://x/{z}/{x}/{y}.png' });
+  assert.equal(zdroj.type, 'raster');
+  assert.equal(zdroj.maxzoom, MAX_ZOOM);
+  assert.equal(zdroj.tileSize, TILE_SIZE);
+  assert.deepEqual(zdroj.tiles, ['https://x/{z}/{x}/{y}.png']);
+});
+
+test('bez adresy se zdroj nesestaví', () => {
+  // Prázdná adresa by v MapLibre skončila taky odmítnutím — radši null,
+  // o kterém volající ví.
+  assert.equal(radarSource({ chmi: true }, { url: '', rohy: ROHY }), null);
+  assert.equal(radarSource({ chmi: false }, {}), null);
 });

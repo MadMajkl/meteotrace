@@ -22,7 +22,7 @@
 import { t, tf } from './lib/i18n.js';
 import {
   radarFrames, tileTemplate, frameIndexAt, nextFrame, frameLabel, forecastSplit, offsetLabel,
-  TILE_SIZE, MAX_ZOOM,
+  radarSource, TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
 import { buildStyle, fontsUrlFrom } from './lib/map-style.js';
@@ -649,18 +649,22 @@ function drawFrame() {
   if (map.getLayer(RADAR_LAYER)) map.removeLayer(RADAR_LAYER);
   if (map.getSource(RADAR_SOURCE)) map.removeSource(RADAR_SOURCE);
 
-  // ⚠️ `maxzoom` tu není kosmetika. Bez něj si knihovna říká o dlaždice nad
-  // strop RainVieweru a ten místo chyby vrací obrázek s nápisem „Zoom Level
-  // Not Supported" — přes celou mapu. A pozor na velikost: u 256px dlaždic si
-  // MapLibre říká o úroveň VYŠŠÍ, než je přiblížení mapy (jeho vnitřní dlaždice
-  // má 512), takže mapa otevřená na zoomu 7 sahala rovnou na z8, tedy za strop.
-  map.addSource(RADAR_SOURCE, frame.chmi ? {
-    // 🚨 Popiska není zdvořilost, ale podmínka licence: data ČHMÚ jsou
-    // CC BY 4.0, tedy zdarma, ale s uvedením zdroje.
-    type: 'image', url, coordinates: nowcastRohy, attribution: nowcastZdroj,
-  } : {
-    type: 'raster', tiles: [url], tileSize: TILE_SIZE, maxzoom: MAX_ZOOM,
-  });
+  /* 🚨 POPIS ZDROJE SE SKLÁDÁ V ČISTÉ FUNKCI (`radarSource` v `lib/radar.js`)
+     A HLÍDÁ HO SAMOTEST.
+
+     Do 30. 8. 2026 se skládal tady a u obrázku ČHMÚ měl `attribution` —
+     jenže tu zdroj typu `image` nemá. MapLibre ho proto odmítl
+     („unknown property") a vrstva pak nenašla svůj zdroj. Minulé snímky
+     jsou `raster` bez popisky, takže se kreslily dál; **předpověď se
+     nevykreslila nikdy.** Michal: *„od teď dopředu nemáme mraky."*
+
+     Schovalo se to dokonale: data chodila správně, osa měla i budoucí
+     část a v konzoli byla jen tichá poznámka — chyby radarového zdroje
+     se tu totiž schválně přeskakují (viz `map.on('error')`).
+
+     ⚠️ Licenční popiska ČHMÚ se tím neztrácí: patří do popisky mapy
+     a do „O aplikaci", ne do zdroje. Viz `radarZdrojPopiska()`. */
+  map.addSource(RADAR_SOURCE, radarSource(frame, { url, rohy: nowcastRohy }));
   // ⚠️ Radar se zakládá znovu při KAŽDÉM snímku animace. Kdyby se přidával
   // navrch, po prvním překreslení by přebil obrys výstrahy — a ten by zmizel
   // sám od sebe po vteřině, což se hledá mizerně. Proto se vkládá POD něj.
@@ -701,6 +705,10 @@ function drawFrame() {
   const druh = frame.chmi ? 'radar.nowcastChmi' : (label.forecast ? 'radar.nowcast' : 'radar.observed');
   $('radar-kind').textContent = t(druh, lang);
   $('radar-kind').dataset.forecast = String(label.forecast);
+  // 🚨 Licenční popiska (CC BY 4.0) — jen u snímků ČHMÚ a jen když ji server
+  // opravdu poslal. U dlaždic RainVieweru se popiska bere z mapového zdroje,
+  // ten ji na rozdíl od obrázku přijímá.
+  $('radar-zdroj').textContent = frame.chmi ? nowcastZdroj : '';
 }
 
 function play() {

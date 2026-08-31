@@ -45,11 +45,15 @@ a vyměnitelná konfigurací**, ne přepisem.
 
 - **Editace přes Read/Edit (UTF-8)**, ne přes PowerShell `Get-Content`/`Set-Content` —
   rozbíjí to diakritiku.
-- **Git: NIKDY nepushovat bez výslovného svolení.** Commit lokálně ano, push až na „jeď".
+- **🚨 Git: NIKDY NEPUSHOVAT, DOKUD MICHAL VÝSLOVNĚ NEŘEKNE.** Commit lokálně ano,
+  průběžně. **Svolení k jednomu pushi neplatí pro další** — o každé odeslání ven
+  si musí říct znovu (30. 8. 2026).
+  **Proč: každý push spustí build na Netlify a ten žere kredity.** Není to jen
+  otázka pracovní doby, je to peněžní strop. Sbírej změny a odešli je jedním
+  pushem, až dá pokyn.
   U každé git operace vypiš přesné příkazy, které se pustí.
-- **🕠 Push jen po 16:30 a jen ve všední dny** (Michalovo pravidlo z 24. 8. 2026).
-  Nikdy jindy, pokud výslovně neřekne jinak. Commitovat průběžně ano — odesílat ven
-  jen v tom okně.
+- **🕠 A i s pokynem platí okno: jen po 16:30 a jen ve všední dny**
+  (pravidlo z 24. 8. 2026), pokud výslovně neřekne jinak.
 - **Zprávu commitu piš do souboru** (`git commit -F <soubor>`, soubor přes Write) —
   heredoc v shellu žere zpětná lomítka a mrší diakritiku.
 - **Verzi bumpovat až úplně nakonec**, na všech místech najednou.
@@ -132,7 +136,7 @@ tohle je jen shrnutí.**
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**772 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**777 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -163,7 +167,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.14.5**; na `1.0.0` až s vydáním na Play.
+  Teď **0.14.6**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -199,6 +203,19 @@ npm run docx                # dokumentace do Wordu
 
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
+- **🚨 ZDROJ `image` V MAPLIBRE NEMÁ `attribution` — a odmítnutý zdroj MLČÍ.**
+  Snímky ČHMÚ se kvůli jedné vlastnosti navíc **nevykreslovaly vůbec**, zatímco
+  minulé (`raster`, bez popisky) jely dál. Data přitom chodila, osa měla
+  budoucí část a posuvník do ní jel — jen se v mapě nic neobjevilo. V konzoli
+  byla jen poznámka, protože `map.on('error')` chyby radarového zdroje
+  **schválně přeskakuje**. Popis zdroje proto skládá čistá `radarSource()`
+  v `lib/radar.js` a hlídá ji samotest. Licenční popiska patří do lišty
+  radaru (`#radar-zdroj`), ne do zdroje.
+- **🚨 `performance.getEntriesByType('resource')` MÁ STROP ~250 ZÁZNAMŮ.**
+  Mapa stahuje stovky dlaždic, takže **chybějící záznam neznamená chybějící
+  dotaz**. Málem jsem na tom postavil opravu. Na síť se ptej nástrojem, který
+  sleduje od začátku, nebo si zavěs `fetch` — a než něco prohlásíš, ověř to
+  přímým pokusem.
 - **🚨 VZOR Z GULPKY SE OPISUJE, NEVYMÝŠLÍ.** `R7` říká „model přenesený
   z Gulpky jedna k jedné" — a to platí i na VZHLED, ne jen na mechaniku.
   Do donate tlačítka jsem nakreslil červený znak `♥`; Gulpka má zlatou minci
