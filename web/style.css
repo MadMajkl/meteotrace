@@ -1790,36 +1790,24 @@ main {
 
    ⚠️ Tlumená a drobná. Není to údaj, je to vysvětlivka k údaji — kdyby
    křičela, přetahovala by pozornost od mapy, ke které se vztahuje. */
-/* ── Legenda uvnitř mapy, vpravo dole ───────────────────────────────────
-   🚨 Michal 31. 8. 2026: *„dej tu dlaždici s body na trase do hlavní
-   dlaždice s mapou doprava dolů."* Předtím visela pod mapou a odsouvala
-   rozpis počasí níž.
+/* ── Legenda v kartě mapy, pod časovou osou, vpravo ─────────────────────
+   🚨 NE UVNITŘ PLÁTNA MAPY. Napoprvé jsem ji tam dal a Michal to vrátil:
+   *„tam není nic vidět… ne do mapy přímo, tam je reklama OpenStreetMap."*
+   MapLibre má povinnou popisku zdroje přesně v pravém dolním rohu plátna,
+   takže si tam ty dva prvky lezly do sebe.
 
-   ⚠️ Rozbaluje se NAHORU (`column-reverse`), ne dolů: `#map` má
-   `overflow: hidden`, takže obsah vyklopený pod tlačítko by se u spodní
-   hrany prostě uřízl.
-
-   ⚠️ `max-width` je v procentech plochy mapy — na 320px displeji by pevná
-   šířka přelezla přes celou mapu a zakryla trasu. */
+   Teď je v normálním toku karty, až za posuvníkem času, zarovnaná doprava —
+   a rozbaluje se dolů, protože karta nic neořezává. */
 .legenda {
-  position: absolute;
-  right: 10px; bottom: 10px;
-  z-index: 2;
-  display: flex; flex-direction: column-reverse; align-items: flex-end;
+  display: flex; flex-direction: column; align-items: flex-end;
   gap: 6px;
-  max-width: min(280px, calc(100% - 20px));
+  margin: 2px 0 0;
+  text-align: right;
 }
 
-/* Rozbalený obsah je karta nad tlačítkem, ne holý text: leží na mapě
-   a bez podkladu by se čísla i tečky ztratily v dlaždicích pod nimi. */
-#route-legenda-obsah {
-  padding: 8px 10px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(6px);
-}
+/* Rozbalený obsah drží u pravého kraje jako tlačítko nad ním; text v něm
+   ale čte zleva, jinak by se čtyři různě dlouhé řádky legendy rozházely. */
+#route-legenda-obsah { text-align: left; }
 .legenda[hidden] { display: none; }
 
 .legenda-nadpis {
