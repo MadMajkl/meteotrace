@@ -22,7 +22,7 @@ import {
   trimWarnings,
   fromPelias, mapParams,
 } from '../web/lib/upstreams.js';
-import { planRequest, filterByPlace } from '../web/lib/proxy-core.js';
+import { planRequest, filterByPlace, responseHeaders } from '../web/lib/proxy-core.js';
 
 /* ============================================================
    SEZNAM SLUŽEB
@@ -503,4 +503,30 @@ test('🚨 neznámá závažnost projde i nejpřísnějším prahem', () => {
   // mlčet právě tam, kde nevíme, oč jde.
   const out = filterByPlace('warnings', VYSTRAHY_RUZNE, { minSeverity: 'Extreme' });
   assert.ok(out.warnings.some((w) => w.id === 'd'), 'Unknown musí projít');
+});
+
+/* ── přiznání náhradního zdroje ───────────────────────────────────────── */
+
+test('🚨 odpověď ze zálohy se přizná hlavičkou', () => {
+  // Přepnutí na náhradní zdroj je SPRÁVNÉ chování (lepší horší výsledky než
+  // žádné), ale do 31. 8. 2026 se o něm jen psalo do logu. Uživatel viděl jen
+  // to, že appka najednou nenajde adresu — Michal: „zas blbne vyhledávání."
+  // Správné chování, o kterém se mlčí, se od poruchy nedá odlišit.
+  const zal = responseHeaders({ ttlS: 60, zeZalohy: true });
+  assert.equal(zal['X-MeteoTrace-Zaloha'], '1');
+
+  const hlavni = responseHeaders({ ttlS: 60 });
+  assert.equal(hlavni['X-MeteoTrace-Zaloha'], undefined,
+    'z hlavního zdroje se hlavička posílat NESMÍ — jinak by hláška svítila pořád');
+});
+
+test('příznak zálohy je nezávislý na příznaku prošlých dat', () => {
+  // Jsou to dvě různé věci: „ze zálohy" a „staré". Můžou nastat i zvlášť.
+  const oboji = responseHeaders({ ttlS: 60, fresh: false, ageS: 120, zeZalohy: true });
+  assert.equal(oboji['X-MeteoTrace-Stale'], '1');
+  assert.equal(oboji['X-MeteoTrace-Zaloha'], '1');
+  assert.equal(oboji['Age'], '120');
+
+  const jenZaloha = responseHeaders({ ttlS: 60, zeZalohy: true });
+  assert.equal(jenZaloha['X-MeteoTrace-Stale'], undefined);
 });

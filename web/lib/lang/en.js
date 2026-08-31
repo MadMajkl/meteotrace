@@ -86,6 +86,7 @@ export default {
     noResults: 'No such place here. Try spelling it differently.',
     searching: 'Searching…',
     locationFailed: 'Could not get your location. Check that the app is allowed to use it.',
+    zeZalohy: 'Backup source — street numbers will not be found right now.',
     noFocus: 'Not sorted by location — tap ⌖ to see places near you.',
   },
 

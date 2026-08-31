@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.4';
+const VERZE = '0.16.5';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1372,15 +1372,15 @@ function onSearchInput(text) {
 
 async function search(q) {
   try {
-    const { data } = await requests.run('search', (signal) =>
+    const { data, zeZalohy } = await requests.run('search', (signal) =>
       apiGet('geocode', { name: q, count: 8, language: state.lang, ...odkudSeDivam() }, { signal }));
-    showResults(data?.results || []);
+    showResults(data?.results || [], zeZalohy);
   } catch (e) {
     if (!requests.isAbort(e)) showResults([]);
   }
 }
 
-function showResults(list) {
+function showResults(list, zeZalohy = false) {
   const ul = $('search-results');
   ul.innerHTML = '';
 
@@ -1418,6 +1418,17 @@ function showResults(list) {
       li.textContent = t('search.noFocus', state.lang);
       ul.append(li);
     }
+  }
+
+  // 🚨 Náhradní zdroj se musí přiznat — i když něco našel. Záloha neumí
+  // adresy s číslem popisným, takže „nic nenašel" u „Luční 208" NENÍ chyba
+  // uživatele ani appky, ale důsledek přepnutí. Bez téhle věty to vypadá,
+  // že hledání blbne — a přesně tak to Michal 31. 8. 2026 nahlásil.
+  if (zeZalohy) {
+    const li = document.createElement('li');
+    li.className = 'empty hint-row';
+    li.textContent = t('search.zeZalohy', state.lang);
+    ul.append(li);
   }
   ul.hidden = false;
 }
@@ -3014,9 +3025,9 @@ function pripojVyber(inputId, resultsId, kam) {
     ukazVysledky([], ulozena);
     timer = setTimeout(async () => {
       try {
-        const { data } = await requests.run(`search-${kam}`, (signal) =>
+        const { data, zeZalohy } = await requests.run(`search-${kam}`, (signal) =>
           apiGet('geocode', { name: q, count: 8, language: state.lang, ...odkudSeDivam() }, { signal }));
-        ukazVysledky(data?.results || [], ulozenaProNabidku(q));
+        ukazVysledky(data?.results || [], ulozenaProNabidku(q), zeZalohy);
       } catch (e) {
         if (!requests.isAbort(e)) ukazVysledky([], ulozenaProNabidku(q));
       }
@@ -3025,7 +3036,7 @@ function pripojVyber(inputId, resultsId, kam) {
 
   input.addEventListener('blur', () => setTimeout(skryj, 150));
 
-  function ukazVysledky(list, ulozena = []) {
+  function ukazVysledky(list, ulozena = [], zeZalohy = false) {
     results.hidden = false;
     // Poslední řádek je sdělení, ne místo: buď „nic jsme nenašli", nebo
     // „nevím, kde jsi, tak to neumím seřadit". Obojí je stav, který by jinak
@@ -3035,6 +3046,8 @@ function pripojVyber(inputId, resultsId, kam) {
     if (list.length) radky.push(...list);
     else if (!ulozena.length) radky.push({ zprava: t('search.noResults', state.lang) });
     if (list.length && !znamePolohu()) radky.push({ zprava: t('search.noFocus', state.lang) });
+    // ⚠️ Až za výsledky: je to poznámka k nim, ne místo náhradou za ně.
+    if (zeZalohy) radky.push({ zprava: t('search.zeZalohy', state.lang) });
 
     fill(results, radky, (r) => {
       const li = document.createElement('li');

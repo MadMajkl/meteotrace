@@ -67,9 +67,46 @@ export const UPSTREAMS = {
    *
    * ⚠️ Za to platíme kvótou (3 000/den, 100/min) a tím, že routing i hledání
    * visí na jednom poskytovateli. Proto `fallback` — viz níže.
+   *
+   * ────────────────────────────────────────────────────────────────────────
+   * 🚨 `/autocomplete`, NE `/search` (změněno 31. 8. 2026)
+   *
+   * Michal: *„zas blbne asi nějak vyhledávání, diakritika, luční 208… Hor to
+   * ještě Horšovský Týn najde, ale Horš už Horšovský Týn schová a musím to
+   * dopsat celé."*
+   *
+   * ⚠️ **Nebyla to diakritika ani řazení.** `/geocode/search` vracelo
+   * **HTTP 403 „Quota exceeded"** — denní příděl toho endpointu byl vyčerpaný.
+   * Proxy proto (správně) přepnula na zálohu `geocodeBasic` = Open-Meteo,
+   * a to je přesně ten zdroj, kvůli kterému se 24. 8. měnil hlavní (`R14`):
+   * **neumí adresy a rozbíjí se na diakritice**. Michalovy příznaky do jednoho
+   * seděly na zálohu, ne na hlavní zdroj.
+   *
+   * 🚨 Poučení pro příště: než začneš ladit chování zdroje, ověř, ŽE SE HO
+   * VŮBEC PTÁŠ. Napoprvé jsem měřil „rozdíl mezi /search a /autocomplete"
+   * přes vlastní proxy — jenže /search se nevolalo vůbec a měřil jsem
+   * Open-Meteo. Prozradil to až log proxy: *„hlavní zdroj je od nedávna mimo,
+   * jdu rovnou na zálohu."*
+   *
+   * `/autocomplete` má **vlastní kvótu** (proto jede, když je /search na nule)
+   * a navíc je to endpoint dělaný **na psaní po písmenech**: poslední slovo
+   * bere jako předponu, kdežto /search bere text jako hotový dotaz. Pro pole,
+   * do kterého se píše znak po znaku, je to ten správný z těch dvou.
+   *
+   * Změřeno po přepnutí (přes naši proxy, `focus.point` u Horšovského Týna):
+   * `Hor` i `Horš` → **Horšovský Týn první**, `Klat` → **Klatovy první**,
+   * `Luční 208` a `náměstí Republiky 1, Horšovský Týn` → **přesná adresa**.
+   *
+   * ⚠️ Parametry ani formát odpovědi se nemění (`normalize: 'pelias'` platí
+   * dál), takže je to výměna jedné adresy — ne přepis.
+   *
+   * 🟡 ZŮSTÁVÁ OTEVŘENÉ: kvóta se vyčerpala i tak. Autocomplete má vlastní
+   * příděl, ale při psaní se ptáme po každém písmenu (s prodlevou 280 ms),
+   * takže ho spotřebováváme rychleji než /search. Viz deník 31. 8. 2026.
+   * ────────────────────────────────────────────────────────────────────────
    */
   geocode: {
-    base: 'https://api.openrouteservice.org/geocode/search',
+    base: 'https://api.openrouteservice.org/geocode/autocomplete',
     params: ['text', 'size', 'lang', 'focus.point.lat', 'focus.point.lon'],
     // Klient posílá pořád `name`/`count`; překlad na řeč služby patří sem,
     // ne do appky — jinak by výměna zdroje znamenala zásah do obrazovky.

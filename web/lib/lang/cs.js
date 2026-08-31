@@ -93,6 +93,10 @@ export default {
     noResults: 'Takové místo neznám. Zkus to napsat jinak.',
     searching: 'Hledám…',
     noFocus: 'Neřadí se podle polohy — ⌖ nabídne okolí.',
+    // 🚨 Musí říct, CO Z TOHO PLYNE. „Náhradní zdroj" samo o sobě je
+    // technická poznámka; člověk potřebuje vědět, že teď nemá cenu psát
+    // ulici s číslem popisným, protože záloha adresy neumí.
+    zeZalohy: 'Náhradní zdroj — adresu s číslem popisným teď nenajdu.',
     /* 🚨 Polohu NEHLÁSIT jako „data se nepodařilo načíst" (do 31. 8. 2026 se
        tak hlásila). Poloha nejsou data: kdo to čte, hledá chybu v připojení
        nebo v serveru, kdežto skoro vždycky jde o odepřené povolení — a to

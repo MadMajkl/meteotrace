@@ -271,8 +271,9 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
  * @param {number} a.ttlS
  * @param {boolean} [a.fresh]  false = servíruje se prošlá odpověď z cache
  * @param {number} [a.ageS]
+ * @param {boolean} [a.zeZalohy]  true = odpověď je z náhradního zdroje
  */
-export function responseHeaders({ ttlS, fresh = true, ageS = 0 }) {
+export function responseHeaders({ ttlS, fresh = true, ageS = 0, zeZalohy = false }) {
   const h = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': `public, max-age=${ttlS}, s-maxage=${ttlS}, stale-while-revalidate=${ttlS * 4}`,
@@ -283,6 +284,13 @@ export function responseHeaders({ ttlS, fresh = true, ageS = 0 }) {
     h['X-MeteoTrace-Stale'] = '1';
     h['Age'] = String(ageS);
   }
+  // 🚨 ZÁLOHA SE MUSÍ PŘIZNAT. Přepnutí na náhradní zdroj je správné chování
+  // (lepší horší výsledky než žádné), ale do 31. 8. 2026 se o něm jen psalo
+  // do logu — uživatel viděl jen to, že appka „najednou nic nenajde".
+  // Michal: *„zas blbne asi nějak vyhledávání, diakritika."* Neblbla:
+  // hlavnímu zdroji došla kvóta a jelo se ze zálohy, která neumí adresy.
+  // Správné chování, o kterém se mlčí, se od poruchy nedá odlišit.
+  if (zeZalohy) h['X-MeteoTrace-Zaloha'] = '1';
   return h;
 }
 

@@ -296,7 +296,11 @@ export async function serveProxy(req, deps) {
 
     cache.set(plan.cacheKey, out, platnostS);
     log('staženo', { service: pouzity.service, key: plan.cacheKey, zeZalohy });
-    return { status: 200, headers: responseHeaders({ ttlS: platnostS }), body: proMisto(out) };
+    return {
+      status: 200,
+      headers: responseHeaders({ ttlS: platnostS, zeZalohy }),
+      body: proMisto(out),
+    };
   } catch (e) {
     // 3) Nepovedlo se. Máme-li prošlou odpověď, je nesrovnatelně lepší než chyba —
     //    desetiminutová předpověď v autě na špatném signálu pořád poslouží.

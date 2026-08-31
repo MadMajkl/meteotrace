@@ -50,6 +50,9 @@ export async function apiGet(service, params = {}, opts = {}) {
     // Proxy servíruje prošlá data, když cizí služba neodpoví. Musí to jít poznat,
     // jinak by se stará předpověď tvářila jako čerstvá.
     stale: res.headers.get('X-MeteoTrace-Stale') === '1',
+    // Odpověď z náhradního zdroje. Ať se to dá říct nahlas — mlčky horší
+    // výsledky vypadají jako rozbitá appka.
+    zeZalohy: res.headers.get('X-MeteoTrace-Zaloha') === '1',
     ageS: Number(res.headers.get('Age') || 0),
   };
 }
