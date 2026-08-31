@@ -111,6 +111,20 @@ let trasaData = null;
 let bublinaZapojena = false;
 /** Špendlík vybraného místa. Vzniká jednou a pak se PŘESOUVÁ, viz níže. */
 let znacka = null;
+/**
+ * Špendlíky startu a cíle na trase.
+ *
+ * 🚨 DO 31. 8. 2026 ŽÁDNÉ NEBYLY. Trasa kreslila čáru a barevné tečky bodů,
+ * ale start ani cíl neměly vlastní značku — jediný špendlík na obrazovce byl
+ * ten od meteostanice (`znacka`), který tam zůstal viset z předchozího místa
+ * a náhodou sedával blízko startu. Michal 31. 8. 2026: *„u trasy je tam
+ * špendlík jen jeden, a to startu, a žádný cíle!"*
+ *
+ * ⚠️ Řídí je ZADÁNÍ ve formuláři, ne spočítaná trasa — jinak by se cíl
+ * ukázal až po stisku tlačítka, tedy dávno potom, co na něj člověk klepl.
+ */
+let znackaStart = null;
+let znackaCil = null;
 /** Co se má stát, když si uživatel vybere místo klepnutím do mapy. */
 let priVyberu = null;
 /** Poslední obrys výstrahy — po přebarvení mapy se musí nakreslit znovu. */
@@ -385,6 +399,56 @@ export function showWarningArea(geometrie, trida = 'unknown') {
  * @param {boolean} [opts.fit]  srovnat pohled na celou trasu (jen u nové trasy —
  *   jinak by se uživateli sebral pohled, který si sám nastavil)
  */
+/**
+ * Špendlíky startu a cíle. Volá se při každé změně zadání.
+ *
+ * ⚠️ Barvy: start bere modrou appky, cíl **zlatou ze značky** (`#D2920F`).
+ * Dvě modré vedle sebe by se na malé mapě nerozeznaly, a barvy legendy
+ * (zelená, modrá, červená, šedá) jsou obsazené významem počasí — sáhnout po
+ * nich by znamenalo tvrdit o špendlíku něco, co neplatí.
+ *
+ * ⚠️ Popisek jde do `title` značky, ať se dá najet myší a poznat, co je co.
+ *
+ * @param {{lat:number,lon:number}|null} start
+ * @param {{lat:number,lon:number}|null} cil
+ * @param {{start?:string, cil?:string}} [popisky]
+ */
+export function showRoutePins(start, cil, popisky = {}) {
+  if (!map) return;
+
+  // 🚨 VŽDYCKY OD NULY. Napoprvé se značky jen posouvaly a při neplatném bodu
+  // rušily — jenže stačilo, aby se jedna přestala trefit do své proměnné,
+  // a v mapě zůstala viset osiřelá: po zadání cíle byly na obrazovce dva
+  // špendlíky „Start" a při návratu na meteostanici nezmizel ani jeden.
+  // Dvě značky se překreslí levněji, než se hlídá, čí je která.
+  hideRoutePins();
+
+  const pridej = (bod, barva, titulek) => {
+    if (!bod || !Number.isFinite(bod.lat) || !Number.isFinite(bod.lon)) return null;
+    const znak = new maplibregl.Marker({ color: barva });
+    // ⚠️ Popisek se nastavuje při KAŽDÉM vzniku, ne jen poprvé — jinak by
+    // se cíl mohl představovat jako start.
+    znak.getElement().title = titulek || '';
+    znak.setLngLat([bod.lon, bod.lat]).addTo(map);
+    return znak;
+  };
+
+  znackaStart = pridej(start, '#1a7fd4', popisky.start);
+  znackaCil = pridej(cil, '#D2920F', popisky.cil);
+}
+
+/** Schová špendlíky trasy (přechod na meteostanici). */
+export function hideRoutePins() {
+  znackaStart?.remove(); znackaStart = null;
+  znackaCil?.remove(); znackaCil = null;
+}
+
+/** Schová nebo vrátí špendlík meteostanice — na trase nemá co dělat. */
+export function showPlacePin(zobrazit) {
+  if (!znacka) return;
+  znacka.getElement().style.display = zobrazit ? '' : 'none';
+}
+
 export function showRoute(data, { fit = false } = {}) {
   trasaData = data && data.line?.length >= 2 ? data : null;
   if (!map || !styleReady) return;

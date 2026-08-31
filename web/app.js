@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.11';
+const VERZE = '0.17.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -631,6 +631,30 @@ function zapniHodnoceni() {
 }
 
 /**
+ * Srovná špendlíky v mapě se stavem: na trase start a cíl, na meteostanici
+ * jeden špendlík místa.
+ *
+ * 🚨 Volá se při KAŽDÉ změně zadání, ne až po výpočtu. Kdo klepne do mapy na
+ * cíl, musí ho tam hned vidět — čekat se špendlíkem na tlačítko „Ukázat
+ * počasí" znamená, že klepnutí vypadá, jako by nic neudělalo. Přesně na to
+ * si Michal 31. 8. 2026 stěžoval: *„u trasy je tam špendlík jen jeden, a to
+ * startu, a žádný cíle!"*
+ */
+function srovnejSpendliky() {
+  if (!mapModule?.showRoutePins) return;
+  if (state.screen === 'route') {
+    mapModule.showPlacePin?.(false);
+    mapModule.showRoutePins(state.route.from, state.route.to, {
+      start: t('route.start', state.lang),
+      cil: t('route.finish', state.lang),
+    });
+  } else {
+    mapModule.hideRoutePins?.();
+    mapModule.showPlacePin?.(true);
+  }
+}
+
+/**
  * Rozbalí nebo sbalí legendu „Body na trase" pod mapou.
  *
  * ⚠️ Legenda, ne rozpis počasí. 31. 8. 2026 jsem to popletl a sbalil kartu
@@ -679,6 +703,7 @@ function renderRoutes() {
   // po kterých se `renderRoutes()` volá (výběr z nabídky, ⌖, prohození,
   // načtení uložené trasy, vymazání).
   vypisNapoveduMapy();
+  srovnejSpendliky();
   const current = najdiUlozenouTrasu();
   const btn = $('btn-save-route');
   // Hvězdička dává smysl, jen když je co uložit — tedy až je start i cíl.
@@ -2909,6 +2934,7 @@ function prepniObrazovku(kam) {
   // zůstala schovaná i nad hotovou trasou a vypadalo to jako vada.
   // Podmínkou je, že nějaká trasa opravdu je: rozhoduje to táž karta,
   // která nese výsledek.
+  srovnejSpendliky();
   const legenda = $('route-legenda');
   if (legenda) {
     if (kam !== 'route') legenda.hidden = true;
@@ -3042,6 +3068,7 @@ function zapisMisto(kam, misto) {
   // cesta, kudy zápis z polí chodí. Kdyby se přepisovala jen při přepnutí
   // obrazovky, tvrdila by nad hotovou trasou, že klepnutí zadá start.
   vypisNapoveduMapy();
+  srovnejSpendliky();
   // ⚠️ A rovnou se to uloží, jinak by zadání nepřežilo obnovení stránky.
   // Píše se i při mazání (psaní do pole zahazuje vybrané místo) — zápis je
   // pár set bajtů, takže je levnější než hlídat, kdy se to „vyplatí".
