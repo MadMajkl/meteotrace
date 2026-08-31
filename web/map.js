@@ -205,6 +205,44 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
+    // Klepnutí do mapy = výběr místa. Jméno se bere z NAŠICH popisků, ne
+    // z cizí služby — dlaždice je nesou včetně české podoby (R3).
+    //
+    // 🚨 ZAPOJUJE SE TADY, PŘED ČEKÁNÍM NA STYL. Do 31. 8. 2026 to stálo až
+    // za `if (!styleReady) … return;` — takže když se styl nestihl načíst
+    // (pomalá síť, studený archiv, telefon), funkce se ukončila dřív, než
+    // obsluhu zaregistrovala. A protože se instance mapy schválně NENULUJE,
+    // další volání celý blok `if (!map)` přeskočilo: klepání do mapy zůstalo
+    // mrtvé **do konce sezení**, i když se mapa mezitím dokreslila.
+    //
+    // Michal 31. 8. 2026: *„pokud máš vybranou adresu, můžeš klepat, jak
+    // chceš."* Přesně tohle — jednou promeškané zapojení už se nevrátilo.
+    //
+    // ⚠️ Vlastní obsluha si se stylem poradí sama: `queryRenderedFeatures`
+    // je v `try`, takže bez vrstev se prostě použijí souřadnice.
+    map.on('click', (e) => {
+      const bod = [e.lngLat.lat, e.lngLat.lng];
+      const okoli = 30;   // px — prst není přesný, popisek bývá vedle bodu
+      const ramecek = [
+        [e.point.x - okoli, e.point.y - okoli],
+        [e.point.x + okoli, e.point.y + okoli],
+      ];
+      let popisky = [];
+      try {
+        popisky = map.queryRenderedFeatures(ramecek, { layers: ['mesta', 'ctvrti'] })
+          .map((f) => ({
+            name: typeof f.properties?.name === 'string' ? f.properties.name : '',
+            lat: f.geometry?.coordinates?.[1],
+            lon: f.geometry?.coordinates?.[0],
+          }));
+      } catch {
+        // Vrstvy nemusí existovat (styl se právě mění) — pak se prostě
+        // použijí souřadnice. Není důvod kvůli tomu spadnout.
+      }
+      const misto = placeFromMap(bod, popisky);
+      if (misto && priVyberu) priVyberu(misto);
+    });
+
     // ⚠️ Na událost `load` se čeká se stropem. Kdyby nedorazila — a viděl jsem
     // to: styl se zasekne bez jediné chyby v konzoli — zůstalo by čekání viset
     // navždy a s ním i všechno za ním: radar by se nikdy nenačetl a uživatel
@@ -251,31 +289,6 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       pause();
       index = Number(e.target.value);
       drawFrame();
-    });
-
-    // Klepnutí do mapy = výběr místa. Jméno se bere z NAŠICH popisků, ne
-    // z cizí služby — dlaždice je nesou včetně české podoby (R3).
-    map.on('click', (e) => {
-      const bod = [e.lngLat.lat, e.lngLat.lng];
-      const okoli = 30;   // px — prst není přesný, popisek bývá vedle bodu
-      const ramecek = [
-        [e.point.x - okoli, e.point.y - okoli],
-        [e.point.x + okoli, e.point.y + okoli],
-      ];
-      let popisky = [];
-      try {
-        popisky = map.queryRenderedFeatures(ramecek, { layers: ['mesta', 'ctvrti'] })
-          .map((f) => ({
-            name: typeof f.properties?.name === 'string' ? f.properties.name : '',
-            lat: f.geometry?.coordinates?.[1],
-            lon: f.geometry?.coordinates?.[0],
-          }));
-      } catch {
-        // Vrstvy nemusí existovat (styl se právě mění) — pak se prostě
-        // použijí souřadnice. Není důvod kvůli tomu spadnout.
-      }
-      const misto = placeFromMap(bod, popisky);
-      if (misto && priVyberu) priVyberu(misto);
     });
 
     // Mapa se zakládá dřív, než má karta konečnou velikost, a MapLibre si

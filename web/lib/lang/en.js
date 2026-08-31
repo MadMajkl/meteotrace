@@ -325,7 +325,6 @@ export default {
     in: 'in {min} min',
     nowcast: 'Forecast',
     nowcastChmi: 'ČHMI forecast',
-    pickHint: 'Tap the map to pick a place.',
     disabled: 'The map is switched off by ?nomap=1 in the address.',
     mapFailed: 'The map could not be loaded. Check the connection and try again.',
     noWebgl: 'This browser cannot draw the map — 3D graphics (WebGL) are turned off or unavailable.',

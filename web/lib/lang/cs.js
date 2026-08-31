@@ -383,7 +383,6 @@ export default {
     in: 'za {min} min',
     nowcast: 'Dopočet',
     nowcastChmi: 'Předpověď ČHMÚ',
-    pickHint: 'Klepnutím do mapy vybereš místo.',
     disabled: 'Mapa je vypnutá parametrem ?nomap=1 v adrese.',
     mapFailed: 'Mapu se nepodařilo načíst. Zkontroluj připojení a zkus to znovu.',
     noWebgl: 'Tenhle prohlížeč mapu nevykreslí — nemá zapnuté 3D vykreslování (WebGL).',

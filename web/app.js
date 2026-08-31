@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.9';
+const VERZE = '0.16.10';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -139,6 +139,17 @@ function load() {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
     }
+    // ⚠️ Body se berou jen tehdy, když jsou použitelné — poškozený zápis by
+    // jinak vyrobil trasu do neznáma. Způsob dopravy se ověřuje proti
+    // seznamu, ať se do stavu nedostane nesmysl z novější verze.
+    if (saved.route && typeof saved.route === 'object') {
+      if (isUsablePoint(saved.route.from)) state.route.from = saved.route.from;
+      if (isUsablePoint(saved.route.to)) state.route.to = saved.route.to;
+      if (Array.isArray(saved.route.via)) {
+        state.route.via = saved.route.via.filter((m) => m === null || isUsablePoint(m));
+      }
+      if (ZPUSOBY.some((z) => z.profil === saved.route.profil)) state.route.profil = saved.route.profil;
+    }
   } catch { /* jede se dál s výchozím */ }
 }
 
@@ -152,6 +163,17 @@ function save() {
       theme: state.theme, primary: state.primary,
       notify: state.notify, oznameno: state.oznameno,
       onboardingHotovo: state.onboardingHotovo,
+      // 🚨 Rozepsaná trasa PŘEŽIJE OBNOVENÍ STRÁNKY. Do 31. 8. 2026 se
+      // neukládala vůbec, takže refresh vyhodil zadaný start i cíl — a appka
+      // pak neměla z čeho poznat, že se má otevřít na trase.
+      // Michal: *„když dám refresh, hodí mě to zpět na místo, i když mám
+      // zvolenou výchozí trasu."*
+      // ⚠️ Ukládá se jen ZADÁNÍ, ne spočítaný výsledek: ten je za pár hodin
+      // stejně neplatný a předpověď by tvrdila včerejšek.
+      route: {
+        from: state.route.from, to: state.route.to,
+        via: state.route.via, profil: state.route.profil,
+      },
     }));
   } catch { /* nevadí */ }
 }
@@ -2266,8 +2288,18 @@ function presunMapu() {
 function vypisNapoveduMapy() {
   const hint = $('map-hint');
   if (!hint) return;
+  // 🚨 NA METEOSTANICI SE NETVRDÍ NIC. Stála tu věta *„Klepnutím do mapy
+  // vybereš místo."* — Michal 31. 8. 2026: *„vyhoď ji, aspoň dokud to nebude
+  // pravda; a teď není, pokud máš vybranou adresu, můžeš klepat, jak chceš."*
+  //
+  // ⚠️ Příčinu jsem NENAŠEL: mapa se v prohlížeči, který mám k dispozici,
+  // nevykreslí, takže klepnutí nejde vyzkoušet, a čtením kódu cesta vypadá
+  // v pořádku (`map.on('click')` → `placeFromMap` → `vyberZMapy` →
+  // `selectPlace`). Dokud to není ověřené na skutečném zařízení, nesmí to
+  // appka slibovat — nefunkční nápověda je horší než žádná.
   if (state.screen !== 'route') {
-    hint.textContent = t('radar.pickHint', state.lang);
+    hint.textContent = '';
+    hint.hidden = true;
     return;
   }
   const klic = klepnutiDoMapy(state.route).klic;
@@ -2961,6 +2993,10 @@ function zapisMisto(kam, misto) {
   // cesta, kudy zápis z polí chodí. Kdyby se přepisovala jen při přepnutí
   // obrazovky, tvrdila by nad hotovou trasou, že klepnutí zadá start.
   vypisNapoveduMapy();
+  // ⚠️ A rovnou se to uloží, jinak by zadání nepřežilo obnovení stránky.
+  // Píše se i při mazání (psaní do pole zahazuje vybrané místo) — zápis je
+  // pár set bajtů, takže je levnější než hlídat, kdy se to „vyplatí".
+  save();
 }
 
 /**
@@ -3661,7 +3697,14 @@ function init() {
   $('settings-close').addEventListener('click', () => $('settings-dialog').close());
   $('set-lang').addEventListener('change', (e) => zmenJazyk(e.target.value));
   $('set-theme').addEventListener('change', (e) => { state.theme = e.target.value; save(); pouzijVzhled(); });
-  $('set-primary').addEventListener('change', (e) => { state.primary = e.target.value; save(); pouzijPoradi(); });
+  // ⚠️ Do stavu jen platná hodnota. Prázdná nabídka (nebo zápis z novější
+  // verze) by jinak uložila `primary: ''` a domovská obrazovka by přestala
+  // fungovat, aniž by se dalo poznat proč.
+  $('set-primary').addEventListener('change', (e) => {
+    state.primary = e.target.value === 'route' ? 'route' : 'station';
+    save();
+    pouzijPoradi();
+  });
   $('set-notify').addEventListener('change', (e) => zmenUpozorneni(e.target.value));
   for (const osa of Object.keys(JEDNOTKY)) {
     $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
@@ -3778,16 +3821,28 @@ function init() {
 
   if (state.place) loadStation();
 
-  // Levá záložka je zároveň ta, kterou appka začíná — jinak by nastavení
-  // slibovalo něco jiného, než dělá.
+  // Zadaná trasa se vrátí do polí — stav bez textu by vypadal prázdný,
+  // i když se s ním počítá.
+  if (state.route.from) $('route-from').value = state.route.from.name || '';
+  if (state.route.to) $('route-to').value = state.route.to.name || '';
+  vykresliMezibody();
+  vykresliZpusoby();
+  renderRoutes();
+
+  // 🚨 NASTAVENÍ PLATÍ. Kdo si zvolil domovskou obrazovku „Trasa", dostane
+  // trasu — tečka.
   //
-  // ⚠️ Výjimka: když se otevírá trasa a není z čeho ji počítat, ale uložené
-  // místo existuje, ukáže se rovnou počasí. Prázdný formulář místo dat by
-  // byl krok zpátky pro toho, kdo appku otevírá kvůli jedné rychlé věci.
-  const zacniNa = state.primary === 'route' && (state.route.from || !state.place)
-    ? 'route'
-    : 'station';
-  prepniObrazovku(zacniNa);
+  // ♻️ Nahrazuje pravidlo z 29. 8. 2026, které mělo výjimku: *„když se otevírá
+  // trasa a není z čeho ji počítat, ale uložené místo existuje, ukáže se
+  // rovnou počasí."* Vypadalo laskavě, ale tiše přebíjelo výslovnou volbu —
+  // a protože se rozepsaná trasa navíc neukládala, spustilo se to po KAŽDÉM
+  // obnovení stránky. Michal 31. 8. 2026: *„když dám refresh, hodí mě to zpět
+  // na místo, i když mám zvolenou výchozí trasu."*
+  //
+  // ⚠️ Prázdný formulář na startu není chyba: je to obrazovka, o kterou si
+  // člověk řekl v nastavení. A po téhle opravě bývá vyplněný, protože se
+  // zadání pamatuje.
+  prepniObrazovku(state.primary === 'route' ? 'route' : 'station');
 
   // Uvítání až úplně nakonec, kdy je appka pod ním hotová. Kdyby se
   // spustilo dřív, ukázaly by poslední dva kroky rozestavěnou obrazovku.

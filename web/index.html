@@ -668,9 +668,11 @@
          fungují samy od sebe; vlastní posuvník by to musel dohánět. -->
     <input id="radar-scrub" class="radar-scrub" type="range" min="0" max="0" value="0" step="1"
            data-i18n-attr="aria-label:radar.scrub">
-    <!-- Bez tohohle by o výběru klepnutím nikdo nevěděl: mapa nevypadá
-         jako něco, do čeho se dá ukázat. -->
-    <p class="hint map-hint" id="map-hint" data-i18n="radar.pickHint"></p>
+    <!-- Nápovědu ke klepnutí do mapy plní JS (vypisNapoveduMapy), protože
+         její znění závisí na obrazovce i na tom, co je zadané.
+         🚨 ŽÁDNÉ data-i18n: to přepisuje textContent podle klíče, takže by
+         při změně jazyka vrátilo větu, kterou jsme právě schovali. -->
+    <p class="hint map-hint" id="map-hint" hidden></p>
 
     <!-- 🚨 LEGENDA JE V KARTĚ MAPY, POD ČASOVOU OSOU, VPRAVO DOLE.
          Michal 31. 8. 2026: *„dej tu dlaždici s body na trase do hlavní
