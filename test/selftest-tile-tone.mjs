@@ -76,6 +76,43 @@ test('UV: v noci se nebarví — chybějící údaj není nula', () => {
   assert.equal(uvTon(0).stupen, 'klid', 'naměřená nula je nízká zátěž');
 });
 
+test('🚨 UV: slovo jde ze stejného větvení jako barva', () => {
+  // Kdyby text měl vlastní kopii prahů, rozešel by se s barvou a dlaždice
+  // by svítila na jeden stupeň a psala u ní jiný. To je horší než nepsat nic.
+  assert.equal(uvTon(1).popis, 'nizka');
+  assert.equal(uvTon(2.9).popis, 'nizka');
+  assert.equal(uvTon(3).popis, 'stredni');
+  assert.equal(uvTon(5.9).popis, 'stredni');
+  assert.equal(uvTon(6).popis, 'vysoka');
+  assert.equal(uvTon(7.9).popis, 'vysoka');
+  assert.equal(uvTon(8).popis, 'velmiVysoka');
+  assert.equal(uvTon(10.9).popis, 'velmiVysoka');
+  assert.equal(uvTon(11).popis, 'extremni');
+  assert.equal(uvTon(25).popis, 'extremni');
+});
+
+test('UV: bez údaje se slovo nepíše — prázdno není „nízká zátěž"', () => {
+  assert.equal(uvTon(null).popis, null);
+  assert.equal(uvTon(undefined).popis, null);
+  assert.equal(uvTon(NaN).popis, null);
+  assert.equal(uvTon(0).popis, 'nizka', 'naměřená nula slovo MÁ');
+});
+
+test('🚨 UV: ke každému stupni existuje slovo v obou jazycích', async () => {
+  // ⚠️ Bez tohohle by se na nový stupeň zapomnělo v druhém jazyce a appka
+  // by u něj vypsala holý klíč („now.uvExtremni"). Vyskočilo by to až
+  // u extrémního UV — tedy skoro nikdy, a zrovna když na tom nejvíc záleží.
+  const cs = (await import('../web/lib/lang/cs.js')).default ?? (await import('../web/lib/lang/cs.js')).cs;
+  const en = (await import('../web/lib/lang/en.js')).default ?? (await import('../web/lib/lang/en.js')).en;
+  const stupne = [0, 3, 6, 8, 11].map((v) => uvTon(v).popis);
+  assert.deepEqual(stupne, ['nizka', 'stredni', 'vysoka', 'velmiVysoka', 'extremni']);
+  for (const p of stupne) {
+    const klic = 'uv' + p[0].toUpperCase() + p.slice(1);
+    assert.ok(cs.now[klic], `chybí český text pro ${klic}`);
+    assert.ok(en.now[klic], `chybí anglický text pro ${klic}`);
+  }
+});
+
 /* ── tlak ─────────────────────────────────────────────────────────────── */
 
 test('tlak: běžné rozmezí se nebarví', () => {

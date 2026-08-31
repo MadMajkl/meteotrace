@@ -87,14 +87,24 @@ export function windTon(kmh, gustKmh = null) {
  * stupnice a její hranice zná i leták u bazénu.
  *
  *   0–2 nízký · 3–5 střední · 6–7 vysoký · 8–10 velmi vysoký · 11+ extrémní
+ *
+ * 🚨 `popis` (klíč do slovníku) chodí ZE STEJNÉHO VĚTVENÍ jako `stupen`.
+ * Michal 31. 8. 2026: *„k tomu UV indexu hoď i textově sílu zátěže."*
+ * Samostatná funkce s vlastní kopií prahů by se dřív nebo později rozešla
+ * a appka by barvila dlaždici na jeden stupeň a psala u ní jiný — a to je
+ * horší než nepsat nic, protože si každý vybere to, čemu věří.
+ *
+ * ⚠️ `stupen` je SPOLEČNÝ slovník tónů (sdílí ho vítr i tlak), takže se
+ * z něj text odvozovat nesmí: kdyby se u větru přejmenoval, mlčky by se
+ * změnila slova u UV.
  */
 export function uvTon(uv) {
-  if (!Number.isFinite(uv)) return { stupen: 'zadny', podil: 0 };
-  if (uv < 3) return { stupen: 'klid', podil: uv / 11 };
-  if (uv < 6) return { stupen: 'mirne', podil: uv / 11 };
-  if (uv < 8) return { stupen: 'pozor', podil: uv / 11 };
-  if (uv < 11) return { stupen: 'zle', podil: uv / 11 };
-  return { stupen: 'krize', podil: 1 };
+  if (!Number.isFinite(uv)) return { stupen: 'zadny', podil: 0, popis: null };
+  if (uv < 3) return { stupen: 'klid', podil: uv / 11, popis: 'nizka' };
+  if (uv < 6) return { stupen: 'mirne', podil: uv / 11, popis: 'stredni' };
+  if (uv < 8) return { stupen: 'pozor', podil: uv / 11, popis: 'vysoka' };
+  if (uv < 11) return { stupen: 'zle', podil: uv / 11, popis: 'velmiVysoka' };
+  return { stupen: 'krize', podil: 1, popis: 'extremni' };
 }
 
 /* ── tlak ─────────────────────────────────────────────────────────────── */

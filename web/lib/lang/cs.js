@@ -255,6 +255,13 @@ export default {
     pressure: 'Tlak',
     cloudCover: 'Oblačnost',
     uvIndex: 'UV index',
+    // Slovní stupeň pod číslem UV. ⚠️ „zátěž" tam patří: samotné „nízká"
+    // by u dlaždice nadepsané „UV index" nebylo poznat, čeho se týká.
+    uvNizka: 'nízká zátěž',
+    uvStredni: 'střední zátěž',
+    uvVysoka: 'vysoká zátěž',
+    uvVelmiVysoka: 'velmi vysoká zátěž',
+    uvExtremni: 'extrémní zátěž',
     sunrise: 'Východ',
     sunset: 'Západ',
     moon: 'Měsíc',

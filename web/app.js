@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.2';
+const VERZE = '0.16.3';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1879,7 +1879,20 @@ function render(forecast, air) {
   $('d-humidity').textContent = c.humidity;
   $('d-precip').textContent = c.precip;
   $('d-cloud').textContent = c.cloudCover;
-  $('d-uv').textContent = c.uvIndex;
+  // UV: pod číslo i slovo. 🚨 Číslo samo nic neříká — „5,4" je informace
+  // jen pro toho, kdo stupnici zná zpaměti. Michal 31. 8. 2026: *„k tomu UV
+  // indexu hoď i textově sílu zátěže."* Stupeň i slovo chodí z jedné funkce
+  // (`uvTon`), takže se barva dlaždice a text nemůžou rozejít.
+  const uvPole = $('d-uv');
+  uvPole.textContent = c.uvIndex;
+  const uvPopis = uvTon(c.uvIndexNum).popis;
+  if (uvPopis) {
+    const slovo = t(`now.uv${uvPopis[0].toUpperCase()}${uvPopis.slice(1)}`, state.lang);
+    uvPole.append(el('span', 'dir', slovo));
+    uvPole.setAttribute('aria-label', `${c.uvIndex}, ${slovo}`);
+  } else {
+    uvPole.removeAttribute('aria-label');
+  }
   $('d-sunrise').textContent = view.sun.sunrise;
   $('d-sunset').textContent = view.sun.sunset;
 
