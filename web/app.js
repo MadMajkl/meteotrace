@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.14.6';
+const VERZE = '0.14.7';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3506,7 +3506,14 @@ function init() {
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
 
   // Značka rozbaluje a sbaluje nabídku.
-  $('btn-menu').addEventListener('click', () => nabidka(!nabidkaOtevrena()));
+  $('btn-menu').addEventListener('click', () => {
+    // Výzva šipkou splnila úkol — kdo na ni jednou klepl, ví, že je to
+    // tlačítko. Značka se NEUKLÁDÁ: po příštím spuštění appky se šipka
+    // ozve znovu (Michal 31. 8. 2026: „při spuštění appky a pak co třeba
+    // 10 sekund").
+    document.documentElement.dataset.nabidkaZnama = '1';
+    nabidka(!nabidkaOtevrena());
+  });
   // ⚠️ Klepnutí mimo hlavičku nabídku sbalí — je to nabídka, ne druhá půlka
   // obrazovky. Ale JEN když je pod ní co ukazovat: na prázdné obrazovce by
   // se sbalila a nezůstalo by nic, čím začít.

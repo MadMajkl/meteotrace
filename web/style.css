@@ -191,6 +191,39 @@ body {
 .brand-sipka { flex: none; font-size: 13px; color: var(--accent); transition: transform .18s; }
 .brand-toggle[aria-expanded="true"] .brand-sipka { transform: rotate(180deg); }
 
+/* 🚨 ŠIPKA SE OBČAS POHNE, ABY BYLO POZNAT, ŽE SE NA NI DÁ KLEPNOUT.
+   Michal 31. 8. 2026: samotná šipka je vidět, ale nikomu nedojde, že je to
+   tlačítko. Pohyb to řekne bez jediného slova — a naznačí i SMĚR, kterým
+   se nabídka vysune (dolů).
+
+   ⚠️ Bez časovače: prodleva je uvnitř animace. Pohyb zabere první necelou
+   sekundu, zbytek desetivteřinové smyčky šipka stojí. Časovač v JS by se
+   musel uklízet při každém přepnutí obrazovky a byl by to další zdroj
+   úklidových chyb — tohle je jedna vlastnost v CSS.
+
+   ⚠️ JEN VE SBALENÉM STAVU. V rozbaleném už nabídku vidíš, takže by pohyb
+   nic neříkal a jen tahal oko od obsahu. A jen do prvního použití: kdo na
+   ni jednou klepl, ví to — od té chvíle by to bylo cukání bez důvodu. */
+@keyframes sipka-vyzva {
+  0%, 8%, 100% { transform: translateY(0); }
+  3%           { transform: translateY(3px); }
+  5.5%         { transform: translateY(0); }
+  6.5%         { transform: translateY(2px); }
+}
+.brand-toggle[aria-expanded="false"] .brand-sipka {
+  animation: sipka-vyzva 10s ease-in-out infinite;
+}
+/* Nabídka už byla otevřená — výzva splnila úkol a mlčí. Značka se nastaví
+   při prvním klepnutí a NEUKLÁDÁ se: po příštím spuštění appky se šipka
+   ozve znovu, přesně jak si Michal přál. */
+:root[data-nabidka-znama] .brand-sipka { animation: none; }
+
+/* ⚠️ Kdo si v systému vypnul animace, má k tomu důvod. Šipka zůstane
+   vidět, jen se nehýbe. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-toggle[aria-expanded="false"] .brand-sipka { animation: none; }
+}
+
 /* Co je vidět dole, když je nabídka sbalená. Bez toho by zmizely záložky
    a nebylo by poznat, jestli se člověk dívá na místo, nebo na trasu —
    a zmizelé nastavení se nedá odlišit od ztraceného. */
@@ -684,6 +717,17 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 /* Odstup od teď — „před 40 min". Absolutní čas sám o sobě nutí člověka
    odečítat v hlavě, a to zrovna ve chvíli, kdy sleduje pohyb srážek. */
 .radar-offset { font-size: 13px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+
+/* Licenční popiska ČHMÚ (CC BY 4.0). Uvést se MUSÍ, ale je to poznámka pod
+   čarou, ne údaj — patří k nejdrobnějšímu písmu v appce, jako popisky
+   v rohu mapy. Bez tohohle pravidla zdědila velikost lišty a Michal
+   30. 8. 2026 správně namítl, že je „strašně velká". */
+.radar-zdroj {
+  margin-left: auto;
+  font-size: 10px; line-height: 1.2;
+  color: var(--text-soft); opacity: .75;
+  white-space: nowrap;
+}
 
 /* ── Posuvník času radaru ───────────────────────────────────────────────
    Dráha nese informaci: kde končí měření a začíná dopočet, mění barvu.

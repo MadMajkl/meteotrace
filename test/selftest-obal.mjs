@@ -244,3 +244,46 @@ test('hledač bloků si nesplete komentář s pravidlem', () => {
   assert.equal(bloky.length, 1);
   assert.equal(bloky[0].selektor, '.a');
 });
+
+/* ============================================================
+   ANIMACE A VYPNUTÝ POHYB
+
+   ⚠️ Kdo si v systému vypne animace, má k tomu důvod — nevolnost z pohybu,
+   epilepsie, nebo prostě klid na práci. `prefers-reduced-motion` je jediné,
+   čím nám to řekne. Animací přibylo za jediný den 31. 8. 2026 hned několik
+   (mince v hlavičce, mince na daru, výzva šipkou) a zapomenout na jednu
+   z nich je tichá vada: pro většinu lidí se nic nezmění.
+   ============================================================ */
+
+test('🚨 každá animace má cestu ven přes prefers-reduced-motion', () => {
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Jména animací, které se někde opravdu používají.
+  const pouzita = new Set(
+    [...css.matchAll(/animation:\s*([A-Za-z][\w-]*)/g)].map((m) => m[1])
+      .filter((n) => n !== 'none'),
+  );
+  assert.ok(pouzita.size > 0, 'žádná animace — test by nic nekontroloval');
+
+  // Bloky uvnitř `@media (prefers-reduced-motion: reduce)`.
+  const utlum = [...css.matchAll(/@media[^{]*prefers-reduced-motion[^{]*\{([\s\S]*?)\n\}/g)]
+    .map((m) => m[1]).join('\n');
+  assert.ok(utlum.length, 'chybí blok pro vypnuté animace');
+
+  // ⚠️ Nestačí, že blok existuje — musí v něm být `animation: none`, jinak
+  // by se tvářil, že pohyb tlumí, a přitom nedělal nic.
+  assert.match(utlum, /animation:\s*none/, 'blok pro vypnuté animace nic nevypíná');
+
+  // ⚠️ Bloky se hledají rozborem, ne jedním velkým regulárním výrazem:
+  //    `@keyframes` má uvnitř další závorky a výraz se na nich zakousne.
+  for (const jmeno of pouzita) {
+    const zapina = cssBloky(css)
+      .find((b) => new RegExp('animation:\\s*' + jmeno + '\\b').test(b.telo));
+    assert.ok(zapina, `animace „${jmeno}" se nikde nezapíná`);
+    // Poslední kus selektoru je ten prvek, který se hýbe — a právě ten
+    // musí být zmíněný v útlumu.
+    const selektor = zapina.selektor.trim().split(/\s+/).pop().replace(/^[.#]/, '');
+    assert.ok(utlum.includes(selektor),
+      `animace „${jmeno}" (${selektor}) nemá cestu ven přes prefers-reduced-motion`);
+  }
+});
