@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.17.0';
+const VERZE = '0.17.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2352,7 +2352,15 @@ function vyberZMapy(misto) {
   // ⚠️ TÝŽ VÝRAZ, jakým se řídí nápověda pod mapou (`klepnutiDoMapy`).
   // Dvě podmínky by se rozešly a appka by slibovala jedno a dělala druhé.
   const kam = klepnutiDoMapy(state.route).pole;
-  state.route[kam] = misto;
+
+  // 🚨 PŘES `zapisMisto()`, NE PŘÍMO DO STAVU. Do 31. 8. 2026 tu stálo
+  // `state.route[kam] = misto` — tím se obešel jediný trychtýř, kterým zápis
+  // z polí chodí, a s ním všechno, co na něm visí: **překreslení špendlíků**,
+  // nápověda pod mapou i uložení do úložiště.
+  // Michal: *„při kliknutí cíle do mapy se tam špendlík nezapíchne, jen se
+  // napíše cíl."* Přesně to: poznámka se vypsala, protože ta je tady, ale
+  // špendlík ne, protože ten visí na trychtýři.
+  zapisMisto(kam, misto);
   $(kam === 'from' ? 'route-from' : 'route-to').value = misto.name;
   poznamkaTrasy(t(kam === 'from' ? 'route.pickedFrom' : 'route.pickedTo', state.lang));
 }
@@ -3271,8 +3279,11 @@ function vykresliRychlost() {
 }
 
 function skryjVysledekTrasy() {
-  // Zahození výsledku je taky změna stavu — a mění, co klepnutí do mapy udělá.
+  // Zahození výsledku je taky změna stavu — a mění, co klepnutí do mapy udělá
+  // i kde mají být špendlíky. Chodí sem prohození polí, ⌖ i změna způsobu
+  // dopravy, tedy cesty, které do stavu zapisují mimo `zapisMisto()`.
   vypisNapoveduMapy();
+  srovnejSpendliky();
   $('route-summary-card').hidden = true;
   $('route-points-card').hidden = true;
   // ⚠️ Nová trasa začíná se SBALENOU LEGENDOU (ne se sbaleným rozpisem —

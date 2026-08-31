@@ -1,6 +1,6 @@
 {
   "name": "meteotrace",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Počasí na trase — v bodech cesty v čase, kdy tam skutečně dorazíš.",
   "private": true,
   "type": "module",
