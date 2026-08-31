@@ -1820,18 +1820,19 @@ main {
    MapLibre má povinnou popisku zdroje přesně v pravém dolním rohu plátna,
    takže si tam ty dva prvky lezly do sebe.
 
-   Teď je v normálním toku karty, až za posuvníkem času, zarovnaná doprava —
-   a rozbaluje se dolů, protože karta nic neořezává. */
+   Teď je v normálním toku karty, až za posuvníkem času, a rozbaluje se dolů,
+   protože karta nic neořezává.
+
+   ⚠️ Zarovnáno DOLEVA — i rozbalený obsah (Michal 31. 8. 2026). Napoprvé
+   sedělo vpravo, jenže všechno ostatní v kartě (nadpis „Srážkový radar",
+   ovládání radaru, čas) začíná u levého kraje; jediný prvek u pravého
+   z toho sloupce vypadával. */
 .legenda {
-  display: flex; flex-direction: column; align-items: flex-end;
+  display: flex; flex-direction: column; align-items: flex-start;
   gap: 6px;
   margin: 2px 0 0;
-  text-align: right;
+  text-align: left;
 }
-
-/* Rozbalený obsah drží u pravého kraje jako tlačítko nad ním; text v něm
-   ale čte zleva, jinak by se čtyři různě dlouhé řádky legendy rozházely. */
-#route-legenda-obsah { text-align: left; }
 .legenda[hidden] { display: none; }
 
 .legenda-nadpis {
