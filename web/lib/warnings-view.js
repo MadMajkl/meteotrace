@@ -19,7 +19,8 @@
 
 'use strict';
 
-import { t, tf } from './i18n.js';
+import { t, tf, tp } from './i18n.js';
+import { zpravaJeCerstva, stariZpravyS } from './cap.js';
 
 /** Pořadí závažnosti od nejhorší. Neznámou bereme vážně, ne jako nejmenší. */
 const ZAVAZNOST = ['Extreme', 'Severe', 'Moderate', 'Minor'];
@@ -136,10 +137,26 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
 
   if (polozky.length) return { stav: 'vystrahy', misto, zprava: '', polozky };
 
-  // Prázdno má dvě různé příčiny a každá si zaslouží jinou větu.
+  // Prázdno má TŘI různé příčiny a každá si zaslouží jinou větu.
   if (payload.pokryto === false) {
     return { stav: 'mimo', misto: null, zprava: t('warnings.outside', lang), polozky: [] };
   }
+
+  /* 🚨 MRTVÝ ZDROJ NENÍ KLID.
+     Michal 31. 8. 2026: nad hlavou bouřka, v appce nic. Výstraha opravdu
+     žádná nebyla — ale zároveň se ukázalo, že **MeteoAlarm stál tři dny**
+     a appka to celou dobu vykreslovala jako „nic nehrozí". Prázdný seznam
+     a mlčící zdroj vypadají úplně stejně; rozdíl je jen v čase vydání.
+     Když je zpráva zastaralá, NESMÍ se z jejího mlčení číst klid. */
+  if (!zpravaJeCerstva(payload.sent, nowMs || Date.now())) {
+    return {
+      stav: 'zastaralé',
+      misto,
+      zprava: tf('warnings.stale', { age: stariSlovy(payload.sent, nowMs || Date.now(), lang) }, lang),
+      polozky: [],
+    };
+  }
+
   return {
     stav: 'zadne',
     misto,
@@ -148,4 +165,18 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
       : t('warnings.none', lang),
     polozky: [],
   };
+}
+
+/**
+ * Stáří zprávy lidsky — „23 hodin", „3 dny".
+ *
+ * ⚠️ Když čas vydání chybí úplně, nevrací se „0", ale slovo o tom, že se to
+ * neví. Nula by tvrdila, že zpráva právě přišla — tedy pravý opak pravdy.
+ */
+export function stariSlovy(sent, nowMs, lang) {
+  const s = stariZpravyS(sent, nowMs);
+  if (s === null) return t('warnings.ageUnknown', lang);
+  const hodin = Math.round(s / 3600);
+  if (hodin < 48) return tp('warnings.ageHours', hodin, {}, lang);
+  return tp('warnings.ageDays', Math.round(hodin / 24), {}, lang);
 }

@@ -217,7 +217,34 @@ export const UPSTREAMS = {
    * ⚠️ Odpověď má přes 1 MB. Na mobilní data je to moc, proto se filtruje
    * na serveru — klientovi jde jen to, co se ho týká.
    */
+  /**
+   * Výstrahy — PŘÍMO OD ČHMÚ (`R20`).
+   *
+   * 🚨 Do 31. 8. 2026 se braly přes MeteoAlarm. Ten je jen přeposílá,
+   * jenže **jeho feed stál tři dny** (28.–31. 8.) a appka to vykreslovala
+   * jako „nic nehrozí". Michal měl nad hlavou bouřku a nedozvěděl se nic.
+   * ČHMÚ vydával celou dobu — mezičlánek byl to jediné, co stálo.
+   *
+   * ⚠️ Není to prostý průchod: ČHMÚ nemá adresu „poslední výstrahy",
+   * má adresář s přepisovanými jmény. Proto `builder`.
+   */
   warnings: {
+    base: 'https://opendata.chmi.cz/meteorology/weather/alerts/cap/',
+    params: [],
+    builder: 'chmiWarnings',
+    normalize: 'warnings',
+    // Když ČHMÚ nebo rozbor výpisu selže, MeteoAlarm pořád stojí za pokus —
+    // přeposílá tatáž data a horší zdroj je lepší než žádný.
+    fallback: 'warningsAlarm',
+    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity'],
+    ttl: 5 * MINUTE,
+  },
+
+  /**
+   * Záloha výstrah: MeteoAlarm (EUMETNET). Týž obsah, o mezičlánek dál.
+   * ⚠️ Zůstává schválně — kdyby ČHMÚ změnil podobu adresáře, je odkud brát.
+   */
+  warningsAlarm: {
     base: 'https://feeds.meteoalarm.org/api/v1/warnings/feeds-czechia',
     params: [],
     // Parametry, které se ven NEPOSÍLAJÍ — zpracují se u nás. Feed umí vydat
@@ -232,6 +259,7 @@ export const UPSTREAMS = {
     // ⚠️ `minSeverity` je tu kvůli upozorňování z androidího obalu. Filtr
     // patří SEM, ne do Kotlinu: tabulka stupňů závažnosti tak zůstává na
     // jednom místě a obal jen porovnává řetězce (viz `Vystrahy.kt`).
+    normalize: 'warnings',
     local: ['lang', 'lat', 'lon', 'geo', 'minSeverity'],
     ttl: 5 * MINUTE,
   },

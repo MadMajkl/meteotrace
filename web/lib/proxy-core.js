@@ -144,11 +144,35 @@ export function transformBody(service, body, params = {}) {
   // Díky tomu obrazovka o výměně vůbec neví.
   if (UPSTREAMS[service]?.normalize === 'pelias') return fromPelias(body);
 
-  if (service === 'warnings') {
+  // 🚨 Podle KATALOGU, ne podle jména služby. Zdroje výstrah jsou dva
+  // (ČHMÚ a záloha MeteoAlarm) a oba dávají týž tvar; kdyby se ořez vázal
+  // na jméno `warnings`, záloha by se neořezala a klientovi by přišel
+  // syrový feed. Viz `R20`.
+  if (UPSTREAMS[service]?.normalize === 'warnings') {
     const lang = (params.lang || params.language || 'cs').slice(0, 2);
-    return { warnings: trimWarnings(body, lang) };
+    return { warnings: trimWarnings(body, lang), sent: casVydani(body) };
   }
   return body;
+}
+
+/**
+ * Kdy zdroj naposledy promluvil.
+ *
+ * 🚨 BEZ TOHO SE NEDÁ ODLIŠIT KLID OD MRTVÉHO ZDROJE. Prázdný seznam
+ * výstrah znamená buď „nic nehrozí", nebo „už tři dny nic nechodí" — a to
+ * jsou dvě úplně jiné zprávy. Přesně na tohle Michal 31. 8. 2026 doplatil:
+ * MeteoAlarm stál od 28. 8. a appka mlčky tvrdila klid.
+ *
+ * ČHMÚ dává `sent` v hlavičce dokumentu; MeteoAlarm ho má u každé zprávy
+ * zvlášť, tak se z nich vezme ta nejnovější.
+ */
+export function casVydani(body) {
+  if (body?.sent) return body.sent;
+  const casy = ((body && body.warnings) || [])
+    .map((w) => w?.alert?.sent)
+    .filter(Boolean)
+    .sort();
+  return casy.length ? casy[casy.length - 1] : null;
 }
 
 /**
@@ -204,7 +228,7 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // je lepší než zamlčet bouřku — ale MUSÍ to být poznat, jinak by se odhad
   // tvářil jako výběr. Od toho je `filtrovano`.
   if (!opts.areas || !opts.areas.length) {
-    return { warnings: podlePrahu, misto: null, pokryto: false, filtrovano: false };
+    return { warnings: podlePrahu, sent: body?.sent ?? null, misto: null, pokryto: false, filtrovano: false };
   }
 
   const misto = findArea([lat, lon], opts.areas);
@@ -212,11 +236,14 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // Bod mimo pokrytí (cizina). Prázdný seznam je správná odpověď — ale sám
   // o sobě vypadá stejně jako „nic nehrozí", což je něco úplně jiného.
   // `pokryto: false` dovolí klientovi říct, jak to je.
-  if (!misto) return { warnings: [], misto: null, pokryto: false, filtrovano: true };
+  if (!misto) return { warnings: [], sent: body?.sent ?? null, misto: null, pokryto: false, filtrovano: true };
 
   const vybrane = matchWarningAreas(podlePrahu, [misto]);
   const out = {
     warnings: vybrane,
+    // ⚠️ Čas vydání jde ven vždycky — na něm stojí rozdíl mezi „je klid"
+    //    a „zdroj tři dny mlčí". Viz `casVydani()`.
+    sent: body?.sent ?? null,
     misto: { nazev: misto.nazev, kraj: misto.kraj },
     pokryto: true,
     filtrovano: true,

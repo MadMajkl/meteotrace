@@ -93,6 +93,8 @@ tohle je jen shrnutí.**
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
 | **Hosting mapy** | Cloudflare R2, bucket `meteotrace-maps`, nahrává `npm run tiles:upload`; adresa je konfigurace (`meta[name=meteotrace:tiles]`) |
+| Výstrahy: zdroj (R20) | **ČHMÚ NAPŘÍMO** (`opendata.chmi.cz/…/alerts/cap/`), MeteoAlarm jako záloha. Čtení CAP je `web/lib/cap.js` (čisté), stahování `server/chmi-warnings.js`. 🚨 Nejnovější soubor se pozná podle ČASU ÚPRAVY — jména se po měsíci přepisují. Ořez řídí `normalize: 'warnings'` v katalogu, ne jméno služby |
+| Stáří zdroje výstrah (R20) | `sent` z CAP jde až ke klientovi. Starší než 12 h → karta se NESCHOVÁ a řekne to. 🚨 Chybějící `sent` = „nevíme", ne „čerstvé". Zastaralost nepřebije platné výstrahy |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |
@@ -137,7 +139,7 @@ tohle je jen shrnutí.**
 | Crosslinky (R7) | v ⚙ Nastavení, ne na hlavní obrazovce. Odkaz ven otevře **prohlížeč**, ne WebView |
 | Android obal (R1, R13) | `android/`, sestaví `npm run android`; nativní vrstva je jen potrubí na náš server. 🚨 Appka tam běží na `…/assets/www/`, takže **cesty od kořene (`/fonts/…`) minou** — jediná výjimka je `/api/…`, podle které pozná dotazy `ApiPipe`. Hlídá `selftest-obal.mjs`. Poloha chce povolení v manifestu **i** `WebChromeClient` |
 
-**778 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
+**799 kontrol, všechny zelené.** Layoutová kontrola prochází na 5 šířkách × obou obrazovkách a měří i obsah dialogů.
 
 ### 🔑 Klíče
 
@@ -168,7 +170,7 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.14.7**; na `1.0.0` až s vydáním na Play.
+  Teď **0.15.0**; na `1.0.0` až s vydáním na Play.
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
@@ -205,12 +207,19 @@ npm run docx                # dokumentace do Wordu
 Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Nejdražší byly:
 
 - **🚨 PRÁZDNÝ FEED VÝSTRAH SE NEDÁ ODLIŠIT OD KLIDU.** MeteoAlarm stál
-  od 28. do 31. 8. 2026 (tři dny beze změny) a appka to celou dobu vykreslovala
-  jako „nic nehrozí" — kartu výstrah dokonce schovala. **Mrtvý zdroj vypadá
-  přesně jako klid**, a to zrovna u bouřky. CAP nese `sent`; stáří feedu se
-  musí hlídat a říct. 🟡 Zatím NEOPRAVENO, viz deník 31. 8.
-  ⚠️ ČHMÚ má vlastní CAP na `opendata.chmi.cz/meteorology/weather/alerts/cap/` —
-  bez prostředníka a čerstvější než MeteoAlarm. Kandidát na `R20`.
+  od 28. do 31. 8. 2026 (tři dny) a appka to vykreslovala jako „nic nehrozí" —
+  kartu výstrah dokonce schovala. **Mrtvý zdroj vypadá přesně jako klid**,
+  a to zrovna u bouřky. ✅ Vyřešeno v `R20`: bere se ČHMÚ napřímo a hlídá se
+  `sent`. ⚠️ Kdo sáhne na výřez výstrah podle polohy, musí `sent` propustit
+  **všemi** návratovými větvemi — stačí zapomenout na jednu a mlčení se zase
+  začne vydávat za klid.
+- **🚨 CAP OD ČHMÚ: JAZYKOVÉ VERZE SE PÁRUJÍ PODLE OBSAHU, NE PODLE POŘADÍ.**
+  Bloky `<info>` chodí ve dvojicích (cs, en), ale to je vlastnost dnešního
+  vydavatele, ne formátu. Páruje se podle závažnosti, časů a kódů území —
+  jinak by se po prohození tiše spojil český text s cizím územím.
+  A **nejnovější soubor se pozná podle času úpravy**: jména (`alert_cap_50_300811.xml`
+  = „den 30, 08:11") se po měsíci přepisují, takže řazení podle jména vytáhne
+  klidně soubor z března.
 - **🚨 KAŽDÁ ANIMACE MUSÍ MÍT CESTU VEN PŘES `prefers-reduced-motion`.**
   Za jediný den jich přibyly tři a zapomenout na jednu je tichá vada — pro
   většinu lidí se nic nezmění. Hlídá to `selftest-obal.mjs` čtením CSS,

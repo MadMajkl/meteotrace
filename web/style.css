@@ -188,40 +188,77 @@ body {
 /* ⚠️ Šipka musí být vidět, jinak nikoho nenapadne na značku klepnout.
    Při 10 px a barvě popisků splývala s pozadím — na fotce mobilu byla
    k nerozeznání od tečky. */
-.brand-sipka { flex: none; font-size: 13px; color: var(--accent); transition: transform .18s; }
+.brand-sipka { flex: none; font-size: 15px; color: var(--accent); transition: transform .18s; }
 .brand-toggle[aria-expanded="true"] .brand-sipka { transform: rotate(180deg); }
 
-/* 🚨 ŠIPKA SE OBČAS POHNE, ABY BYLO POZNAT, ŽE SE NA NI DÁ KLEPNOUT.
-   Michal 31. 8. 2026: samotná šipka je vidět, ale nikomu nedojde, že je to
-   tlačítko. Pohyb to řekne bez jediného slova — a naznačí i SMĚR, kterým
-   se nabídka vysune (dolů).
+/* 🚨 ŠIPKA SE OBČAS ROZSVÍTÍ A KÝVNE, ABY BYLO POZNAT, ŽE JE TO TLAČÍTKO.
 
-   ⚠️ Bez časovače: prodleva je uvnitř animace. Pohyb zabere první necelou
-   sekundu, zbytek desetivteřinové smyčky šipka stojí. Časovač v JS by se
-   musel uklízet při každém přepnutí obrazovky a byl by to další zdroj
-   úklidových chyb — tohle je jedna vlastnost v CSS.
+   Michal 31. 8. 2026: *„jako by v jejím směru přejely světelné vlnky —
+   ten efekt blinkru na Audi, že se celý tvar rozsvěcí odzadu postupně."*
+   A po vlnkách ještě kývnutí dolů.
 
-   ⚠️ JEN VE SBALENÉM STAVU. V rozbaleném už nabídku vidíš, takže by pohyb
-   nic neříkal a jen tahal oko od obsahu. A jen do prvního použití: kdo na
-   ni jednou klepl, ví to — od té chvíle by to bylo cukání bez důvodu. */
+   Pohyb řekne bez jediného slova dvě věci: že je to ovládací prvek,
+   a KTERÝM SMĚREM se nabídka vysune (dolů).
+
+   ⚠️ Bez časovače v JS: prodleva je uvnitř animace. Vlnky zaberou první
+   1,2 s, kývnutí do 2 s, zbytek desetivteřinové smyčky šipka stojí.
+   Časovač by se musel uklízet při každém přepnutí obrazovky a byl by to
+   další zdroj úklidových chyb.
+
+   ⚠️ JEN VE SBALENÉM STAVU a jen do prvního použití — kdo na ni jednou
+   klepl, ví to; dál by to bylo cukání bez důvodu. */
+
+/* Světlo přejíždí po tvaru shora dolů, tedy po směru šipky. Přechod je
+   trojnásobně vysoký a posouvá se pod písmenem; v klidové poloze je vidět
+   jen jednolitá barva, takže mimo animaci vypadá šipka úplně obyčejně. */
+@keyframes sipka-vlnka {
+  0%          { background-position: 0% 0%; }
+  6%          { background-position: 0% 100%; }
+  6.01%       { background-position: 0% 0%; }
+  12%         { background-position: 0% 100%; }
+  12.01%, 100% { background-position: 0% 0%; }
+}
+
+/* Kývnutí přijde AŽ PO vlnkách — dvě sdělení najednou by se přebila. */
 @keyframes sipka-vyzva {
-  0%, 8%, 100% { transform: translateY(0); }
-  3%           { transform: translateY(3px); }
-  5.5%         { transform: translateY(0); }
-  6.5%         { transform: translateY(2px); }
+  0%, 13%, 20%, 100% { transform: translateY(0); }
+  15.5%              { transform: translateY(3px); }
+  18%                { transform: translateY(2px); }
 }
+
 .brand-toggle[aria-expanded="false"] .brand-sipka {
-  animation: sipka-vyzva 10s ease-in-out infinite;
+  animation: sipka-vlnka 10s linear infinite, sipka-vyzva 10s ease-in-out infinite;
 }
+
+/* ⚠️ Přebarvení písmene přechodem se zapíná JEN tam, kde ho prohlížeč umí.
+   Bez `background-clip: text` by průhledná výplň znamenala neviditelnou
+   šipku — tedy ztrátu toho, co má především být vidět. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .brand-sipka {
+    background-image: linear-gradient(to bottom,
+      var(--accent) 0%, var(--accent) 30%,
+      #fff 40%, #fff 46%,
+      var(--accent) 56%, var(--accent) 100%);
+    background-size: 100% 300%;
+    background-position: 0% 0%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
 /* Nabídka už byla otevřená — výzva splnila úkol a mlčí. Značka se nastaví
    při prvním klepnutí a NEUKLÁDÁ se: po příštím spuštění appky se šipka
    ozve znovu, přesně jak si Michal přál. */
 :root[data-nabidka-znama] .brand-sipka { animation: none; }
 
 /* ⚠️ Kdo si v systému vypnul animace, má k tomu důvod. Šipka zůstane
-   vidět, jen se nehýbe. */
+   vidět (přechod ji v klidové poloze kreslí jednolitě), jen se nehýbe. */
 @media (prefers-reduced-motion: reduce) {
   .brand-toggle[aria-expanded="false"] .brand-sipka { animation: none; }
+}
 }
 
 /* Co je vidět dole, když je nabídka sbalená. Bez toho by zmizely záložky

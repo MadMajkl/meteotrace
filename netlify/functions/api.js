@@ -10,6 +10,7 @@
 
 import { serveProxy } from '../../server/proxy.js';
 import { stavNowcast } from '../../server/chmi-nowcast.js';
+import { stavVystrahy } from '../../server/chmi-warnings.js';
 import { createCache } from '../../web/lib/ttl-cache.js';
 import { unpackAreas } from '../../web/lib/orp.js';
 import { ORP_DATA } from '../../web/data/orp-boundaries.js';
@@ -51,7 +52,7 @@ export default async function handler(request) {
     cache,
     areas,
     // Služby, které si odpověď skládají samy (víc dotazů, archiv).
-    builders: { chmiNowcast: stavNowcast },
+    builders: { chmiNowcast: stavNowcast, chmiWarnings: stavVystrahy },
     log: (msg, detail) => console.log(`[proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
   });
 

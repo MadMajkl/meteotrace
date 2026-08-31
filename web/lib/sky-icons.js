@@ -77,8 +77,8 @@ export function elevationShape() {
  * `r · |1 − 2f|`; při čtvrti je nulový (rovná čára), při novu a úplňku
  * splyne s okrajem.
  *
- * ⚠️ Dorůstající Měsíc svítí vpravo, couvající vlevo (na severní polokouli).
- * Kdyby se to prohodilo, ukazovala by appka couvající Měsíc jako dorůstající
+ * ⚠️ Dorůstající Měsíc svítí vpravo, ubývající vlevo (na severní polokouli).
+ * Kdyby se to prohodilo, ukazovala by appka ubývající Měsíc jako dorůstající
  * — tedy pravý opak toho, co je na obloze.
  *
  * @param {number} podil   0 = nov, 0,5 = čtvrt, 1 = úplněk
@@ -240,7 +240,7 @@ export function noteShape() {
  * Šipka trendu Měsíce: dorůstá, nebo couvá.
  *
  * Michal 29. 8. 2026: *„měsíc doplnit o piktogram šipky nahoru při rostoucím
- * měsíci a při couvajícím dolů, při úplňku nic a to samé při novu."*
+ * měsíci a při ubývajícím dolů, při úplňku nic a to samé při novu."*
  *
  * 🚨 U ÚPLŇKU A NOVU SE VRACÍ `null`, a je to správně. V těch dvou bodech
  * Měsíc nedorůstá ani neubývá — je na obrátce. Šipka by tam ukazovala směr,

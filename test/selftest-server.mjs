@@ -53,6 +53,18 @@ function fakeFetch(reply) {
 
 const ENV = { ORS_API_KEY: 'testovaci-klic' };
 
+/**
+ * Stavitel výstrah pro testy — chová se jako prostý průchod.
+ *
+ * ⚠️ Od `R20` chodí výstrahy od ČHMÚ přes stavitele (adresář + CAP), ne
+ * prostým průchodem. Testy níž ale zkoumají ořez, výřez podle místa
+ * a cache — ne stahování. Stavitel se proto podvrhne a testy dál měří
+ * přesně to, kvůli čemu vznikly.
+ */
+const STAVITELE = {
+  chmiWarnings: async ({ fetchImpl, base }) => (await fetchImpl(base)).json(),
+};
+
 /* ============================================================
    CACHE
    ============================================================ */
@@ -194,7 +206,7 @@ test('obsluha: stáhne, uloží a vrátí', async () => {
   const cache = createCache();
   const res = await serveProxy(
     { pathname: '/api/forecast', params: { latitude: '50', longitude: '14' } },
-    { cache, fetchImpl: f },
+    { cache, fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, { hourly: { time: [] } });
@@ -210,17 +222,17 @@ test('🚨 obsluha: zásah v cache NEJDE ven', async () => {
   // ⚠️ Schválně na předpovědi, ne na hledání: hledání má od 24. 8. zálohu,
   // takže by při prázdné odpovědi šlo ven podruhé a počty by nic neříkaly.
   const req = { pathname: '/api/forecast', params: { latitude: '50', longitude: '14' } };
-  await serveProxy(req, { cache, fetchImpl: f });
-  await serveProxy(req, { cache, fetchImpl: f });
-  await serveProxy(req, { cache, fetchImpl: f });
+  await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
+  await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
+  await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
   assert.equal(f.calls.length, 1, 'ven se smělo jen jednou');
 });
 
 test('obsluha: jiný dotaz cache mine', async () => {
   const f = fakeFetch({ body: { ok: 1 } });
   const cache = createCache();
-  await serveProxy({ pathname: '/api/forecast', params: { latitude: '50' } }, { cache, fetchImpl: f });
-  await serveProxy({ pathname: '/api/forecast', params: { latitude: '49' } }, { cache, fetchImpl: f });
+  await serveProxy({ pathname: '/api/forecast', params: { latitude: '50' } }, { cache, fetchImpl: f, builders: STAVITELE });
+  await serveProxy({ pathname: '/api/forecast', params: { latitude: '49' } }, { cache, fetchImpl: f, builders: STAVITELE });
   assert.equal(f.calls.length, 2);
 });
 
@@ -228,7 +240,7 @@ test('🚨 obsluha: klíč jde do hlavičky, ne do URL', async () => {
   const f = fakeFetch({ body: {} });
   await serveProxy(
     { pathname: '/api/route/driving-car', params: { start: '14,50', end: '16,49' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   const call = f.calls[0];
   assert.equal(call.headers.Authorization, 'testovaci-klic');
@@ -243,14 +255,14 @@ test('🚨 obsluha: při výpadku se nabídne prošlá odpověď', async () => {
   const f = fakeFetch(() => (selhavej ? new Error('síť leží') : { body: { teplota: 21 } }));
 
   const req = { pathname: '/api/forecast', params: { latitude: '50' } };
-  await serveProxy(req, { cache, fetchImpl: f });     // naplň cache
+  await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });     // naplň cache
 
   // Předpověď má platnost 600 s a podržení 3 600 s. Posunout se musí ZA platnost,
   // ale uvnitř podržení — jinak by se netestoval výpadek, ale zapomínání.
   // (Na tomhle test poprvé spadl: 10 000 s je za oběma hranicemi.)
   clock.advance(1200);
   selhavej = true;
-  const res = await serveProxy(req, { cache, fetchImpl: f });
+  const res = await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
 
   assert.equal(res.status, 200, 'stará data jsou lepší než chyba');
   assert.deepEqual(res.body, { teplota: 21 });
@@ -266,11 +278,11 @@ test('obsluha: za hranicí podržení už se prošlé nenabízí', async () => {
   const f = fakeFetch(() => (selhavej ? new Error('síť leží') : { body: { teplota: 21 } }));
 
   const req = { pathname: '/api/forecast', params: { latitude: '50' } };
-  await serveProxy(req, { cache, fetchImpl: f });
+  await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
   clock.advance(10_000);                                // za platnost i za podržení
   selhavej = true;
 
-  const res = await serveProxy(req, { cache, fetchImpl: f });
+  const res = await serveProxy(req, { cache, fetchImpl: f, builders: STAVITELE });
   assert.equal(res.status, 502, 'příliš stará data se už nabízet nemají');
 });
 
@@ -278,7 +290,7 @@ test('obsluha: výpadek bez cache je 502 se srozumitelnou hláškou', async () =
   const f = fakeFetch(new Error('síť leží'));
   const res = await serveProxy(
     { pathname: '/api/radar' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 502);
   assert.match(res.body.error, /radar/);
@@ -289,7 +301,7 @@ test('obsluha: chybový stav od cizí služby se nevydává za úspěch', async 
   const f = fakeFetch({ ok: false, status: 503, body: null });
   const res = await serveProxy(
     { pathname: '/api/radar' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 502);
   assert.match(res.body.error, /503/);
@@ -304,7 +316,7 @@ test('🚨 obsluha: vyčerpaná kvóta NENÍ výpadek cizí služby', async () =
   const f = fakeFetch({ ok: false, status: 429, body: null });
   const res = await serveProxy(
     { pathname: '/api/route/driving-car', params: { start: '14,50', end: '16,49' }, env: { ORS_API_KEY: 'x' } },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 429);
   assert.equal(res.body.kvota, true, 'klient to musí umět odlišit od chvilkového stropu');
@@ -320,7 +332,7 @@ test('obsluha: výstrahy se ořežou už na serveru', async () => {
   const f = fakeFetch({ body: feed });
   const res = await serveProxy(
     { pathname: '/api/warnings' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.body.warnings.length, 1, 'nevýstraha se nesmí dostat ke klientovi');
   assert.equal(res.body.warnings[0].event, 'Bouřky');
@@ -332,15 +344,15 @@ test('obsluha: do cache se ukládá už ořezané', async () => {
   const feed = { warnings: [{ alert: { info: [{ language: 'cs', event: 'Vítr', severity: 'Moderate', area: [] }] } }] };
   const f = fakeFetch({ body: feed });
   const cache = createCache();
-  await serveProxy({ pathname: '/api/warnings' }, { cache, fetchImpl: f });
-  const res = await serveProxy({ pathname: '/api/warnings' }, { cache, fetchImpl: f });
+  await serveProxy({ pathname: '/api/warnings' }, { cache, fetchImpl: f, builders: STAVITELE });
+  const res = await serveProxy({ pathname: '/api/warnings' }, { cache, fetchImpl: f, builders: STAVITELE });
   assert.equal(f.calls.length, 1);
   assert.equal(res.body.warnings[0].event, 'Vítr');
 });
 
 test('obsluha: odmítnutý dotaz nejde ven vůbec', async () => {
   const f = fakeFetch({ body: {} });
-  const res = await serveProxy({ pathname: '/api/vymyslena' }, { cache: createCache(), fetchImpl: f });
+  const res = await serveProxy({ pathname: '/api/vymyslena' }, { cache: createCache(), fetchImpl: f, builders: STAVITELE });
   assert.equal(res.status, 404);
   assert.equal(f.calls.length, 0, 'na neznámou službu se nesmí sáhnout ven');
 });
@@ -350,7 +362,7 @@ test('obsluha: hlásí zahozené parametry do logu', async () => {
   const f = fakeFetch({ body: {} });
   await serveProxy(
     { pathname: '/api/forecast', params: { latitude: '50', podvrh: 'x' } },
-    { cache: createCache(), fetchImpl: f, log: (m, d) => zapsano.push([m, d]) },
+    { cache: createCache(), fetchImpl: f, log: (m, d) => zapsano.push([m, d]), builders: STAVITELE },
   );
   const radek = zapsano.find(([m]) => m === 'zahozené parametry');
   assert.ok(radek, 'zahození se musí objevit v logu');
@@ -384,7 +396,7 @@ async function vystrahy(params, deps = {}) {
   const fetchImpl = deps.fetchImpl || fakeFetch({ body: FEED });
   const res = await serveProxy(
     { pathname: '/api/warnings', params, env: ENV },
-    { cache: deps.cache || createCache(), fetchImpl, areas: deps.areas ?? AREAS },
+    { cache: deps.cache || createCache(), fetchImpl, areas: deps.areas ?? AREAS, builders: STAVITELE },
   );
   return { res, fetchImpl };
 }
@@ -409,8 +421,8 @@ test('🚨 výstrahy: druhý tazatel NESMÍ dostat výřez prvního', async () =
   const cache = createCache();
   const fetchImpl = fakeFetch({ body: FEED });
 
-  const prvni = await vystrahy(LITOMERICE, { cache, fetchImpl });
-  const druhy = await vystrahy(BRNO, { cache, fetchImpl });
+  const prvni = await vystrahy(LITOMERICE, { cache, fetchImpl, builders: STAVITELE });
+  const druhy = await vystrahy(BRNO, { cache, fetchImpl, builders: STAVITELE });
 
   assert.deepEqual(prvni.res.body.warnings.map((w) => w.event), ['Bouřky']);
   assert.deepEqual(druhy.res.body.warnings.map((w) => w.event), ['Vichřice']);
@@ -471,7 +483,7 @@ test('🚨 výstrahy: prošlé se ven neposílají', async () => {
   ] };
   const res = await serveProxy(
     { pathname: '/api/warnings', params: LITOMERICE, env: ENV },
-    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs, builders: STAVITELE },
   );
   assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná bouřka']);
 });
@@ -489,7 +501,7 @@ test('🚨 výstrahy: prošlé se vyhodí i v přehledu bez souřadnic', async (
   ] };
   const res = await serveProxy(
     { pathname: '/api/warnings', params: {}, env: ENV },
-    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs, builders: STAVITELE },
   );
   assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná']);
   assert.equal(res.body.misto, undefined, 'bez souřadnic se místo pořád neřeší');
@@ -539,7 +551,7 @@ test('hledání: hlavní zdroj se srovná na tvar, který appka zná', async () 
   const f = fakeFetch({ body: PELIAS });
   const res = await serveProxy(
     { pathname: '/api/geocode', params: { name: 'náměstí Republiky 1, Horšovský Týn' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.body.results.length, 1);
   assert.equal(res.body.results[0].name, 'náměstí Republiky 1');
@@ -558,7 +570,7 @@ test('🚨 hledání: když hlavní zdroj SELŽE, nastoupí záloha', async () =
   });
   const res = await serveProxy(
     { pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 200);
   assert.equal(res.body.results[0].name, 'Horšovský Týn');
@@ -571,7 +583,7 @@ test('🚨 hledání: když hlavní zdroj NIC NENAJDE, zkusí se záloha', async
     : { body: OPEN_METEO }));
   const res = await serveProxy(
     { pathname: '/api/geocode', params: { name: 'Horšovský Týn' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.body.results[0].name, 'Horšovský Týn');
 });
@@ -584,7 +596,7 @@ test('hledání: když nenajde nic ani záloha, vrátí se prázdno, ne chyba', 
     : { body: { results: [] } }));
   const res = await serveProxy(
     { pathname: '/api/geocode', params: { name: 'qwertzuiop' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.results, []);
@@ -598,7 +610,7 @@ test('🚨 hledání: záloha dostane text BEZ diakritiky', async () => {
     : { body: OPEN_METEO }));
   await serveProxy(
     { pathname: '/api/geocode', params: { name: 'Plzeň' }, env: ENV },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   const zaloha = f.calls.find((c) => c.url.includes('open-meteo'));
   assert.ok(zaloha.url.includes('Plzen'), zaloha.url);
@@ -718,7 +730,7 @@ test('🚨 ochrana: trefa do cache se do přídělu NEPOČÍTÁ', async () => {
   const dotaz = { pathname: '/api/radar', clientIp: '10.0.0.1' };
 
   for (let i = 0; i < 300; i++) {
-    const res = await serveProxy(dotaz, { cache, fetchImpl: f });
+    const res = await serveProxy(dotaz, { cache, fetchImpl: f, builders: STAVITELE });
     assert.equal(res.status, 200, `dotaz ${i + 1} skončil ${res.status}`);
   }
   assert.equal(f.calls.length, 1, 'ven se mělo jít jen jednou, zbytek je cache');
@@ -737,7 +749,7 @@ test('ochrana: kdo mlátí do placené služby, dostane 429 i s Retry-After', as
       params: { start: `14.${i},50.1`, end: '16.6,49.2' },
       env: ENV,
       clientIp: '10.0.0.2',
-    }, { cache, fetchImpl: f });
+    }, { cache, fetchImpl: f, builders: STAVITELE });
     if (posledni.status === 429) break;
   }
   assert.equal(posledni.status, 429);
@@ -757,7 +769,7 @@ test('🚨 ochrana: kdo narazí na strop, dostane radši prošlé než nic', asy
   const f = fakeFetch({ body: { teplota: 1 } });
   const dotaz = { pathname: '/api/forecast', params: { latitude: '50', longitude: '14' }, clientIp: '10.0.0.3' };
 
-  await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now });
+  await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now, builders: STAVITELE });
   hodiny.advance(3600);                       // záznam v cache zestárl
 
   // Vyčerpat příděl jinými dotazy z téže adresy.
@@ -767,10 +779,10 @@ test('🚨 ochrana: kdo narazí na strop, dostane radši prošlé než nic', asy
       // filler s `i = 0` tytéž (`5${i}` = `50`), takže si test sám přepsal
       // záznam v cache na čerstvý — a neměřil, co si myslel.
       pathname: '/api/forecast', params: { latitude: '40', longitude: `1${i}` }, clientIp: '10.0.0.3',
-    }, { cache, fetchImpl: f, now: hodiny.now });
+    }, { cache, fetchImpl: f, now: hodiny.now, builders: STAVITELE });
   }
 
-  const res = await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now });
+  const res = await serveProxy(dotaz, { cache, fetchImpl: f, now: hodiny.now, builders: STAVITELE });
   assert.equal(res.status, 200, 'prošlé se má vrátit, ne odmítnout');
   assert.equal(res.headers['X-MeteoTrace-Stale'], '1', 'a musí být poznat, že je prošlé');
 });
@@ -781,13 +793,13 @@ test('🚨 ochrana: vlastní stránka projde, cizí ne', async () => {
 
   const nase = await serveProxy(
     { pathname: '/api/radar', origin: 'https://meteotrace.com', clientIp: '10.0.0.4' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(nase.status, 200);
 
   const cizi = await serveProxy(
     { pathname: '/api/radar', origin: 'https://zlodej.cz', clientIp: '10.0.0.5' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(cizi.status, 403);
 });
@@ -800,7 +812,7 @@ test('🚨 ochrana: appka bez hlavičky Origin se nesmí odstřihnout', async ()
   const f = fakeFetch({ body: { ok: 1 } });
   const res = await serveProxy(
     { pathname: '/api/radar', clientIp: '10.0.0.6' },
-    { cache: createCache(), fetchImpl: f },
+    { cache: createCache(), fetchImpl: f, builders: STAVITELE },
   );
   assert.equal(res.status, 200);
 });
@@ -815,6 +827,6 @@ test('ochrana: náhledové nasazení Netlify se povolí z prostředí', async ()
     origin: 'https://deploy-preview-12--meteotrace.netlify.app',
     env: { DEPLOY_PRIME_URL: 'https://deploy-preview-12--meteotrace.netlify.app' },
     clientIp: '10.0.0.7',
-  }, { cache: createCache(), fetchImpl: f });
+  }, { cache: createCache(), fetchImpl: f, builders: STAVITELE });
   assert.equal(res.status, 200);
 });

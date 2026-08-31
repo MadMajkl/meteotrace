@@ -26,7 +26,20 @@ function vystraha(over = {}) {
   };
 }
 
-const pohled = (payload) => buildWarningsView({ payload, lang: 'cs', nowMs: TEĎ });
+/**
+ * ⚠️ Od `R20` platí, že prázdno se z MLČÍCÍHO zdroje nesmí číst jako klid.
+ * Testy níž zkoumají podoby prázdna u ZDRAVÉHO zdroje, tak se jim doplní
+ * čerstvý čas vydání. Kdo chce zkoušet zastaralý zdroj, uvede si `sent` sám.
+ */
+const CERSTVE = new Date(TEĎ - 3600_000).toISOString();
+
+const pohled = (payload) => buildWarningsView({
+  payload: payload && typeof payload === 'object' && !('sent' in payload)
+    ? { ...payload, sent: CERSTVE }
+    : payload,
+  lang: 'cs',
+  nowMs: TEĎ,
+});
 
 /* ============================================================
    ČTYŘI PODOBY PRÁZDNA
@@ -181,7 +194,7 @@ test('výstraha bez jména dostane náhradní nadpis', () => {
 });
 
 test('anglický pohled nevrací české texty', () => {
-  const payload = { warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true };
+  const payload = { warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: CERSTVE };
   const en = buildWarningsView({ payload, lang: 'en', nowMs: TEĎ });
   const cs = buildWarningsView({ payload, lang: 'cs', nowMs: TEĎ });
 
@@ -238,4 +251,39 @@ test('🚨 nejistota jedné kopie nezpochybní druhou, přesnou', () => {
   });
   assert.equal(v.polozky.length, 1);
   assert.equal(v.polozky[0].nejiste, false, 'jedna spolehlivá kopie stačí');
+});
+
+/* ============================================================
+   MRTVÝ ZDROJ NENÍ KLID (R20)
+
+   🚨 Michal 31. 8. 2026: nad hlavou bouřka, v appce nic. Výstraha opravdu
+   žádná nebyla — ale zároveň se ukázalo, že MeteoAlarm stál TŘI DNY
+   a appka to celou dobu vykreslovala jako „nic nehrozí". Prázdný seznam
+   a mlčící zdroj vypadají úplně stejně; liší se jen časem vydání.
+   ============================================================ */
+
+test('🚨 zastaralý zdroj se NESMÍ tvářit jako klid', () => {
+  const tridny = new Date(TEĎ - 3 * 24 * 3600_000).toISOString();
+  const v = pohled({ warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
+  assert.equal(v.stav, 'zastaralé');
+  assert.notEqual(v.stav, 'zadne', 'tři dny staré ticho není klid');
+  assert.match(v.zprava, /3 dny/, v.zprava);
+});
+
+test('čerstvý zdroj, který mlčí, klid ANO', () => {
+  const v = pohled({ warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true });
+  assert.equal(v.stav, 'zadne');
+});
+
+test('🚨 chybějící čas vydání se bere jako nevíme, ne jako klid', () => {
+  // Nula by tvrdila, že zpráva právě přišla — tedy pravý opak pravdy.
+  const v = buildWarningsView({ payload: { warnings: [], pokryto: true, filtrovano: true }, lang: 'cs', nowMs: TEĎ });
+  assert.equal(v.stav, 'zastaralé');
+});
+
+test('zastaralost nepřebije platné výstrahy', () => {
+  // Když nějaké výstrahy přišly, jsou důležitější než poznámka o stáří.
+  const tridny = new Date(TEĎ - 3 * 24 * 3600_000).toISOString();
+  const v = pohled({ warnings: [vystraha({ event: 'Bouřky' })], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
+  assert.equal(v.stav, 'vystrahy');
 });

@@ -1,13 +1,13 @@
 {
   "name": "meteotrace",
-  "version": "0.14.7",
+  "version": "0.15.0",
   "description": "Počasí na trase — v bodech cesty v čase, kdy tam skutečně dorazíš.",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env tools/dev-server.mjs",
     "selftest": "npm run selftest:logic",
-    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs test/selftest-i18n.mjs test/selftest-station.mjs test/selftest-radar.mjs test/selftest-route.mjs test/selftest-places.mjs test/selftest-orp.mjs test/selftest-warnings.mjs test/selftest-map-style.mjs test/selftest-map-pick.mjs test/selftest-great-circle.mjs test/selftest-geo-query.mjs test/selftest-quips.mjs test/selftest-fit-row.mjs test/selftest-probes.mjs test/selftest-moon.mjs test/selftest-sun.mjs test/selftest-verze.mjs test/selftest-obal.mjs test/selftest-nowcast.mjs test/selftest-sky-icons.mjs test/selftest-pull-refresh.mjs test/selftest-warn-notify.mjs test/selftest-drift.mjs test/selftest-tile-tone.mjs test/selftest-onboarding.mjs test/selftest-rate-limit.mjs test/selftest-when.mjs test/selftest-qr.mjs test/selftest-donate.mjs",
+    "selftest:logic": "node --test test/selftest-logic.mjs test/selftest-proxy.mjs test/selftest-server.mjs test/selftest-i18n.mjs test/selftest-station.mjs test/selftest-radar.mjs test/selftest-route.mjs test/selftest-places.mjs test/selftest-orp.mjs test/selftest-warnings.mjs test/selftest-cap.mjs test/selftest-map-style.mjs test/selftest-map-pick.mjs test/selftest-great-circle.mjs test/selftest-geo-query.mjs test/selftest-quips.mjs test/selftest-fit-row.mjs test/selftest-probes.mjs test/selftest-moon.mjs test/selftest-sun.mjs test/selftest-verze.mjs test/selftest-obal.mjs test/selftest-nowcast.mjs test/selftest-sky-icons.mjs test/selftest-pull-refresh.mjs test/selftest-warn-notify.mjs test/selftest-drift.mjs test/selftest-tile-tone.mjs test/selftest-onboarding.mjs test/selftest-rate-limit.mjs test/selftest-when.mjs test/selftest-qr.mjs test/selftest-donate.mjs",
     "orp": "node tools/orp-build.mjs",
     "tiles": "node tools/tiles-build.mjs",
     "tiles:check": "node tools/tiles-check.mjs",

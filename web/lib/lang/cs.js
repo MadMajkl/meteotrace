@@ -324,9 +324,9 @@ export default {
     firstQuarter: 'První čtvrt',
     waxingGibbous: 'Dorůstající měsíc',
     full: 'Úplněk',
-    waningGibbous: 'Couvající měsíc',
+    waningGibbous: 'Ubývající měsíc',
     lastQuarter: 'Poslední čtvrt',
-    waningCrescent: 'Couvající srpek',
+    waningCrescent: 'Ubývající srpek',
   },
 
   pollen: {
@@ -449,6 +449,13 @@ export default {
     outside: 'Výstrahy pro tuhle oblast neumíme — sledujeme evropský systém.',
     unsure: 'Nevím, kterých míst se týkají, tak ukazuju všechny.',
     unavailable: 'Výstrahy se nepodařilo načíst.',
+    /* 🚨 MRTVÝ ZDROJ NENÍ KLID. Prázdný seznam výstrah znamená buď „nic
+       nehrozí", nebo „zdroj mlčí" — a to jsou dvě úplně jiné zprávy.
+       Věta musí říct, co dělat: nespoléhat se na to. */
+    stale: 'Výstrahy jsou staré {age} — novější od ČHMÚ nemáme. Na tuhle kartu se teď nespoléhej.',
+    ageUnknown: 'neznámo jak',
+    ageHours: { one: 'hodinu', few: '{count} hodiny', many: '{count} hodiny', other: '{count} hodin' },
+    ageDays: { one: 'den', few: '{count} dny', many: '{count} dne', other: '{count} dnů' },
     unnamed: 'Výstraha',
     // ⚠️ Konec nebezpečí je zpráva, na kterou se čeká. Řekne se JEDNOU
     // a pak karta zmizí — opakovat dobrou zprávu znamená ji znehodnotit.
