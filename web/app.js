@@ -62,7 +62,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.15.1';
+const VERZE = '0.16.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -539,6 +539,72 @@ function polohaProStart() {
       { timeout: 8000, maximumAge: 300000 },
     );
   });
+}
+
+/**
+ * ⌖ u pole Odkud: dosadí do trasy polohu ze zařízení.
+ *
+ * 🚨 Do 31. 8. 2026 se poloha do trasy nedala zadat vůbec. `polohaProStart()`
+ * si ji brala sama, ale JEN když se trasa spouštěla z jiného místa („jeď sem"
+ * z karty místa) — kdo si formulář vyplňoval ručně, tu volbu neměl.
+ * Michal: *„při zadávání trasy není možné použít mojí aktuální polohu."*
+ *
+ * ⚠️ Náhradní start se tady NEBERE. `polohaProStart()` umí při nezdaru
+ * dosadit právě prohlížené místo — což je správné, když se trasa spouští
+ * odjinud, ale tady by to bylo tiché podstrčení něčeho jiného, než na co
+ * člověk klepl. Kdo mačká ⌖, chce polohu; když není, musí se to říct.
+ */
+function polohaDoTrasy() {
+  const btn = $('route-from-locate');
+  if (!navigator.geolocation) { notice(t('search.locationFailed', state.lang)); return; }
+
+  const dosad = (bod) => {
+    state.fix = bod;
+    const misto = { ...bod, name: t('search.myLocation', state.lang) };
+    state.route.from = misto;
+    $('route-from').value = misto.name;
+    // Nabídka hledání pod polem by po dosazení ukazovala staré výsledky.
+    const seznam = $('route-from-results');
+    if (seznam) { seznam.hidden = true; seznam.innerHTML = ''; }
+    skryjVysledekTrasy();
+    notice(null);
+  };
+
+  if (isUsablePoint(state.fix)) { dosad({ ...state.fix }); return; }
+
+  if (btn) btn.disabled = true;
+  notice(t('search.searching', state.lang));
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      if (btn) btn.disabled = false;
+      const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      // 🚨 „0, 0" není poloha, ale „nevím" — trasa z Guinejského zálivu by
+      // se spočítala a tvářila se, že je vše v pořádku.
+      if (!isUsablePoint(bod)) { notice(t('search.locationFailed', state.lang)); return; }
+      dosad(bod);
+    },
+    () => { if (btn) btn.disabled = false; notice(t('search.locationFailed', state.lang)); },
+    { timeout: 10000, maximumAge: 300000 },
+  );
+}
+
+/**
+ * Odkryje řádek „Ohodnotit appku" — JEN v androidím obalu.
+ *
+ * ⚠️ Na webu se neukazuje schválně (vzor Gulpka `initRateRow`): návštěvník
+ * appku nemá a odkaz by ho poslal hodnotit něco, co si neinstaloval.
+ * Rozpoznává se to podle mostu `window.MeteoTraceObal`, ne podle `userAgent` —
+ * ten se dá přepsat a v prohlížeči na Androidu by lhal.
+ */
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.meteotrace';
+
+function zapniHodnoceni() {
+  if (!window.MeteoTraceObal) return;
+  const sekce = $('rate-section');
+  const odkaz = $('rate-link');
+  if (!sekce || !odkaz) return;
+  odkaz.href = PLAY_URL;
+  sekce.hidden = false;
 }
 
 /** Hvězdička u souhrnu trasy: uložit / odebrat. */
@@ -1378,14 +1444,16 @@ function locate() {
       const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
       // 🚨 „0, 0" není poloha, ale „nevím" — a mlčky ukázat počasí
       // v Guinejském zálivu je horší než přiznat, že to nevyšlo.
-      if (!isUsablePoint(bod)) { notice(t('error.failed', state.lang)); return; }
+      // ⚠️ Poloha se nehlásí jako „data se nepodařilo načíst" — poloha nejsou
+      // data a ta věta posílá hledat chybu v připojení místo v povolení.
+      if (!isUsablePoint(bod)) { notice(t('search.locationFailed', state.lang)); return; }
       state.fix = bod;
       selectPlace({
         name: t('search.myLocation', state.lang),
         lat: pos.coords.latitude, lon: pos.coords.longitude,
       });
     },
-    () => notice(t('error.failed', state.lang)),
+    () => notice(t('search.locationFailed', state.lang)),
     { timeout: 10000, maximumAge: 300000 },
   );
 }
@@ -3557,10 +3625,12 @@ function init() {
     skryjVysledekTrasy();
   });
   vykresliRychlost();
+  $('route-from-locate').addEventListener('click', polohaDoTrasy);
   pripojVyber('route-from', 'route-from-results', 'from');
   pripojVyber('route-to', 'route-to-results', 'to');
   vykresliZpusoby();
   vykresliMezibody();
+  zapniHodnoceni();
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:
@@ -3945,12 +4015,32 @@ function zapojUvitani() {
 
   // ⌖ Poloha jako DRUHÁ možnost. Používá tutéž cestu jako tlačítko
   // v hlavičce, takže se chová stejně — včetně toho, co dělá při odmítnutí.
+  /**
+   * 🚨 NEZDAR SE MUSÍ ŘÍCT. Do 31. 8. 2026 tenhle posluchač na všechny tři
+   * způsoby nezdaru (chybějící geolokace, odepřené povolení, poloha „0, 0")
+   * odpovídal MLČENÍM — klepnutí na ⌖ prostě neudělalo nic. Od rozbitého
+   * tlačítka se to nedá odlišit, a je to zrovna první obrazovka appky.
+   * ⚠️ `notice()` se sem nehodí: hlavička je pod překryvem uvítání. Hláška
+   * jde do `#uvitani-poznamka` — prázdné místo, které pro ni v uvítání už
+   * bylo připravené.
+   */
+  const uvitaniPoznamka = (text) => {
+    const p = $('uvitani-poznamka');
+    if (!p) return;
+    p.textContent = text || '';
+    p.hidden = !text;
+  };
+
   $('uvitani-locate').addEventListener('click', () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) { uvitaniPoznamka(t('search.locationFailed', state.lang)); return; }
+    uvitaniPoznamka(t('search.searching', state.lang));
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        if (!isUsablePoint(bod)) return;
+        // „0, 0" není poloha, ale „nevím" — domov v Guinejském zálivu by se
+        // uložil natrvalo a příště by appka startovala tam.
+        if (!isUsablePoint(bod)) { uvitaniPoznamka(t('search.locationFailed', state.lang)); return; }
+        uvitaniPoznamka(null);
         state.fix = bod;
         uvitaniVyberMisto({
           name: `${bod.lat.toFixed(2)}, ${bod.lon.toFixed(2)}`, ...bod,
@@ -3964,7 +4054,7 @@ function zapojUvitani() {
           $('uvitani-vybrano').textContent = `★ ${jmeno}`;
         }).catch(() => {});
       },
-      () => {},
+      () => uvitaniPoznamka(t('search.locationFailed', state.lang)),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
     );
   });

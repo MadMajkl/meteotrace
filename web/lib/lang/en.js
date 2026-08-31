@@ -85,6 +85,7 @@ export default {
     myLocation: 'My location',
     noResults: 'No such place here. Try spelling it differently.',
     searching: 'Searching…',
+    locationFailed: 'Could not get your location. Check that the app is allowed to use it.',
     noFocus: 'Not sorted by location — tap ⌖ to see places near you.',
   },
 
@@ -323,12 +324,17 @@ export default {
     noWebgl: 'This browser cannot draw the map — 3D graphics (WebGL) are turned off or unavailable.',
   },
 
+  // Rate the app (Gulpka pattern). Android wrapper only.
+  rate: {
+    title: 'Rating',
+    open: 'Rate the app',
+  },
+
   settings: {
     title: 'Settings',
     language: 'Language',
     languageAuto: 'Match my device',
-    primary: '🏠 Home screen',
-    primaryHint: 'It sits on the left in the tabs and opens when the app starts.',
+    primary: 'Home screen shows:',
     theme: 'Appearance',
     themeAuto: 'Match my device',
     themeLight: 'Light',
@@ -336,7 +342,7 @@ export default {
     themePink: 'Pink',
     themePinkDark: 'Pink, dark',
     units: 'Units',
-    unitsNote: 'Units are yours to pick — an American who speaks Czech exists.',
+    unitsNote: 'Metric or imperial.',
     temperature: 'Temperature',
     wind: 'Wind speed',
     precipitation: 'Precipitation',

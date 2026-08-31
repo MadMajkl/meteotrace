@@ -1067,6 +1067,32 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
 .route-form > .icon-btn { grid-row: span 2; align-self: center; height: 44px; }
 .route-field:nth-of-type(2) { grid-column: 1; }
 
+/* Pole Odkud nese uvnitř ⌖. `relative` je na obalu, ne na `.route-field` —
+   ten už drží nabídku výsledků a tlačítko by se vázalo k němu, tedy i pod
+   popisek nad polem. */
+.route-vstup { position: relative; display: block; }
+/* Vpravo se uvolní místo, aby text nelezl pod tlačítko. */
+.route-vstup input { padding-right: 42px; }
+
+/* ⚠️ Terč je 40 × 36 px. Menší se palcem netrefí, a je to jediná cesta, jak
+   do trasy dostat vlastní polohu. */
+.route-locate {
+  position: absolute; top: 50%; right: 2px;
+  transform: translateY(-50%);
+  width: 40px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  /* ⚠️ Velikost i barva jsou opsané z ⌖ v hlavičce (`#btn-locate`: 20 px,
+     barva odkazu). Napoprvé tu bylo 18 px v `--text-soft` a vedle hlavičkového
+     to četlo jako jiný, vypnutý prvek — přitom je to táž akce. */
+  font: inherit; font-size: 20px; line-height: 1;
+  color: var(--accent); background: none;
+  border: 0; border-radius: 8px; cursor: pointer;
+}
+.route-locate:hover, .route-locate:focus-visible { background: var(--accent-soft); }
+/* Zatímco se poloha zjišťuje, tlačítko je vypnuté — druhé klepnutí by
+   poslalo druhý dotaz a odpovědi by se předběhly. */
+.route-locate[disabled] { opacity: .5; cursor: default; }
+
 /* Výsledky hledání uvnitř karty, ne přes celou stránku. */
 .results.inline { position: absolute; z-index: 5; left: 0; right: 0; margin-top: 4px; }
 
@@ -1218,9 +1244,36 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
   .icon-btn.mince svg { animation: none; }
 }
 
+/* ⚠️ Velikost je srovnaná s MINCÍ VEDLE, ne zvolená od oka. Mince je kresba
+   22 × 22 px; ozubené kolo je znak, u kterého je kresba menší než jeho
+   políčko, takže při 17 px vypadalo vedle mince drobné. 21 px je sedí
+   opticky. Michal 31. 8. 2026: *„zvětši kolečko nastavení trochu, ať lehce
+   dorovná velikost srdíčka."*
+   🚨 Do řádku to přispět NESMÍ: dotykový terč zůstává 44 px vysoký a záporné
+   okraje ho z toku vytahují (viz `.icon-btn.mince`). Kdyby se to zvětšilo
+   bez nich, naroste horní lišta — přesně to, na co si Michal stěžoval
+   30. 8. 2026. */
 .icon-btn.settings {
   margin-left: 0;
-  font-size: 17px;
+  font-size: 21px;
+  color: var(--text-soft);
+}
+
+/* Popisek s kresbou. `flex` proto, aby ikona a text seděly na společném
+   účaří i tehdy, když se dlouhý překlad zalomí na dva řádky. */
+.setting-s-ikonou { display: flex; align-items: center; gap: 8px; }
+
+/* ⚠️ Kresba jede na `currentColor` a `fill: none` — je to čárová ikona ve
+   stejném duchu jako piktogramy oblohy (`lib/sky-icons.js`): kulaté konce,
+   jedna tloušťka. Barvu si tak vezme z motivu a nepotřebuje vlastní paletu. */
+.setting-ikona {
+  flex: none;
+  width: 20px; height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   color: var(--text-soft);
 }
 
@@ -1670,7 +1723,47 @@ main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe
    ⚠️ Nic tady nesmí vypadat jako nákup: žádné ceny za funkce, žádné
    „získáš". Dar NIC neodemyká (R7). */
 
-.donate-open { width: 100%; margin: 4px 0 12px; }
+/* Tlačítko daru má kresbu vedle textu, takže z bloku musí být řádek. */
+.donate-open {
+  width: 100%; margin: 4px 0 12px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+
+/* ⚠️ Pulzuje stejně jako mince (2,6 s, poměry z Gulpky) — je to táž nabídka,
+   tak se nesmí hlásit jiným rytmem. */
+.donate-slunce {
+  flex: none;
+  display: block;
+  width: 22px; height: 22px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .25));
+  animation: mince-pulz 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .donate-slunce { animation: none; }
+}
+
+/* ── Hodnotit appku (vzor Gulpka `.settings-link-row`) ─────────────────
+   ⚠️ Je to `<a>`, ne tlačítko — míří ven do Play. Bez těchhle řádků si
+   odkaz přinese podtržení i vlastní barvu a vedle ostatních řádků nastavení
+   by četl jako jiný druh prvku. */
+.rate-row {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font: inherit; color: var(--text);
+  text-decoration: none;
+}
+.rate-row:active { opacity: .6; }
+.rate-text { flex: 1; min-width: 0; }
+
+/* Prázdné hvězdy jsou tlumené: mají říct „tady se hodnotí", ne přitahovat
+   oko víc než samotný text. */
+.rate-stars {
+  flex: none;
+  font-size: 17px; line-height: 1; letter-spacing: .06em;
+  color: var(--text-soft);
+}
 
 /* Velká mince nahoře. Táž kresba jako v hlavičce, týž pulz. */
 .donate-hero { display: flex; justify-content: center; margin: 6px 0 14px; }

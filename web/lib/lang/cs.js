@@ -93,6 +93,11 @@ export default {
     noResults: 'Takové místo neznám. Zkus to napsat jinak.',
     searching: 'Hledám…',
     noFocus: 'Neřadí se podle polohy — ⌖ nabídne okolí.',
+    /* 🚨 Polohu NEHLÁSIT jako „data se nepodařilo načíst" (do 31. 8. 2026 se
+       tak hlásila). Poloha nejsou data: kdo to čte, hledá chybu v připojení
+       nebo v serveru, kdežto skoro vždycky jde o odepřené povolení — a to
+       si spraví sám, když se mu to řekne. */
+    locationFailed: 'Polohu se nepodařilo zjistit. Zkontroluj, že ji má appka povolenou.',
   },
 
   places: {
@@ -368,12 +373,17 @@ export default {
     noWebgl: 'Tenhle prohlížeč mapu nevykreslí — nemá zapnuté 3D vykreslování (WebGL).',
   },
 
+  // Hodnotit appku (vzor Gulpka). Ukazuje se JEN v androidím obalu.
+  rate: {
+    title: 'Hodnocení',
+    open: 'Ohodnotit appku',
+  },
+
   settings: {
     title: 'Nastavení',
     language: 'Jazyk',
     languageAuto: 'Podle zařízení',
-    primary: '🏠 Domovská obrazovka',
-    primaryHint: 'Je vlevo v záložkách a otevírá se při startu appky.',
+    primary: 'Domovská obrazovka se zobrazí jako:',
     theme: 'Vzhled',
     themeAuto: 'Podle zařízení',
     themeLight: 'Světlý',
@@ -381,7 +391,7 @@ export default {
     themePink: 'Růžový',
     themePinkDark: 'Tmavě růžový',
     units: 'Jednotky',
-    unitsNote: 'Jednotky si volíš zvlášť — Američan mluvící česky existuje.',
+    unitsNote: 'Metrické nebo imperiální.',
     temperature: 'Teplota',
     wind: 'Rychlost větru',
     precipitation: 'Srážky',
