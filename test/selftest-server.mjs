@@ -565,7 +565,7 @@ test('🚨 hledání: když hlavní zdroj SELŽE, nastoupí záloha', async () =
   let volani = 0;
   const f = fakeFetch((url) => {
     volani += 1;
-    if (url.includes('openrouteservice')) return new Error('HTTP 429');
+    if (url.includes('pelias')) return new Error('HTTP 429');
     return { body: OPEN_METEO };
   });
   const res = await serveProxy(
@@ -578,7 +578,7 @@ test('🚨 hledání: když hlavní zdroj SELŽE, nastoupí záloha', async () =
 });
 
 test('🚨 hledání: když hlavní zdroj NIC NENAJDE, zkusí se záloha', async () => {
-  const f = fakeFetch((url) => (url.includes('openrouteservice')
+  const f = fakeFetch((url) => (url.includes('pelias')
     ? { body: { features: [] } }
     : { body: OPEN_METEO }));
   const res = await serveProxy(
@@ -591,7 +591,7 @@ test('🚨 hledání: když hlavní zdroj NIC NENAJDE, zkusí se záloha', async
 test('hledání: když nenajde nic ani záloha, vrátí se prázdno, ne chyba', async () => {
   // „Nic jsme nenašli" je platná odpověď. Chyba by uživatele poslala hledat
   // problém v appce, přestože jen napsal nesmysl.
-  const f = fakeFetch((url) => (url.includes('openrouteservice')
+  const f = fakeFetch((url) => (url.includes('pelias')
     ? { body: { features: [] } }
     : { body: { results: [] } }));
   const res = await serveProxy(
@@ -605,7 +605,7 @@ test('hledání: když nenajde nic ani záloha, vrátí se prázdno, ne chyba', 
 test('🚨 hledání: záloha dostane text BEZ diakritiky', async () => {
   // Open-Meteo se na diakritice rozbíjí („Plzeň" → 0 nálezů), hlavní zdroj ji
   // naopak zvládá. Proto se sundává až u zálohy, ne v appce.
-  const f = fakeFetch((url) => (url.includes('openrouteservice')
+  const f = fakeFetch((url) => (url.includes('pelias')
     ? new Error('HTTP 500')
     : { body: OPEN_METEO }));
   await serveProxy(
@@ -629,7 +629,7 @@ test('🚨 hledání: záloha dostane text BEZ diakritiky', async () => {
 test('🚨 po selhání se hlavní zdroj chvíli přeskakuje (nezdržuje každé psaní)', async () => {
   zapomenVypadky();
   const clock = fakeClock();
-  const f = fakeFetch((url) => (url.includes('openrouteservice')
+  const f = fakeFetch((url) => (url.includes('pelias')
     ? new Error('HTTP 429')
     : { body: OPEN_METEO }));
   const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
@@ -640,7 +640,7 @@ test('🚨 po selhání se hlavní zdroj chvíli přeskakuje (nezdržuje každé
   // Jiný dotaz, ať se netrefí do cache.
   await serveProxy({ pathname: '/api/geocode', params: { name: 'Domažlice' }, env: ENV }, spolecne);
   assert.equal(f.calls.length, 3, 'podruhé se rovnou volá záloha, hlavní zdroj se přeskočí');
-  assert.ok(!f.calls[2].url.includes('openrouteservice'));
+  assert.ok(!f.calls[2].url.includes('pelias'));
 });
 
 test('paměť výpadku vyprší a hlavní zdroj dostane další šanci', async () => {
@@ -648,7 +648,7 @@ test('paměť výpadku vyprší a hlavní zdroj dostane další šanci', async (
   const clock = fakeClock();
   let kvota = false;
   const f = fakeFetch((url) => {
-    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    if (!url.includes('pelias')) return { body: OPEN_METEO };
     return kvota ? { body: PELIAS } : new Error('HTTP 429');
   });
   const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
@@ -667,7 +667,7 @@ test('když hlavní zdroj zase odpoví, paměť výpadku se hned zahodí', async
   const clock = fakeClock();
   let selhavej = true;
   const f = fakeFetch((url) => {
-    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    if (!url.includes('pelias')) return { body: OPEN_METEO };
     return selhavej ? new Error('HTTP 500') : { body: PELIAS };
   });
   const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };
@@ -683,7 +683,7 @@ test('když hlavní zdroj zase odpoví, paměť výpadku se hned zahodí', async
   const predtim = f.calls.length;
   await serveProxy({ pathname: '/api/geocode', params: { name: 'Plzeň' }, env: ENV }, spolecne);
   assert.equal(f.calls.length, predtim + 1, 'jediné volání — rovnou hlavní zdroj, žádná záloha');
-  assert.ok(f.calls[predtim].url.includes('openrouteservice'));
+  assert.ok(f.calls[predtim].url.includes('pelias'));
 });
 
 test('🚨 odpověď ze zálohy platí krátce, ne 24 hodin jako plnohodnotná', async () => {
@@ -691,7 +691,7 @@ test('🚨 odpověď ze zálohy platí krátce, ne 24 hodin jako plnohodnotná',
   const clock = fakeClock();
   let kvota = false;
   const f = fakeFetch((url) => {
-    if (!url.includes('openrouteservice')) return { body: OPEN_METEO };
+    if (!url.includes('pelias')) return { body: OPEN_METEO };
     return kvota ? { body: PELIAS } : new Error('HTTP 429');
   });
   const spolecne = { cache: createCache({ now: clock.now }), fetchImpl: f, now: clock.now };

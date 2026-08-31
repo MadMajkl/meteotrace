@@ -206,7 +206,7 @@ export default {
     pickedTo: 'Destination set from the map.',
     start: 'Start',
     finish: 'Destination',
-    legend: 'Points along the route',
+    legend: 'What the points along the route mean',
     legendOk: 'no rain',
     legendRain: 'rain',
     legendHazard: 'hazardous weather',

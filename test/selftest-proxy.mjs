@@ -530,3 +530,37 @@ test('příznak zálohy je nezávislý na příznaku prošlých dat', () => {
   const jenZaloha = responseHeaders({ ttlS: 60, zeZalohy: true });
   assert.equal(jenZaloha['X-MeteoTrace-Stale'], undefined);
 });
+
+/* ── zrušená adresa HeiGIT ────────────────────────────────────────────── */
+
+test('🚨 žádný zdroj nesmí mířit na zrušené api.openrouteservice.org', () => {
+  // HeiGIT tu adresu 28. 4. 2026 zrušil, od 27. 8. 2026 na ni pouští jen
+  // 10 % kvóty a 28. 9. 2026 ji VYPÍNÁ.
+  //
+  // Trasy se přestěhovaly 24. 8., hledání ne — a 27. 8. mu spadl denní
+  // příděl z 1 000 na 100. Do čtyř dnů byl pryč, proxy přepnula na zálohu
+  // Open-Meteo (ta neumí adresy) a Michal to 31. 8. nahlásil jako
+  // „vyhledávání blbne na diakritice". Diagnóza trvala dlouho, protože
+  // se nikde nedalo přečíst, že se ptáme na zrušenou adresu.
+  //
+  // ⚠️ Tenhle test není o kosmetice URL: po 28. 9. 2026 by to znamenalo
+  // hledání, které nefunguje vůbec.
+  const hrisnici = Object.entries(UPSTREAMS)
+    .filter(([, spec]) => typeof spec.base === 'string'
+      && spec.base.includes('api.openrouteservice.org'))
+    .map(([jmeno]) => jmeno);
+
+  assert.deepEqual(hrisnici, [],
+    `zdroje na zrušené adrese: ${hrisnici.join(', ')} — patří na api.heigit.org`);
+});
+
+test('hledání i zpětné hledání jedou přes Pelias u HeiGIT', () => {
+  // ⚠️ Cesta je `/pelias/v1/…`, NE `/openrouteservice/…` jako u tras.
+  // Zjištěno zkoušením: čtyři jiné tvary vrátily 404.
+  for (const jmeno of ['geocode', 'geocodeReverse']) {
+    const spec = UPSTREAMS[jmeno];
+    if (!spec?.base) continue;
+    assert.ok(spec.base.startsWith('https://api.heigit.org/pelias/v1/'),
+      `${jmeno} míří na ${spec.base}`);
+  }
+});

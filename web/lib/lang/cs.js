@@ -242,7 +242,7 @@ export default {
     // ukazuje čtyři odstíny a nikde nestojí, co který znamená. Michal
     // 30. 8. 2026 chtěl vysvětlivky u bodů — tohle je ta levnější půlka,
     // která odpovídá na častější otázku („proč je červený?").
-    legend: 'Body na trase',
+    legend: 'Co znamenají body na trase',
     legendOk: 'beze srážek',
     legendRain: 'déšť',
     legendHazard: 'nebezpečné počasí',

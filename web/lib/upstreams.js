@@ -100,13 +100,32 @@ export const UPSTREAMS = {
    * ⚠️ Parametry ani formát odpovědi se nemění (`normalize: 'pelias'` platí
    * dál), takže je to výměna jedné adresy — ne přepis.
    *
-   * 🟡 ZŮSTÁVÁ OTEVŘENÉ: kvóta se vyčerpala i tak. Autocomplete má vlastní
-   * příděl, ale při psaní se ptáme po každém písmenu (s prodlevou 280 ms),
-   * takže ho spotřebováváme rychleji než /search. Viz deník 31. 8. 2026.
+   * ────────────────────────────────────────────────────────────────────────
+   * 🚨 A HLAVNÍ DŮVOD, PROČ KVÓTA DOŠLA: ZRUŠENÁ ADRESA
+   *
+   * `api.openrouteservice.org` je **od 28. 4. 2026 zrušená** ve prospěch
+   * `api.heigit.org` a **od 27. 8. 2026 na ni HeiGIT pouští jen 10 % kvóty**.
+   * Naše trasy se přestěhovaly už 24. 8., hledání ne — a tak mu 27. 8. spadl
+   * příděl z 1 000 na 100 denně a do čtyř dnů byl pryč.
+   *
+   * 🚨 **28. 9. 2026 se stará adresa vypíná úplně.** Nebyla to tedy jen
+   * dnešní nepříjemnost: hledání a zpětné hledání by za měsíc přestala
+   * fungovat nadobro.
+   *
+   * Změřeno 31. 8. 2026 týmž klíčem:
+   *
+   * | adresa | limit | zbývalo |
+   * |---|---|---|
+   * | `api.openrouteservice.org/geocode/…` | **100** | 64 |
+   * | `api.heigit.org/pelias/v1/…`         | **3 000** | 2 998 |
+   *
+   * ⚠️ Cesta se změnila jinak než u tras — **`/pelias/v1/…`**, ne
+   * `/openrouteservice/…`. Zjištěno zkoušením, ne z dokumentace: čtyři jiné
+   * tvary vrátily 404.
    * ────────────────────────────────────────────────────────────────────────
    */
   geocode: {
-    base: 'https://api.openrouteservice.org/geocode/autocomplete',
+    base: 'https://api.heigit.org/pelias/v1/autocomplete',
     params: ['text', 'size', 'lang', 'focus.point.lat', 'focus.point.lon'],
     // Klient posílá pořád `name`/`count`; překlad na řeč služby patří sem,
     // ne do appky — jinak by výměna zdroje znamenala zásah do obrazovky.
@@ -171,7 +190,9 @@ export const UPSTREAMS = {
    * poskytovatele prázdno (změřeno), takže by odřízl všechno.
    */
   geocodeReverse: {
-    base: 'https://api.openrouteservice.org/geocode/reverse',
+    // ⚠️ Táž stěhovací poznámka jako u `geocode` výš: zrušená adresa má od
+    // 27. 8. 2026 desetinu kvóty a 28. 9. 2026 se vypíná.
+    base: 'https://api.heigit.org/pelias/v1/reverse',
     params: ['point.lat', 'point.lon', 'size', 'lang'],
     mapParams: ({ lat, lon, language }) => {
       const out = {

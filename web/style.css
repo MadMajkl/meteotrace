@@ -1188,9 +1188,25 @@ main {
 .rozklep[aria-expanded="true"] .sipka { transform: rotate(180deg); }
 /* Počet v tlačítku: bez něj není u sbaleného oddílu poznat, jestli v něm
    něco je. Nesmí ale křičet víc než jméno oddílu. */
-/* Legenda pod mapou je nápověda, ne oddíl karty — drobnější písmo,
-   ať nesoupeří s nadpisem „Po cestě" hned pod ní. */
-.rozklep--mala { font-size: 11px; padding: 0; }
+/* ── Legenda pod mapou ──────────────────────────────────────────────────
+   🚨 JE TO PILULKA, NE HOLÝ ŘÁDEK. Michal 31. 8. 2026: *„chybí tomu pozadí,
+   takhle je to ošklivé, a šipku hned vedle nápisu, ne na druhou stranu
+   obrazovky."* Podklad i tvar jsou opsané z `.saved-toggle` v hlavičce —
+   v appce už jedna rozklepávací pilulka je a druhá se nevymýšlí.
+
+   ⚠️ Šipka drží u textu (`margin-left: 0`), na rozdíl od široké varianty
+   uvnitř karty, kde ji `margin-left: auto` odsouvá na pravý kraj. Tady by
+   to bylo přes celou šířku obrazovky a nešlo by poznat, k čemu patří. */
+.rozklep--mala {
+  display: inline-flex; width: auto;
+  gap: 6px;
+  padding: 6px 11px;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+.rozklep--mala .sipka { margin-left: 0; font-size: 10px; }
 
 .route-points { list-style: none; margin: 0; padding: 0; }
 
