@@ -232,7 +232,6 @@ export default {
     // přidáváš start a dalším cíl, když koukám na hotovou trasu."*
     pickHint: 'Klepnutím do mapy zadáš start, dalším cíl.',
     pickHintTo: 'Klepnutím do mapy zadáš cíl.',
-    pickHintReplace: 'Klepnutím do mapy změníš cíl.',
     mapWaiting: 'Mapa se ukáže, až se spočítá trasa.',
     pickedFrom: 'Start je z mapy. Teď klepni na cíl.',
     pickedTo: 'Cíl je z mapy.',

@@ -650,7 +650,31 @@
   <div id="station-map-slot">
   <section class="card map-card" aria-labelledby="h-radar">
     <h2 id="h-radar" data-i18n="radar.title"></h2>
-    <div id="map" class="map"></div>
+    <div id="map" class="map">
+    <!-- 🚨 SBALENÉ. Michal 31. 8. 2026: *„sbal BODY NA TRASE… vedle toho tu
+         šipečku na rozklepnutí, aby to bylo jasné, ale sbalené."* Legenda je
+         nápověda k barvám teček v mapě — přečte se jednou a pak jen zabírá
+         místo mezi mapou a rozpisem počasí.
+         ⚠️ Nadpis je proto TLAČÍTKO se šipkou, ne `<span>`; vzor je
+         `.saved-toggle` v hlavičce, ať se v appce nerozklepává dvěma způsoby.
+         ⚠️ Sbalí se i věta o klepnutí na bod — patří k téže nápovědě. -->
+    <div class="legenda" id="route-legenda" hidden>
+      <button id="route-legenda-toggle" class="rozklep rozklep--mala" type="button"
+              aria-expanded="false" aria-controls="route-legenda-obsah">
+        <span data-i18n="route.legend"></span>
+        <span class="sipka" aria-hidden="true">▾</span>
+      </button>
+      <div id="route-legenda-obsah" hidden>
+      <ul class="legenda-body" id="route-legenda-body"></ul>
+      <!-- 🚨 Bez téhle věty je klepání na bod NEVIDITELNÁ FUNKCE. Bublina
+           s časem příjezdu, počasím a teplotou tam byla od začátku — jen
+           o ní nikdo nevěděl, protože na telefonu není kurzor, který by
+           ručičkou napověděl. Michal si ji 30. 8. 2026 vyžádal jako novou
+           funkci, přestože hotová byla: mlčení z ní udělalo neexistující. -->
+      <p class="legenda-tip" data-i18n="route.legendTap"></p>
+      </div>
+    </div>
+    </div>
     <div class="radar-bar">
       <button id="radar-play" class="icon-btn" type="button" data-i18n-attr="aria-label:radar.play">▶</button>
       <span id="radar-time" class="radar-time"></span>
@@ -820,29 +844,6 @@
        ⚠️ Puntíky si barvu berou z `ROUTE_COLORS` v map.js, ne z CSS —
        dvě sady odstínů by se rozešly a legenda by pak vysvětlovala barvy,
        které v mapě nejsou. -->
-  <!-- 🚨 SBALENÉ. Michal 31. 8. 2026: *„sbal BODY NA TRASE… vedle toho tu
-       šipečku na rozklepnutí, aby to bylo jasné, ale sbalené."* Legenda je
-       nápověda k barvám teček v mapě — přečte se jednou a pak jen zabírá
-       místo mezi mapou a rozpisem počasí.
-       ⚠️ Nadpis je proto TLAČÍTKO se šipkou, ne `<span>`; vzor je
-       `.saved-toggle` v hlavičce, ať se v appce nerozklepává dvěma způsoby.
-       ⚠️ Sbalí se i věta o klepnutí na bod — patří k téže nápovědě. -->
-  <div class="legenda" id="route-legenda" hidden>
-    <button id="route-legenda-toggle" class="rozklep rozklep--mala" type="button"
-            aria-expanded="false" aria-controls="route-legenda-obsah">
-      <span data-i18n="route.legend"></span>
-      <span class="sipka" aria-hidden="true">▾</span>
-    </button>
-    <div id="route-legenda-obsah" hidden>
-    <ul class="legenda-body" id="route-legenda-body"></ul>
-    <!-- 🚨 Bez téhle věty je klepání na bod NEVIDITELNÁ FUNKCE. Bublina
-         s časem příjezdu, počasím a teplotou tam byla od začátku — jen
-         o ní nikdo nevěděl, protože na telefonu není kurzor, který by
-         ručičkou napověděl. Michal si ji 30. 8. 2026 vyžádal jako novou
-         funkci, přestože hotová byla: mlčení z ní udělalo neexistující. -->
-    <p class="legenda-tip" data-i18n="route.legendTap"></p>
-    </div>
-  </div>
 
   <!-- 🚨 „Po cestě" JE HLAVNÍ OBSAH OBRAZOVKY A ZŮSTÁVÁ ROZBALENÉ.
        ♻️ 31. 8. 2026 jsem ho omylem sbalil — Michal chtěl sbalit legendu

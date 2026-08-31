@@ -1790,9 +1790,35 @@ main {
 
    ⚠️ Tlumená a drobná. Není to údaj, je to vysvětlivka k údaji — kdyby
    křičela, přetahovala by pozornost od mapy, ke které se vztahuje. */
+/* ── Legenda uvnitř mapy, vpravo dole ───────────────────────────────────
+   🚨 Michal 31. 8. 2026: *„dej tu dlaždici s body na trase do hlavní
+   dlaždice s mapou doprava dolů."* Předtím visela pod mapou a odsouvala
+   rozpis počasí níž.
+
+   ⚠️ Rozbaluje se NAHORU (`column-reverse`), ne dolů: `#map` má
+   `overflow: hidden`, takže obsah vyklopený pod tlačítko by se u spodní
+   hrany prostě uřízl.
+
+   ⚠️ `max-width` je v procentech plochy mapy — na 320px displeji by pevná
+   šířka přelezla přes celou mapu a zakryla trasu. */
 .legenda {
-  margin: -6px 0 16px;
-  padding: 0 4px;
+  position: absolute;
+  right: 10px; bottom: 10px;
+  z-index: 2;
+  display: flex; flex-direction: column-reverse; align-items: flex-end;
+  gap: 6px;
+  max-width: min(280px, calc(100% - 20px));
+}
+
+/* Rozbalený obsah je karta nad tlačítkem, ne holý text: leží na mapě
+   a bez podkladu by se čísla i tečky ztratily v dlaždicích pod nimi. */
+#route-legenda-obsah {
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
 }
 .legenda[hidden] { display: none; }
 

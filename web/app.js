@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.7';
+const VERZE = '0.16.8';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2270,7 +2270,10 @@ function vypisNapoveduMapy() {
     hint.textContent = t('radar.pickHint', state.lang);
     return;
   }
-  hint.textContent = t(klepnutiDoMapy(state.route).klic, state.lang);
+  const klic = klepnutiDoMapy(state.route).klic;
+  hint.textContent = klic ? t(klic, state.lang) : '';
+  // ⚠️ Prázdný odstavec by po sobě nechal mezeru pod posuvníkem.
+  hint.hidden = !klic;
 }
 
 /**
@@ -2816,6 +2819,20 @@ function prepniObrazovku(kam) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
   presunMapu();
+
+  // 🚨 Legenda sedí UVNITŘ mapy, a ta se mezi obrazovkami PŘESOUVÁ — takže by
+  // si na meteostanici odnesla vysvětlivky k trase, která tam vůbec není.
+  //
+  // ⚠️ A při návratu se musí zase objevit. Napoprvé se tu jen skrývala —
+  // jenže vykreslení trasy se přepnutím záložky nespouští, takže legenda
+  // zůstala schovaná i nad hotovou trasou a vypadalo to jako vada.
+  // Podmínkou je, že nějaká trasa opravdu je: rozhoduje to táž karta,
+  // která nese výsledek.
+  const legenda = $('route-legenda');
+  if (legenda) {
+    if (kam !== 'route') legenda.hidden = true;
+    else if (!$('route-points-card').hidden) vykresliLegendu();
+  }
 
   // 🚨 HLEDÁNÍ JEDNOHO MÍSTA PATŘÍ METEOSTANICI, NE TRASE. Na trase stálo
   // „Najít místo…" přímo nad poli Odkud a Kam — tři vstupní pole na jedné

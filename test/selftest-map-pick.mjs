@@ -128,7 +128,18 @@ test('🚨 klepnutí do mapy: nápověda říká, co se OPRAVDU stane', () => {
     { pole: 'to', klic: 'route.pickHintTo' }, 'start zadaný: další klepnutí je cíl');
 
   assert.deepEqual(klepnutiDoMapy({ from: bod, to: bod }),
-    { pole: 'to', klic: 'route.pickHintReplace' }, 'hotová trasa: klepnutí MĚNÍ cíl, nezadává start');
+    { pole: 'to', klic: null }, 'hotová trasa: NIC se netvrdí');
+});
+
+test('🚨 nad hotovou trasou se o klepnutí MLČÍ', () => {
+  // Klepnutí sice přepíše pole „Kam", ale na obrazovce se nezmění nic —
+  // mapa dál kreslí starou trasu a přepočítá se až tlačítkem. Věta
+  // „Klepnutím do mapy změníš cíl" tedy slibovala změnu, kterou uživatel
+  // neuvidí. Michal ji vrátil dvakrát; podruhé: „vyhoď už tu lež."
+  const bod = { lat: 50, lon: 14 };
+  assert.equal(klepnutiDoMapy({ from: bod, to: bod }).klic, null);
+  // ⚠️ Chování se tím NEMĚNÍ — cíl se pořád přepisuje, jen se to neslibuje.
+  assert.equal(klepnutiDoMapy({ from: bod, to: bod }).pole, 'to');
 });
 
 test('🚨 pole i věta chodí z jednoho výrazu — nemají jak se rozejít', () => {
@@ -139,7 +150,7 @@ test('🚨 pole i věta chodí z jednoho výrazu — nemají jak se rozejít', (
   const pary = [
     [{}, 'from', 'route.pickHint'],
     [{ from: bod }, 'to', 'route.pickHintTo'],
-    [{ from: bod, to: bod }, 'to', 'route.pickHintReplace'],
+    [{ from: bod, to: bod }, 'to', null],
     [{ to: bod }, 'from', 'route.pickHint'],   // jen cíl: chybí start, tak se plní start
   ];
   for (const [route, pole, klic] of pary) {
@@ -154,7 +165,9 @@ test('věty ke klepnutí existují v obou jazycích', async () => {
   const en = (await import('../web/lib/lang/en.js')).default;
   const bod = { lat: 50, lon: 14 };
   for (const route of [{}, { from: bod }, { from: bod, to: bod }]) {
-    const [obor, klic] = klepnutiDoMapy(route).klic.split('.');
+    const k = klepnutiDoMapy(route).klic;
+    if (!k) continue;                      // nad hotovou trasou se nic nepíše
+    const [obor, klic] = k.split('.');
     assert.ok(cs[obor]?.[klic], `chybí český text pro ${obor}.${klic}`);
     assert.ok(en[obor]?.[klic], `chybí anglický text pro ${obor}.${klic}`);
   }

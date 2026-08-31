@@ -109,11 +109,22 @@ export function placeFromMap(point, labels = []) {
  * ⚠️ Prázdné pole se plní zleva doprava; když jsou obě plná, přepisuje se
  * CÍL. Je to nejčastější případ: start bývá „odsud" a mění se, kam se jede.
  *
+ * 🚨 NAD HOTOVOU TRASOU SE NETVRDÍ NIC (`klic: null`). Napoprvé (31. 8. 2026)
+ * jsem tam dal větu *„Klepnutím do mapy změníš cíl."* — a Michal ji vrátil
+ * podruhé: *„vyhoď už tu lež, že klepnutím do mapy změníš cíl."* Má pravdu.
+ * Klepnutí sice přepíše pole *Kam*, ale **na obrazovce se nezmění nic**:
+ * mapa dál kreslí starou trasu a přepočítá se až tlačítkem. Věta tedy slibuje
+ * změnu, kterou uživatel neuvidí — a to je horší než mlčet.
+ *
+ * ⚠️ Chování klepnutí se NEMĚNÍ, mizí jen ten slib. Že se cíl přepsal, řekne
+ * poznámka u formuláře (`route.pickedTo`), tedy tam, kde je to vidět.
+ *
  * @param {{from?: object|null, to?: object|null}} route
- * @returns {{pole: 'from'|'to', klic: string}} kam se zapíše a klíč do slovníku
+ * @returns {{pole: 'from'|'to', klic: string|null}} kam se zapíše a klíč
+ *   do slovníku; `null` = nic se nepíše
  */
 export function klepnutiDoMapy(route = {}) {
   if (!route.from) return { pole: 'from', klic: 'route.pickHint' };
   if (!route.to) return { pole: 'to', klic: 'route.pickHintTo' };
-  return { pole: 'to', klic: 'route.pickHintReplace' };
+  return { pole: 'to', klic: null };
 }
