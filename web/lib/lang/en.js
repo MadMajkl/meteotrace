@@ -164,7 +164,6 @@ export default {
     compute: 'Show the weather',
     summary: 'Route summary',
     total: 'Total',
-    alongTheWayCount: '({count})',
     alongTheWay: 'Along the way',
     needBoth: 'Pick a start and a destination — otherwise there is nowhere to go.',
     sameSpot: 'Start and destination are the same place — pick another one 😉',

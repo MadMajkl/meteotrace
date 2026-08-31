@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.16.5';
+const VERZE = '0.16.6';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -608,12 +608,19 @@ function zapniHodnoceni() {
   sekce.hidden = false;
 }
 
-/** Rozbalí nebo sbalí rozpis bodů na trase. */
-function rozklepBody(otevrit) {
-  const tlacitko = $('route-points-toggle');
-  const seznam = $('route-points');
-  if (!tlacitko || !seznam) return;
-  seznam.hidden = !otevrit;
+/**
+ * Rozbalí nebo sbalí legendu „Body na trase" pod mapou.
+ *
+ * ⚠️ Legenda, ne rozpis počasí. 31. 8. 2026 jsem to popletl a sbalil kartu
+ * „Po cestě" — Michal: *„já říkal sbal BODY NA TRASE a tys místo toho sbalil
+ * POČASÍ PO CESTĚ, úplně něco jiného."* Rozpis je hlavní obsah obrazovky
+ * a zůstává rozbalený; legenda je nápověda k barvám, ta se přečte jednou.
+ */
+function rozklepLegendu(otevrit) {
+  const tlacitko = $('route-legenda-toggle');
+  const obsah = $('route-legenda-obsah');
+  if (!tlacitko || !obsah) return;
+  obsah.hidden = !otevrit;
   tlacitko.setAttribute('aria-expanded', String(!!otevrit));
 }
 
@@ -3123,10 +3130,9 @@ function skryjVysledekTrasy() {
   vypisNapoveduMapy();
   $('route-summary-card').hidden = true;
   $('route-points-card').hidden = true;
-  // ⚠️ Nová trasa začíná sbalená. Kdyby si oddíl nesl rozbalení z předchozí
-  // cesty, přišel by výsledek rovnou zavalený rozpisem — a přesně to Michal
-  // 31. 8. 2026 nechtěl.
-  rozklepBody(false);
+  // ⚠️ Nová trasa začíná se SBALENOU LEGENDOU (ne se sbaleným rozpisem —
+  // ten je hlavní obsah a zůstává vidět).
+  rozklepLegendu(false);
   // ⚠️ Bez výsledku nemá co sbalit: sbalený formulář nad prázdnou
   // obrazovkou by vypadal, že se appka kouše.
   sbalFormularTrasy(false);
@@ -3447,11 +3453,6 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   vykresliUseky(useky, view.departureMs || Date.now(), pasmo);
 
   $('route-points-card').hidden = false;
-  // ⚠️ Počet patří do tlačítka: u sbaleného oddílu se jinak nedá poznat,
-  // jestli v něm něco je, a od prázdného se to neliší.
-  $('route-points-pocet').textContent = view.points.length
-    ? tf('route.alongTheWayCount', { count: view.points.length }, state.lang)
-    : '';
   fill($('route-points'), view.points, (p) => {
     const li = document.createElement('li');
     li.className = 'route-point';
@@ -3703,8 +3704,8 @@ function init() {
     skryjVysledekTrasy();
   });
   vykresliRychlost();
-  $('route-points-toggle').addEventListener('click', () => {
-    rozklepBody($('route-points').hidden);
+  $('route-legenda-toggle').addEventListener('click', () => {
+    rozklepLegendu($('route-legenda-obsah').hidden);
   });
   $('route-from-locate').addEventListener('click', polohaDoTrasy);
   pripojVyber('route-from', 'route-from-results', 'from');

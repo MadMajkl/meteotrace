@@ -1188,12 +1188,11 @@ main {
 .rozklep[aria-expanded="true"] .sipka { transform: rotate(180deg); }
 /* Počet v tlačítku: bez něj není u sbaleného oddílu poznat, jestli v něm
    něco je. Nesmí ale křičet víc než jméno oddílu. */
-.rozklep-pocet {
-  font-weight: 400; letter-spacing: 0;
-  text-transform: none; color: var(--text-soft);
-}
+/* Legenda pod mapou je nápověda, ne oddíl karty — drobnější písmo,
+   ať nesoupeří s nadpisem „Po cestě" hned pod ní. */
+.rozklep--mala { font-size: 11px; padding: 0; }
 
-.route-points { list-style: none; margin: 8px 0 0; padding: 0; }
+.route-points { list-style: none; margin: 0; padding: 0; }
 
 .route-point {
   display: grid;

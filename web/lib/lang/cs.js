@@ -181,11 +181,6 @@ export default {
     compute: 'Ukázat počasí',
     summary: 'Souhrn trasy',
     total: 'Celkem',
-    // ⚠️ Jen číslo v závorce, žádné „bodů". Čeština by chtěla tři tvary
-    // (1 bod / 2–4 body / 5+ bodů) a rozpis má běžně 3–12 položek, takže by
-    // špatný tvar byl vidět skoro pokaždé. Závorka je správně u každého počtu
-    // a v každém jazyce.
-    alongTheWayCount: '({count})',
     alongTheWay: 'Po cestě',
     needBoth: 'Vyber start i cíl — jinak nemáme kam jet.',
     sameSpot: 'Start a cíl jsou totéž místo — vyber jiný cíl 😉',
