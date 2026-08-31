@@ -235,6 +235,21 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     // ⚠️ Vlastní obsluha si se stylem poradí sama: `queryRenderedFeatures`
     // je v `try`, takže bez vrstev se prostě použijí souřadnice.
     map.on('click', (e) => {
+      // 🚨 KLEPNUTÍ NA BOD TRASY SEM NEPATŘÍ. Body mají vlastní obsluhu
+      // (bublina s časem a počasím) — jenže MapLibre pošle klepnutí OBĚMA:
+      // té na vrstvě i téhle obecné. Do 31. 8. 2026 se tak při prohlížení
+      // počasí v bodě zároveň přepsal cíl a přeskočil špendlík.
+      // Michal: *„kliknutí na bod na trase, aby ses podíval na info, teď taky
+      // bohužel přesune špendlík, to se musí vyloučit."*
+      // ⚠️ Musí se to řešit tady, ne v obsluze bodů: pořadí volání MapLibre
+      // negarantuje a „kdo přijde první" by byla sázka.
+      if (map.getLayer(ROUTE_POINTS)) {
+        try {
+          if (map.queryRenderedFeatures(e.point, { layers: [ROUTE_POINTS] }).length) return;
+        } catch {
+          // Vrstva se právě přestavuje — pak se prostě chová jako dřív.
+        }
+      }
       const bod = [e.lngLat.lat, e.lngLat.lng];
       const okoli = 30;   // px — prst není přesný, popisek bývá vedle bodu
       const ramecek = [

@@ -63,7 +63,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.17.2';
+const VERZE = '0.17.3';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2888,8 +2888,19 @@ const KRESBY = {
     'M10.7 11.2l-1.2 4.1-2.3 3.2',
     'M13.9 9.4l2.8 1.7 1.9-.6',
   ],
+  // 🚨 VÍRNÍK, ne šipka. Michal 31. 8. 2026: *„u vzdušné čáry prosím
+  // o piktogram vírníku."* Sedí to líp než šipka: vzdušná čára je let
+  // napřímo, ne směr — a vírník je zrovna stroj, který letí, kam se ukáže.
+  // Rotor nahoře, kabina, tlačná vrtule vzadu a ocas.
   straight: [
-    'M4.6 19.4L19.4 4.6', 'M13.9 4.6h5.5v5.5',
+    'M3.4 5.4h17.2',            // rotor
+    'M12 5.4v2.4',              // stožár k rotoru
+    'M7.9 10.8a2.9 2.9 0 0 1 2.9-2.9h1.5a3.5 3.5 0 0 1 3.5 3.5v1.3H7.9z',  // kabina
+    'M15.8 11.5h3',             // ocasní nosník
+    'M18.8 9.1v4.8',            // tlačná vrtule
+    'M9.7 12.7l-.9 2.6',        // podvozek
+    'M13.7 12.7l.9 2.6',
+    'M8.2 15.6h6.8',            // osa kol
   ],
 };
 
