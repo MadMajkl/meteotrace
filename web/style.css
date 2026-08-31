@@ -17,6 +17,13 @@
   --warn-bg: #fff5e2;
   --warn-line: #e6b45c;
   --warn-text: #7a4f0d;
+  /* 🚨 ŠÍŘKA OBSAHOVÉHO SLOUPCE. Musí ji držet hlavička i `main` ze
+     společného zdroje — když se rozešly, pole „Najít místo…" šlo na širokém
+     okně od kraje ke kraji, zatímco formulář trasy seděl v kartě uprostřed.
+     Michal 31. 8. 2026: *„ten input u Místa není zarovnanej do stejné šíře
+     jako zbytek obsahu stránky… vypadá to šíleně."* */
+  --sloupec: 720px;
+  --okraj: 16px;
   --radius: 16px;
   --shadow: 0 1px 2px rgba(16, 32, 48, .05), 0 6px 20px rgba(16, 32, 48, .06);
 }
@@ -141,11 +148,22 @@ body {
      kvůli němu narostla z 30 px na skoro 80. Michal: „horní lišta je moc
      vysoká, hlavní panel by měl lícovat těsně pod kolečkem nastavení."
      Nahoru patří `inset-top`, dolů `inset-bottom` — a ten je u `main`. */
-  padding: 5px 16px;
+  padding: 5px var(--okraj);
   padding-top: calc(5px + env(safe-area-inset-top, 0px));
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
+}
+
+/* ⚠️ Podklad a linka lišty jdou přes CELOU šířku okna (jinak by nad obsahem
+   visel pruh s useknutými kraji), ale její OBSAH stojí v témže sloupci jako
+   `main`. `--sloupec` je celková šířka `main` včetně jeho vodorovných
+   okrajů (`box-sizing: border-box`), takže se tu ty okraje musí odečíst —
+   jinak by hlavička byla o 32 px širší než obsah pod ní. */
+.top > .brand,
+.top > .top-menu {
+  max-width: calc(var(--sloupec) - 2 * var(--okraj));
+  margin-inline: auto;
 }
 
 /* ⚠️ `line-height: 1` na řádku se značkou. Výchozích 1,5 dělalo z textu
@@ -461,7 +479,10 @@ body {
 /* ⚠️ Spodní systémový okraj (gesto-lišta) patří SEM, na konec obsahu —
    appka kreslí pod systémové lišty (`enableEdgeToEdge()`), takže bez něj
    by poslední karta končila pod gesto-lištou. */
-main { max-width: 720px; margin: 0 auto; padding: 10px 16px calc(48px + env(safe-area-inset-bottom, 0px)); }
+main {
+  max-width: var(--sloupec); margin: 0 auto;
+  padding: 10px var(--okraj) calc(48px + env(safe-area-inset-bottom, 0px));
+}
 
 .card {
   margin-bottom: 16px; padding: 18px;

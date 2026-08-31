@@ -46,7 +46,14 @@
 
 // Šířky, na kterých se to musí vejít. 320 = iPhone SE, 360 = Galaxy,
 // 390 = iPhone 12/13, 412 = Pixel, 430 = velké telefony.
-const WIDTHS = [320, 360, 390, 412, 430];
+//
+// 🚨 1200 = POČÍTAČ, a přibylo to 31. 8. 2026 po vadě, kterou pět telefonních
+// šířek chytit NEMOHLO: pole „Najít místo…" šlo na širokém okně od kraje ke
+// kraji, kdežto obsah pod ním stojí ve sloupci 720 px uprostřed. Na telefonu
+// je sloupec širší než okno, takže se tam obě šířky rovnají a rozdíl NENÍ
+// VIDĚT. Michal: *„vypadá to šíleně."* Sada, která měří jen telefony, o celé
+// jedné třídě vad mlčí — a mlčí i o tom, že mlčí.
+const WIDTHS = [320, 360, 390, 412, 430, 1200];
 // nomap=1: bez mapy. Pět rámů s vlastním MapLibre a WebGL by stránku
 // přetížilo a rozvržení se na mapě neměří (div s pevnou výškou).
 const APP = '/?lat=50.0755&lon=14.4378&name=Praha&lang=cs&nomap=1';
@@ -307,6 +314,41 @@ function dialogPreteceni(doc, id) {
   return `${popisPrvku(worst)} leze z dialogu o ${Math.round(worstRight - box.right)} px`;
 }
 
+/**
+ * 🚨 DRŽÍ HLAVIČKA TÝŽ SLOUPEC JAKO OBSAH?
+ *
+ * Podklad lišty jde schválně přes celé okno, ale její OBSAH (značka,
+ * záložky, uložené, pole hledání) má stát přesně nad obsahovým sloupcem.
+ * Obojí se řídí proměnnou `--sloupec`; tenhle test hlídá, že se ty dvě
+ * hodnoty nerozešly, až se jedna z nich někdy přepíše.
+ *
+ * ⚠️ Měří se proti KARTĚ, ne proti `main`: `main` má vodorovné okraje,
+ * takže jeho vlastní obdélník je o 32 px širší než to, co je v něm vidět.
+ * Karta je první věc, kterou uživatel opravdu vidí zarovnanou.
+ *
+ * Vrací popis vady, nebo `null`.
+ */
+function sloupecHlavicky(doc) {
+  const karta = doc.querySelector('main .card');
+  if (!karta) return null;           // prázdná obrazovka — není proti čemu měřit
+  const k = karta.getBoundingClientRect();
+  if (k.width < 1) return null;
+
+  const nalezy = [];
+  for (const sel of ['.brand', '#top-menu', '.tabs', '#search-input']) {
+    const el = doc.querySelector(sel);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1) continue;       // schované (hledání na trase)
+    const vlevo = Math.round(r.left - k.left);
+    const vpravo = Math.round(k.right - r.right);
+    if (Math.abs(vlevo) > 1 || Math.abs(vpravo) > 1) {
+      nalezy.push(`${sel} nesedí na sloupec obsahu (vlevo ${vlevo} px, vpravo ${vpravo} px)`);
+    }
+  }
+  return nalezy.length ? nalezy.join('; ') : null;
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -344,6 +386,8 @@ async function run() {
       //    („Místo · Praha"), a právě tam se to useklo.
       const vKontextuMisto = useknutyKontext(doc);
       if (vKontextuMisto) vady.push(`Místo: ${vKontextuMisto}`);
+      const vSloupciMisto = sloupecHlavicky(doc);
+      if (vSloupciMisto) vady.push(`Místo: ${vSloupciMisto}`);
 
       // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
       //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.
@@ -355,6 +399,8 @@ async function run() {
 
       const vKontextuTrasa = useknutyKontext(doc);
       if (vKontextuTrasa) vady.push(`Trasa: ${vKontextuTrasa}`);
+      const vSloupciTrasa = sloupecHlavicky(doc);
+      if (vSloupciTrasa) vady.push(`Trasa: ${vSloupciTrasa}`);
 
       // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
       //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek
