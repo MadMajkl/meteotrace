@@ -362,7 +362,14 @@
        🚨 Dar NIC neodemyká a nikdy nesmí — jinak z něj je platba za digitální
        obsah a spadne pod povinný Play Billing. Že se nic neodemyká, se tady
        taky NAPÍŠE: nabídka platby v jinak bezplatné appce jinak vypadá jako
-       past na peníze a člověk ji radši obejde. -->
+       past na peníze a člověk ji radši obejde.
+
+       🚨 DONATE-COMEBACK (R27): v ANDROIDÍM OBALU je tenhle oddíl i mince
+       v hlavičce SCHOVANÝ, dokud appku Google neschválí do produkce.
+       Schovává to `schovejDarVObalu()` v `app.js`, ne CSS — hledej tam
+       tutéž značku. Na webu zůstává dar beze změny.
+       ⚠️ AŽ BUDE APPKA V PRODUKCI, DAR SE DO ANDROIDU VRACÍ. -->
+  <div id="donate-section">
   <h3 data-i18n="donate.title"></h3>
   <p class="hint" data-i18n="donate.nothing"></p>
   <!-- 🚨 SLUNÍČKO SE SRDCEM, ne holý text. Michal 31. 8. 2026: *„podpořit
@@ -401,6 +408,7 @@
     </svg>
     <span data-i18n="donate.open"></span>
   </button>
+  </div><!-- /#donate-section (DONATE-COMEBACK) -->
 
   <!-- Hodnotit appku (vzor Gulpka, `#rate-section`).
        🚨 JEN V ANDROIDÍM OBALU — odkrývá ho `zapniHodnoceni()`. Na webu není

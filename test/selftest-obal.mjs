@@ -287,3 +287,43 @@ test('🚨 každá animace má cestu ven přes prefers-reduced-motion', () => {
       `animace „${jmeno}" (${selektor}) nemá cestu ven přes prefers-reduced-motion`);
   }
 });
+
+/* ============================================================
+   DONATE-COMEBACK (R27) — dar se v obalu schovává do schválení na Play
+
+   🚨 Je to DOČASNÉ opatření a přesně proto potřebuje hlídače: až se dar
+   vrátí, musí se smazat na všech místech najednou. A dokud platí, nesmí
+   se tiše rozbít — schovaný dar se totiž pozná jen tím, že tam něco NENÍ.
+   ============================================================ */
+
+test('🚨 dar se v obalu schovává podle MOSTU, ne podle CSS ani userAgent', () => {
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const fn = /function schovejDarVObalu\(\)\s*\{[\s\S]*?\n\}/.exec(app);
+  assert.ok(fn, 'funkce schovejDarVObalu() zmizela — dar by se v Androidu ukázal');
+
+  assert.match(fn[0], /window\.MeteoTraceObal/,
+    'obal se poznává mostem; `userAgent` se dá přepsat a v prohlížeči na Androidu lže');
+  for (const id of ['btn-donate-top', 'donate-section']) {
+    assert.ok(fn[0].includes(id), `schovat se musí i ${id}`);
+  }
+
+  assert.match(app, /schovejDarVObalu\(\);/, 'funkce se nikde nevolá');
+
+  // Na webu dar zůstat MUSÍ — kdyby se schoval v šabloně nebo v CSS,
+  // zmizel by všem, i návštěvníkům meteotrace.com.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  assert.match(html, /<div id="donate-section">/, 'oddíl daru musí mít obálku, jinak není co schovat');
+  assert.doesNotMatch(html, /id="donate-section"[^>]*\shidden/, 'dar nesmí být schovaný rovnou v šabloně');
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(css, /#donate-section\s*\{[^}]*display:\s*none/, 'dar nesmí schovávat CSS — platilo by i na webu');
+});
+
+test('DONATE-COMEBACK je značka, která se najde ve všech dotčených souborech', () => {
+  // Až přijde čas dar vrátit, hledá se jedno slovo — ne tři různé formulace.
+  for (const [jmeno, cesta] of [
+    ['app.js', join(WEB, 'app.js')],
+    ['index.html', join(WEB, 'index.html')],
+  ]) {
+    assert.match(readFileSync(cesta, 'utf8'), /DONATE-COMEBACK/, `${jmeno} nenese značku DONATE-COMEBACK`);
+  }
+});

@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.18.1';
+const VERZE = '0.18.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -640,6 +640,34 @@ function zapniHodnoceni() {
   if (!sekce || !odkaz) return;
   odkaz.href = PLAY_URL;
   sekce.hidden = false;
+}
+
+/**
+ * 🚨 DONATE-COMEBACK (`R27`) — dar se v ANDROIDÍM OBALU schová.
+ *
+ * Michal 17. 9. 2026, po vzoru Gulpky. Pravidla Google Play o platbách
+ * říkají jen tolik, že spropitné **tvůrci**, které nic neodemyká, se
+ * považuje za platbu mezi lidmi a jejich systém nevyžaduje. O daru
+ * **vývojáři appky** mlčí — a posuzovatel může QR platbu, Revolut
+ * a PayPal uvnitř appky vyhodnotit jako obcházení Play Billingu.
+ *
+ * Sázka je nesouměrná: vydělá to pár stovek, ale prohřešek dopadne na
+ * účet, na kterém je i Gulpka **v produkci**. Proto se dar v obalu do
+ * schválení neukazuje — a **na webu zůstává**, tam žádná taková pravidla
+ * neplatí.
+ *
+ * ⚠️ Schovává se TADY, ne v CSS: `display:none` v šabloně by platilo
+ * i na webu a tlačítko by zmizelo všem.
+ *
+ * ⚠️ AŽ BUDE APPKA V PRODUKCI, TAHLE FUNKCE SE SMAŽE. Hledej značku
+ * `DONATE-COMEBACK` (tady, v `index.html` a v `selftest-obal.mjs`).
+ */
+function schovejDarVObalu() {
+  if (!window.MeteoTraceObal) return;
+  for (const id of ['btn-donate-top', 'donate-section']) {
+    const prvek = $(id);
+    if (prvek) prvek.hidden = true;
+  }
 }
 
 /**
@@ -4048,6 +4076,7 @@ function init() {
   vykresliZpusoby();
   vykresliMezibody();
   zapniHodnoceni();
+  schovejDarVObalu();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:
