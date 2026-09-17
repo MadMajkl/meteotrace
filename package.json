@@ -19,7 +19,8 @@
     "icons": "node tools/icons-build.mjs",
     "og": "node tools/og-build.mjs",
     "verze": "node tools/verze.mjs",
-    "prepare": "node tools/install-hooks.mjs"
+    "prepare": "node tools/install-hooks.mjs",
+    "playstore": "node tools/playstore-build.mjs"
   },
   "engines": {
     "node": ">=22"
