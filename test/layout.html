@@ -189,7 +189,7 @@ function nasypPyl(doc) {
  */
 function prekryvy(doc) {
   const nalezy = [];
-  for (const pruh of doc.querySelectorAll('.route-controls, .tabs, .brand, .search, .route-field')) {
+  for (const pruh of doc.querySelectorAll('.route-controls, .route-departure, .tabs, .brand, .search, .route-field')) {
     const deti = [...pruh.querySelectorAll('button, input, select, a')]
       .filter((el) => el.getBoundingClientRect().width > 0);
     for (let i = 0; i < deti.length; i++) {
@@ -401,6 +401,27 @@ async function run() {
       if (vKontextuTrasa) vady.push(`Trasa: ${vKontextuTrasa}`);
       const vSloupciTrasa = sloupecHlavicky(doc);
       if (vSloupciTrasa) vady.push(`Trasa: ${vSloupciTrasa}`);
+
+      // 2b) 🚨 A TRASA S NAPLÁNOVANÝM ODJEZDEM (R26). Pole `datetime-local`
+      //     je nejširší prvek formuláře a jeho šířku určuje systém podle
+      //     jazyka — ve výchozím stavu („Teď") je ale schované, takže by ho
+      //     měření výš vůbec nevidělo a tvrdilo „vejde se".
+      doc.getElementById('route-dep-plan').click();
+      const pole = doc.getElementById('route-dep-at');
+      if (pole.hidden || pole.getBoundingClientRect().width === 0) {
+        vady.push('Trasa s plánem: pole data a času se po „Naplánovat" neukázalo');
+      } else {
+        const karta = doc.getElementById('route-form-card').getBoundingClientRect();
+        const p = pole.getBoundingClientRect();
+        if (p.right > karta.right + 1) {
+          vady.push(`Trasa s plánem: pole data a času leze z karty o ${Math.round(p.right - karta.right)} px`);
+        }
+      }
+      const o3 = overflow(doc);
+      if (o3) vady.push(`Trasa s plánem: přetéká o ${o3.total - o3.limit} px (${o3.culprit} sahá na ${o3.right})`);
+      for (const p of prekryvy(doc)) vady.push(`Trasa s plánem: překryv ${p}`);
+      // ⚠️ Zpátky na „Teď", ať další měření (dialogy) vidí výchozí stav.
+      doc.getElementById('route-dep-now').click();
 
       // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
       //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek

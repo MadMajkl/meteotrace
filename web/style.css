@@ -1270,6 +1270,44 @@ main {
 }
 .route-speed .hint { display: block; margin: 4px 0 0; }
 
+/* Čas odjezdu (R26). Popisek, dvě volby a pod nimi datum a čas.
+   ⚠️ Pole data a času jde na VLASTNÍ ŘÁDEK (`flex-basis: 100%`). Vedle
+   voleb se na telefonu nevejde — systémové pole `datetime-local` má
+   pevnou šířku podle jazyka a na 320 px by vylezlo z karty.
+   🚨 Terče 44 px jako u způsobů dopravy: přepíná se palcem. */
+.route-departure {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  margin-top: 12px;
+}
+.route-departure-label { font-size: 13px; color: var(--text-soft); }
+.dep-modes { display: flex; gap: 6px; }
+.dep-mode {
+  min-height: 44px; padding: 0 16px;
+  font: inherit; font-size: 14px;
+  color: var(--text-soft); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer;
+}
+.dep-mode[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.dep-at {
+  flex: 1 1 100%;
+  box-sizing: border-box; width: 100%; max-width: 280px; min-height: 44px;
+  padding: 8px 10px;
+  font: inherit; font-size: 15px;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+  color-scheme: light;
+}
+.dep-at[hidden] { display: none; }
+/* ⚠️ Ikona kalendáře a systémový volič se řídí `color-scheme`, ne barvami
+   appky — bez tohohle by v tmavém motivu zůstala černá ikona na tmavém poli.
+   A řídí se MOTIVEM APPKY, ne systému: kdo si appku přepnul na světlou,
+   nechce tmavý kalendář. Proto tytéž dva selektory jako u proměnných nahoře. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dep-at { color-scheme: dark; }
+}
+:root[data-theme="dark"] .dep-at { color-scheme: dark; }
+
 /* Nabídka v polích trasy. Tlačítko na celou šířku, jméno nad obcí —
    ⚠️ tatáž ulice je v desítce měst, takže OBEC je to jediné, co je rozliší.
    Bez zalomení se obojí slepilo do „náměstí RepublikyHoršovský Týn". */

@@ -774,6 +774,23 @@
     <div id="route-via" class="route-via"></div>
     <button id="route-add-via" class="link-btn" type="button" data-i18n="route.addVia"></button>
 
+    <!-- Čas odjezdu (R26). Michal 17. 9. 2026: *„custom datum a čas vykonání
+         cesty a na to pak přizpůsobit předpověď."*
+         ⚠️ „Teď" je výchozí a zůstává na jedno klepnutí — většina cest
+         začíná hned. Datum a čas se ukážou až na „Naplánovat".
+         ⚠️ `datetime-local` schválně, ne vlastní volič: v telefonu otevře
+         systémový kalendář a hodiny, které člověk zná, a mluví jazykem
+         zařízení. Meze (`min`, `max`) doplňuje appka podle času. -->
+    <div class="route-departure" id="route-departure">
+      <span class="route-departure-label" id="route-departure-label" data-i18n="route.departure"></span>
+      <div class="dep-modes" role="group" aria-labelledby="route-departure-label">
+        <button id="route-dep-now" class="dep-mode" type="button" aria-pressed="true" data-i18n="route.now"></button>
+        <button id="route-dep-plan" class="dep-mode" type="button" aria-pressed="false" data-i18n="route.departurePlan"></button>
+      </div>
+      <input id="route-dep-at" class="dep-at" type="datetime-local" step="900" hidden
+             data-i18n-attr="aria-label:route.departureAt">
+    </div>
+
     <div class="route-controls">
       <div class="modes" id="route-modes" role="group" data-i18n-attr="aria-label:route.mode"></div>
       <button id="route-go" class="primary" type="button" data-i18n="route.compute"></button>

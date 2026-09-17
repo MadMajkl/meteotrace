@@ -25,7 +25,11 @@ import {
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
-import { momentParts } from './lib/when.js';
+import { momentParts, clock, dayShift } from './lib/when.js';
+import {
+  resolveDeparture, clampPlanned, departureOffsets, forecastDaysFor, defaultPlanned,
+  toInputValue, fromInputValue, inputBounds, MAX_AHEAD_DAYS,
+} from './lib/departure.js';
 import { sampleRoute, planRoute, departureOptions, distanceM } from './lib/eta.js';
 import {
   fromOpenRouteService, toOrsCoord, toForecastParams, asLocationList, hoursToMs, spojUseky,
@@ -63,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.17.5';
+const VERZE = '0.18.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -108,6 +112,8 @@ const state = {
   // `via` jsou mezibody v pořadí, jak se má jet. Prázdné pole = cesta z A do B.
   route: {
     from: null, to: null, via: [], profil: 'driving-car', rychlostKmh: 90,
+    // Naplánovaný odjezd (epoch ms), `null` = teď. Viz `lib/departure.js` (R26).
+    odjezdMs: null,
   },
 };
 
@@ -149,6 +155,11 @@ function load() {
         state.route.via = saved.route.via.filter((m) => m === null || isUsablePoint(m));
       }
       if (ZPUSOBY.some((z) => z.profil === saved.route.profil)) state.route.profil = saved.route.profil;
+      // ⚠️ Odjezd, který mezitím minul, se NEOBNOVÍ. Formulář by jinak
+      // ukazoval včerejší datum jako platný plán. Přepnutí na „Teď" je
+      // vidět hned na volbě, takže to nezmizí potichu.
+      const plan = resolveDeparture(saved.route.odjezdMs, Date.now());
+      if (plan.planned) state.route.odjezdMs = saved.route.odjezdMs;
     }
   } catch { /* jede se dál s výchozím */ }
 }
@@ -173,6 +184,7 @@ function save() {
       route: {
         from: state.route.from, to: state.route.to,
         via: state.route.via, profil: state.route.profil,
+        odjezdMs: state.route.odjezdMs,
       },
     }));
   } catch { /* nevadí */ }
@@ -2937,9 +2949,6 @@ const ZPUSOBY = [
  */
 const KROK_M = 25000;
 
-/** Posuny odjezdu, které se srovnávají. Víc než tři hodiny dopředu nikdo neplánuje. */
-const POSUNY_MIN = [0, 60, 120, 180];
-
 /**
  * Blíž než tohle už to není cesta, ale tentýž bod.
  *
@@ -3345,11 +3354,49 @@ function sbalFormularTrasy(sbalit) {
   pruh.hidden = !lze;
   if (!lze) return;
 
-  $('route-collapsed-text').textContent = tf('route.collapsed', {
+  // ⚠️ Naplánovaný odjezd patří do sbaleného řádku taky — je to součást
+  // zadání, a schovaný plán by vypadal, že se počítá od teď.
+  const plan = state.routeResult?.odjezd?.planned ? state.routeResult.odjezd.ms : null;
+  $('route-collapsed-text').textContent = tf(plan ? 'route.collapsedPlanned' : 'route.collapsed', {
     from: placeLabel(state.route.from, state.lang),
     to: placeLabel(state.route.to, state.lang),
     mode: zpusob ? t(zpusob.klic, state.lang) : '',
+    departure: plan ? kdy(plan, state.routeResult.pasmo) : '',
   }, state.lang);
+}
+
+/**
+ * Volba odjezdu ve formuláři: „Teď", nebo „Naplánovat" s datem a časem.
+ *
+ * ⚠️ Hodnota pole se přepisuje, JEN když se liší. Přepsat ji pokaždé by
+ * na počítači skákalo kurzorem mezi dnem a hodinou, zatímco uživatel píše.
+ */
+function vykresliVolbuOdjezdu() {
+  const plan = Number.isFinite(state.route.odjezdMs);
+  $('route-dep-now').setAttribute('aria-pressed', String(!plan));
+  $('route-dep-plan').setAttribute('aria-pressed', String(plan));
+  const vstup = $('route-dep-at');
+  vstup.hidden = !plan;
+  if (!plan) return;
+  const { min, max } = inputBounds(Date.now());
+  vstup.min = min;
+  vstup.max = max;
+  const hodnota = toInputValue(state.route.odjezdMs);
+  if (vstup.value !== hodnota) vstup.value = hodnota;
+}
+
+/**
+ * Změna odjezdu zahodí výsledek — stejně jako změna způsobu dopravy.
+ *
+ * 🚨 Výsledek spočítaný pro jiný čas NESMÍ zůstat viset pod novou volbou.
+ * Ukazoval by počasí pro „teď", zatímco formulář by tvrdil „zítra v osm".
+ */
+function zmenOdjezd(ms, poznamka) {
+  state.route.odjezdMs = ms;
+  vykresliVolbuOdjezdu();
+  save();
+  skryjVysledekTrasy();
+  poznamkaTrasy(poznamka || null);
 }
 
 function poznamkaTrasy(text) {
@@ -3424,29 +3471,52 @@ async function loadRoute() {
     const trasa = spojUseky(useky);
     if (!trasa) { poznamkaTrasy(t('route.failed', state.lang)); return; }
 
+    // Od kdy se počítá (R26). ⚠️ Rozhoduje se AŽ TEĎ, ne při zadání: mezi
+    // vyplněním formuláře a výpočtem mohla uplynout hodina (appka otevřená
+    // od rána) a plán mezitím propadnout.
+    const ted = Date.now();
+    const odjezd = resolveDeparture(state.route.odjezdMs, ted);
+    if (odjezd.expired) {
+      state.route.odjezdMs = null;
+      save();
+      vykresliVolbuOdjezdu();
+    }
+    const posuny = departureOffsets(odjezd, ted);
+
     const vzorky = sampleRoute(trasa.points, KROK_M);
     const fc = await requests.run('route-forecast', (signal) =>
-      apiGet('forecast', { ...toForecastParams(vzorky), ...ROUTE_FORECAST_PARAMS }, { signal }));
+      apiGet('forecast', {
+        ...toForecastParams(vzorky), ...ROUTE_FORECAST_PARAMS,
+        // 🚨 Délka pole podle toho, KDY se jede. Napevno tři dny by u cesty
+        // za týden nechaly všechny body za koncem předpovědi.
+        forecast_days: String(forecastDaysFor({
+          departureMs: odjezd.ms, durationS: trasa.totalDurationS, offsetsMin: posuny, nowMs: ted,
+        })),
+      }, { signal }));
 
     const mista = asLocationList(fc.data);
     if (!mista.length) { poznamkaTrasy(t('route.noWeather', state.lang)); return; }
 
     const hourMs = hoursToMs(mista[0]);
-    const odjezd = Date.now();
-    const plan = planRoute({ ...trasa, departureMs: odjezd, hourMs, stepM: KROK_M });
+    const plan = planRoute({ ...trasa, departureMs: odjezd.ms, hourMs, stepM: KROK_M });
     const view = buildRouteView({ plan, forecast: fc.data, lang: state.lang, units: state.units });
     if (!view) { poznamkaTrasy(t('route.noWeather', state.lang)); return; }
 
     // Srovnání odjezdů — bez jediného dotazu navíc.
     const varianty = departureOptions({
-      ...trasa, baseDepartureMs: odjezd, offsetsMin: POSUNY_MIN, hourMs, stepM: KROK_M,
+      ...trasa, baseDepartureMs: odjezd.ms, offsetsMin: posuny, hourMs, stepM: KROK_M,
     });
     const srovnani = compareDepartures({
       options: varianty, forecast: fc.data, lang: state.lang, units: state.units,
     });
 
     poznamkaTrasy(null);
-    vykresliTrasu({ view, plan, trasa, srovnani, mista, useky });
+    vykresliTrasu({
+      // ⚠️ Čas odjezdu jde s pohledem. Bez něj rozpis úseků počítal od
+      // `Date.now()` — u naplánované cesty by ukazoval dnešní časy.
+      view: { ...view, departureMs: odjezd.ms, offsetMin: 0 },
+      plan, trasa, srovnani, mista, useky, odjezd,
+    });
   } catch (e) {
     if (requests.isAbort(e)) return;
     poznamkaTrasy(textChyby(e, 'route.failed'));
@@ -3496,6 +3566,29 @@ function vykresliUseky(useky, odjezdMs, pasmo) {
   ]));
 }
 
+/**
+ * Popisek varianty odjezdu.
+ *
+ * U „teď" posunem (Teď, +1 h, +2 h) — hodiny by se četly hůř než to, o kolik
+ * počkat. U naplánovaného odjezdu naopak **hodinami**: „+1 h" od zítřejších
+ * osmi nutí počítat, kdežto „09:00" se přečte rovnou.
+ *
+ * ⚠️ Den se připíše jen tehdy, když se liší od plánu. Čtyři tlačítka
+ * „zítra 07:00, zítra 08:00…" by opakovala, co stojí v souhrnu, a nevešla by
+ * se. Ale přes půlnoc den chybět nesmí — „23:30" by vypadalo jako večer téhož
+ * dne (poučení z `when.js`: lhal ciferník).
+ */
+function popisVarianty(v, r) {
+  if (!r?.odjezd?.planned) {
+    return v.offsetMin === 0
+      ? t('route.now', state.lang)
+      : tf('route.later', { hours: Math.round(v.offsetMin / 60) }, state.lang);
+  }
+  return dayShift(v.departureMs, r.odjezd.ms, r.pasmo) === 0
+    ? clock(v.departureMs, r.pasmo, state.lang)
+    : kdy(v.departureMs, r.pasmo);
+}
+
 /** Krátký odznak k variantě: co na té cestě čeká. */
 function odznakVarianty(summary) {
   if (summary.hazardCount) return tf('route.badgeHazard', { count: summary.hazardCount }, state.lang);
@@ -3514,9 +3607,7 @@ function vykresliOdjezdy() {
 
   fill($('route-departures'), varianty, (v) => {
     const b = el('button', 'departure', [
-      el('span', 'dep-time', v.offsetMin === 0
-        ? t('route.now', state.lang)
-        : tf('route.later', { hours: Math.round(v.offsetMin / 60) }, state.lang)),
+      el('span', 'dep-time', popisVarianty(v, r)),
       el('span', 'dep-badge', odznakVarianty(v.summary)),
     ]);
     b.type = 'button';
@@ -3555,7 +3646,7 @@ function prepniOdjezd(posun) {
 }
 
 
-function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
+function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky, odjezd }) {
   const pasmo = mista[0]?.timezone || 'UTC';
 
   // Výsledek se drží celý, ať jde přepnout odjezd bez jediného dotazu ven.
@@ -3563,7 +3654,11 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   state.routeResult = {
     view, plan, trasa, srovnani, pasmo, useky: useky || state.routeResult?.useky,
     posun: view.offsetMin || 0,
+    // ⚠️ Přepnutí varianty (`prepniOdjezd`) odjezd nepředává — plán se tím
+    // nemění, mění se jen, kterou variantu z něj ukazujeme.
+    odjezd: odjezd || state.routeResult?.odjezd,
   };
+  const r = state.routeResult;
   vykresliOdjezdy();
 
   $('route-summary-card').hidden = false;
@@ -3573,15 +3668,29 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   nabidka(false);
   vykresliLegendu();
   renderRoutes();
-  $('route-summary').textContent = tf('route.result', {
-    distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
-    arrival: kdy(plan.arrivalMs, pasmo),
-  }, state.lang);
+  // 🚨 Kdy se jede, se píše, jakmile to není „teď" — naplánovaný odjezd
+  // i vybraná varianta „+2 h". Bez toho by „příjezd zítra 09:12" nešlo
+  // odlišit od cesty, která trvá přes noc.
+  const neniTed = r.odjezd?.planned || (view.offsetMin || 0) !== 0;
+  $('route-summary').textContent = neniTed
+    ? tf('route.resultPlanned', {
+      departure: kdy(view.departureMs, pasmo),
+      distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
+      arrival: kdy(plan.arrivalMs, pasmo),
+    }, state.lang)
+    : tf('route.result', {
+      distance: formatDistance(trasa.totalDistanceM, state.units, state.lang),
+      arrival: kdy(plan.arrivalMs, pasmo),
+    }, state.lang);
 
   // ⚠️ Věty o nejistotě se PŘIDÁVAJÍ, nenahrazují souhrn. Odhadnutý čas
   // a část trasy za obzorem předpovědi jsou dvě různé věci a obojí musí být
   // vidět — mlčky vydávat odhad za jistotu je horší než ho neukázat.
   const dovetky = [];
+  // 🚨 Propadlý plán se hlásí PRVNÍ. Formulář je v tu chvíli sbalený, takže
+  // poznámka pod ním by zůstala neviděná — a appka by tiše počítala jiný čas,
+  // než si uživatel zadal.
+  if (r.odjezd?.expired) dovetky.push(t('route.departureExpired', state.lang));
   if (plan.estimated) dovetky.push(t('route.estimated', state.lang));
   if (plan.beyondForecast) dovetky.push(t('route.beyond', state.lang));
   if (view.summary.hazardCount) {
@@ -3629,7 +3738,8 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky }) {
   // Rada o posunu odjezdu se ukáže, JEN když má cenu (R8: `worthMoving`).
   // Rada bez užitku podkopává důvěru ve všechny ostatní.
   const rada = $('route-advice');
-  const lepsi = srovnani.worthMoving && srovnani.best && srovnani.best.offsetMin > 0;
+  // ♻️ `!== 0`, ne `> 0`: u naplánovaného odjezdu může vyjít líp i hodina dřív.
+  const lepsi = srovnani.worthMoving && srovnani.best && srovnani.best.offsetMin !== 0;
   rada.hidden = !lepsi;
   if (lepsi) rada.textContent = departureAdvice(view.summary, srovnani.best.offsetMin, state.lang);
 
@@ -3899,6 +4009,36 @@ function init() {
     skryjVysledekTrasy();
   });
   vykresliRychlost();
+  $('route-dep-now').addEventListener('click', () => {
+    if (state.route.odjezdMs !== null) zmenOdjezd(null);
+  });
+  $('route-dep-plan').addEventListener('click', () => {
+    if (!Number.isFinite(state.route.odjezdMs)) zmenOdjezd(defaultPlanned(Date.now()));
+    const vstup = $('route-dep-at');
+    vstup.focus();
+    // Rovnou otevřít kalendář, ať není potřeba druhé klepnutí. ⚠️ Ne každý
+    // prohlížeč `showPicker` má a bez gesta uživatele vyhodí výjimku —
+    // pole je pak aspoň zaostřené.
+    try { vstup.showPicker?.(); } catch { /* zůstane zaostřené */ }
+  });
+  $('route-dep-at').addEventListener('change', (e) => {
+    const ms = fromInputValue(e.target.value);
+    // 🚨 Neúplná hodnota NENÍ „teď". Na počítači se datum píše po kouscích
+    // a smazaná hodina dá na chvíli prázdné pole — kdyby to přepnulo na
+    // „Teď", pole by zmizelo uživateli pod rukama. Zpátky na „Teď" se jde
+    // tlačítkem; rozepsaná hodnota se při opuštění pole vrátí (`blur`).
+    if (ms === null) return;
+    const { ms: srovnany, reason } = clampPlanned(ms, Date.now());
+    const proc = reason === 'past'
+      ? t('route.departurePast', state.lang)
+      : reason === 'tooFar'
+        ? tf('route.departureTooFar', { days: MAX_AHEAD_DAYS }, state.lang)
+        : null;
+    if (srovnany === state.route.odjezdMs && !proc) return;
+    zmenOdjezd(srovnany, proc);
+  });
+  $('route-dep-at').addEventListener('blur', vykresliVolbuOdjezdu);
+  vykresliVolbuOdjezdu();
   $('route-legenda-toggle').addEventListener('click', () => {
     rozklepLegendu($('route-legenda-obsah').hidden);
   });

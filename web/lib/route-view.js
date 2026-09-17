@@ -308,23 +308,32 @@ function stavBodu(p) {
  * věty dosazovalo „[object Object]", jakmile na trase bylo nebezpečí.
  * (Michalova připomínka 25. 8. 2026.)
  *
+ * ♻️ Od 17. 9. 2026 i **dřív**. U naplánovaného odjezdu se srovnává i hodina
+ * předem (`departureOffsets`), a „vyraž o hodinu dřív" je stejně dobrá rada
+ * jako „později". Znaménko rozhoduje o slově, velikost o délce.
+ *
  * @param {object} summary   souhrn PRÁVĚ ZOBRAZENÉ varianty — té, které se vyhýbáme
- * @param {number} offsetMin o kolik později se doporučuje vyrazit
+ * @param {number} offsetMin o kolik se doporučuje vyrazit; záporné = dřív
  * @param {string} lang
  */
 export function departureAdvice(summary, offsetMin, lang) {
-  if (!Number.isFinite(offsetMin) || offsetMin <= 0) return '';
+  if (!Number.isFinite(offsetMin) || offsetMin === 0) return '';
+
+  const driv = offsetMin < 0;
+  const kolik = Math.abs(offsetMin);
 
   // Celé hodiny se říkají v hodinách. „Vyraž o 120 minut později" je pravda,
   // kterou nikdo nevysloví.
-  const delay = offsetMin % 60 === 0
-    ? tp('route.delayHours', offsetMin / 60, {}, lang)
-    : tp('route.delayMinutes', offsetMin, {}, lang);
+  const delay = kolik % 60 === 0
+    ? tp('route.delayHours', kolik / 60, {}, lang)
+    : tp('route.delayMinutes', kolik, {}, lang);
 
   const nejhorsi = summary?.worst?.condition;
-  return nejhorsi
-    ? tf('route.adviceHazard', { delay, what: nejhorsi.toLowerCase() }, lang)
-    : tf('route.adviceRain', { delay }, lang);
+  if (nejhorsi) {
+    return tf(driv ? 'route.adviceHazardEarlier' : 'route.adviceHazard',
+      { delay, what: nejhorsi.toLowerCase() }, lang);
+  }
+  return tf(driv ? 'route.adviceRainEarlier' : 'route.adviceRain', { delay }, lang);
 }
 
 /**

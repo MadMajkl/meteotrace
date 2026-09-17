@@ -455,7 +455,26 @@ test('🚨 nebezpečí se pojmenuje — a NENÍ to [object Object]', () => {
 test('rada u nesmyslného posunu mlčí', () => {
   // Rada „vyraž o 0 minut později" je horší než žádná.
   assert.equal(departureAdvice({ rainCount: 1 }, 0, 'cs'), '');
-  assert.equal(departureAdvice({ rainCount: 1 }, -60, 'cs'), '');
+  assert.equal(departureAdvice({ rainCount: 1 }, NaN, 'cs'), '');
+});
+
+test('♻️ záporný posun je od 17. 9. 2026 rada „DŘÍV", ne mlčení', () => {
+  // Do té doby se srovnávalo jen dopředu a −60 byl nesmysl. U naplánovaného
+  // odjezdu se nabízí i hodina předem (`departureOffsets`), takže záporné
+  // číslo je platná rada — a musí říct „dřív", ne „později".
+  assert.equal(
+    departureAdvice({ rainCount: 1 }, -60, 'cs'),
+    'Pokud se chceš vyhnout dešti, vyraž o hodinu dřív — počasí vychází líp.',
+  );
+  const bourka = { rainCount: 2, hazardCount: 1, worst: { key: 'thunderstorm', condition: 'Bouřka' } };
+  const veta = departureAdvice(bourka, -60, 'cs');
+  assert.ok(veta.includes('dřív'), veta);
+  assert.ok(!veta.includes('později'), veta);
+  assert.ok(veta.includes('(bouřka)'), veta);
+  assert.equal(
+    departureAdvice({ rainCount: 1 }, -60, 'en'),
+    'To stay out of the rain, leave an hour earlier — the weather works out better.',
+  );
 });
 
 test('rada existuje i anglicky', () => {

@@ -218,9 +218,23 @@ export default {
     },
     adviceRain: 'Pokud se chceš vyhnout dešti, vyraž o {delay} později — počasí vychází líp.',
     adviceHazard: 'Pokud se chceš vyhnout tomu nejhoršímu ({what}), vyraž o {delay} později — počasí vychází líp.',
+    adviceRainEarlier: 'Pokud se chceš vyhnout dešti, vyraž o {delay} dřív — počasí vychází líp.',
+    adviceHazardEarlier: 'Pokud se chceš vyhnout tomu nejhoršímu ({what}), vyraž o {delay} dřív — počasí vychází líp.',
     clear: 'Po cestě neočekáváme déšť.',
     adviceNow: 'Vyrazit teď je stejně dobré jako počkat. Rozhodni se ty.',
     departure: 'Odjezd',
+    // Čas odjezdu (R26). „Teď" je výchozí; plán se zadává datem a časem.
+    departurePlan: 'Naplánovat',
+    departureAt: 'Datum a čas odjezdu',
+    // ⚠️ Odjezd se píše na ZAČÁTEK souhrnu, jakmile není „teď". Bez něj by
+    // „příjezd zítra 9:12" nešlo odlišit od cesty, která trvá celou noc.
+    resultPlanned: 'Odjezd {departure}, vzdálenost {distance}, příjezd {arrival}',
+    collapsedPlanned: '{from} → {to} · {mode} · {departure}',
+    // 🚨 Nic z toho nesmí mlčet: plán, který tiše zmizí nebo se tiše změní,
+    // se od vady nedá odlišit.
+    departureExpired: 'Plánovaný odjezd už minul, počítám od teď.',
+    departurePast: 'Odjezd nemůže být v minulosti — nastavil jsem nejbližší možný čas.',
+    departureTooFar: 'Předpověď sahá jen {days} dní dopředu — nastavil jsem nejzazší možný čas.',
     later: '+{hours} h',
     badgeHazard: '{count}× nebezpečí',
     badgeRain: '{count}× déšť',
