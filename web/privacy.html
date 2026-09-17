@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zásady ochrany soukromí – MeteoTrace</title>
+<meta name="description" content="Jaká data MeteoTrace používá, kam je posílá a co si nechává jen ve tvém telefonu.">
+<link rel="canonical" href="https://meteotrace.com/privacy.html">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0e5490">
+<!--
+  Zásady ochrany soukromí. Vzor: Gulpka (`napij_se/privacy.html`) — stejná
+  stavba, česky nahoře, anglicky dole.
+
+  🚨 TOHLE NENÍ PRÁVNICKÁ OMÁČKA, ALE POPIS TOKŮ DAT. Každá věta musí sedět
+  na `dokumentace/01-architektura.md` §4.2. Když se změní, kam appka co
+  posílá (nový zdroj v `web/lib/upstreams.js`, nová funkce v obalu), MUSÍ
+  se změnit i tahle stránka — Google Play ji kontroluje proti formuláři
+  „Zabezpečení dat" a nesoulad je důvod k zamítnutí.
+
+  ⚠️ Stránka je schválně samostatná: bez JS, bez fontů, bez appky. Musí se
+  otevřít i robotovi Play konzole a i tehdy, když je appka rozbitá.
+-->
+<style>
+  :root {
+    --bg: #f4f7fb; --surface: #ffffff; --line: #dfe6ee;
+    --text: #16202b; --text-soft: #63717f; --accent: #1a7fd4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f151c; --surface: #17202b; --line: #26323f;
+      --text: #e8eef5; --text-soft: #93a2b2; --accent: #55b0f5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    line-height: 1.6; color: var(--text); background: var(--bg);
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 2em 0 .4em; color: var(--accent); }
+  p, li { overflow-wrap: anywhere; }
+  ul { padding-left: 1.2em; }
+  li + li { margin-top: .3em; }
+  a { color: var(--accent); }
+  .updated { color: var(--text-soft); font-size: .9rem; margin: 0 0 1.5em; }
+  .box {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 4px 18px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
+  th { font-weight: 600; width: 38%; }
+  .lang-divider { margin: 56px 0 32px; border: 0; border-top: 2px solid var(--line); }
+  .jazyk { font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+
+<p class="jazyk"><a href="#en">English version below</a></p>
+
+<!-- ======================= ČESKY ======================= -->
+<h1>MeteoTrace – Zásady ochrany soukromí</h1>
+<p class="updated">Účinné od 17. 9. 2026</p>
+
+<div class="box">
+  <p><strong>Krátce:</strong> MeteoTrace nemá účty, reklamy ani sledovací a analytické nástroje.
+  Polohu a místa, na která se díváš, potřebuje jen k tomu, aby ti ukázala počasí.
+  <strong>Neukládáme je, nevedeme o tobě záznamy a nikomu je neprodáváme.</strong></p>
+</div>
+
+<h2>Co zůstává jen ve tvém zařízení</h2>
+<ul>
+  <li>uložená místa a trasy,</li>
+  <li>rozepsaná trasa včetně naplánovaného času odjezdu,</li>
+  <li>nastavení (jazyk, jednotky, vzhled, výchozí obrazovka),</li>
+  <li>nastavení upozornění a seznam výstrah, o kterých už appka upozornila,</li>
+  <li>poslední zjištěná poloha, pro kterou chodí ranní a večerní zpráva (jen když ji zapneš).</li>
+</ul>
+<p>Tato data nikam neodesíláme a nemáme k nim přístup.</p>
+
+<h2>Co appka posílá na náš server a proč</h2>
+<p>Aby appka ukázala počasí, musí se zeptat na data. Ptá se <strong>našeho serveru</strong>
+na adrese <code>meteotrace.com</code> (hostuje ho Netlify) a ten teprve oslovuje zdroje dat.
+Posílá se jen to, bez čeho odpověď nejde:</p>
+<table>
+  <tr><th>Souřadnice místa</th><td>předpověď, pyl, výstrahy, srážkový radar. U polohy
+    z telefonu s přesností, jakou telefon zjistí.</td></tr>
+  <tr><th>Start, cíl a mezibody trasy, způsob dopravy</th><td>výpočet trasy a počasí na ní
+    (souřadnice trasy se zaokrouhlují zhruba na 11 metrů).</td></tr>
+  <tr><th>Text, který píšeš do hledání</th><td>nalezení místa nebo adresy; k seřazení výsledků
+    se přidají souřadnice místa, odkud hledáš.</td></tr>
+  <tr><th>Jazyk appky</th><td>aby odpovědi přišly ve tvém jazyce.</td></tr>
+</table>
+<p><strong>Server o tobě nevede záznamy.</strong> Odpovědi si krátce drží v paměti, aby se tatáž
+data nestahovala znovu — bez vazby na to, kdo se ptal. Tvou IP adresu drží v paměti jen
+chvíli kvůli ochraně proti přetížení; když někdo překročí limit dotazů, zapíše se jeho IP
+adresa do provozního záznamu, který poskytovatel hostingu po omezené době sám maže.
+Netlify jako poskytovatel hostingu zpracovává provozní údaje podle
+<a href="https://www.netlify.com/privacy/" rel="noopener">vlastních zásad</a>.</p>
+
+<h2>Komu server data předá</h2>
+<p>Tyto služby dostávají dotaz od <strong>našeho serveru</strong>, takže nevidí tvou IP adresu:</p>
+<ul>
+  <li><strong>Open-Meteo</strong> — souřadnice, pro předpověď a pyl,</li>
+  <li><strong>openrouteservice / HeiGIT</strong> — souřadnice trasy a text hledání, pro výpočet trasy a hledání míst;
+    u místa v zahraničí i jeho souřadnice, aby se zjistilo jeho jméno,</li>
+  <li><strong>ČHMÚ</strong> a <strong>MeteoAlarm</strong> — žádná tvoje data; výstrahy i předpověď srážek se stahují
+    společné pro všechny a výběr pro tvé místo dělá náš server,</li>
+  <li><strong>RainViewer</strong> — žádná tvoje data; jen seznam radarových snímků.</li>
+</ul>
+
+<h2>Co jde přímo z tvého zařízení</h2>
+<p>Jedinou výjimkou jsou <strong>obrázky mapy</strong>: podkladová mapa se načítá z úložiště
+<strong>Cloudflare R2</strong> a radarové snímky od <strong>RainViewer</strong>. Stejně jako u každého
+obrázku z internetu tyto služby vidí tvou IP adresu a to, který výřez mapy se načítá.</p>
+
+<h2>Oprávnění appky v Androidu</h2>
+<ul>
+  <li><strong>Poloha</strong> (přibližná i přesná) — zjišťuje se, <strong>když appku používáš</strong>:
+    po klepnutí na ⌖, při zadání startu trasy z polohy nebo při hledání nejbližšího místa.
+    Appka polohu <strong>nezjišťuje na pozadí</strong>. Poslední zjištěnou polohu si pamatuje
+    v telefonu, aby ranní a večerní zpráva šla pro místo, kde jsi byl naposledy.</li>
+  <li><strong>Upozornění</strong> — výstrahy před nebezpečným počasím a ranní a večerní zpráva.
+    <strong>Jsou vypnutá, dokud je nezapneš.</strong> Když je zapneš, appka i při zavřené aplikaci
+    pravidelně posílá na náš server souřadnice hlídaného místa, aby zjistila, jestli je
+    o čem upozornit.</li>
+  <li><strong>Spuštění po restartu telefonu</strong> — aby zapnutá upozornění po restartu nepřestala chodit.</li>
+  <li><strong>Internet</strong> — pro počasí, mapu a trasy.</li>
+</ul>
+
+<h2>Dar</h2>
+<p>Appka je zdarma a dar nic neodemyká. Platba probíhá <strong>mimo appku</strong> (bankovní převod,
+Revolut, PayPal) a appka při ní nic nesbírá. Vidíme jen to, co banka ukáže u příchozí platby.</p>
+
+<h2>Jak data smazat</h2>
+<p>Uložená místa a trasy smažeš ve správě míst a tras. Všechno ostatní smažeš odinstalováním
+appky nebo vymazáním jejích dat v nastavení Androidu (na webu vymazáním dat stránky
+v prohlížeči). Na serveru o tobě nic uložené není, takže není co mazat.</p>
+
+<h2>Změny</h2>
+<p>Když se změní, jaká data appka používá, upravíme tuto stránku a datum nahoře.</p>
+
+<h2>Kontakt</h2>
+<p>Provozovatel: Michal Foist<br>
+Dotazy k soukromí: <a href="mailto:appsupport@meteotrace.com">appsupport@meteotrace.com</a></p>
+
+<hr class="lang-divider">
+
+<!-- ======================= ENGLISH ======================= -->
+<h1 id="en">MeteoTrace – Privacy Policy</h1>
+<p class="updated">Effective 17 September 2026</p>
+
+<div class="box">
+  <p><strong>In short:</strong> MeteoTrace has no accounts, no ads and no tracking or analytics tools.
+  It needs your location and the places you look at only to show you the weather.
+  <strong>We do not store them, keep no records about you and never sell them.</strong></p>
+</div>
+
+<h2>What stays on your device only</h2>
+<ul>
+  <li>saved places and routes,</li>
+  <li>the route you are working on, including a scheduled departure time,</li>
+  <li>settings (language, units, theme, start screen),</li>
+  <li>notification settings and the list of warnings you have already been notified about,</li>
+  <li>your last known location used for the morning and evening report (only if you turn it on).</li>
+</ul>
+<p>We do not transmit this data anywhere and have no access to it.</p>
+
+<h2>What the app sends to our server, and why</h2>
+<p>To show the weather, the app has to ask for data. It asks <strong>our server</strong> at
+<code>meteotrace.com</code> (hosted by Netlify), which then contacts the data sources.
+Only what is needed for an answer is sent:</p>
+<table>
+  <tr><th>Coordinates of a place</th><td>forecast, pollen, warnings, precipitation radar. For your
+    phone's location, as precise as the phone reports it.</td></tr>
+  <tr><th>Route start, destination, stops and travel mode</th><td>working out the route and its weather
+    (route coordinates are rounded to about 11 metres).</td></tr>
+  <tr><th>Text you type into search</th><td>finding a place or address; the coordinates of the place
+    you search from are added to sort the results.</td></tr>
+  <tr><th>App language</th><td>so that answers come in your language.</td></tr>
+</table>
+<p><strong>The server keeps no records about you.</strong> It briefly holds answers in memory so the same
+data is not downloaded again — with no link to who asked. It holds your IP address in memory
+only briefly to protect against overload; if someone exceeds the request limit, their IP address
+is written to an operational log that the hosting provider deletes automatically after a limited time.
+Netlify, as the hosting provider, processes operational data under
+<a href="https://www.netlify.com/privacy/" rel="noopener">its own policy</a>.</p>
+
+<h2>Who the server passes data to</h2>
+<p>These services receive requests from <strong>our server</strong>, so they do not see your IP address:</p>
+<ul>
+  <li><strong>Open-Meteo</strong> — coordinates, for the forecast and pollen,</li>
+  <li><strong>openrouteservice / HeiGIT</strong> — route coordinates and search text, for routing and place search;
+    for a place abroad also its coordinates, to find out its name,</li>
+  <li><strong>ČHMÚ</strong> (Czech Hydrometeorological Institute) and <strong>MeteoAlarm</strong> — none of your data;
+    warnings and the precipitation forecast are downloaded once for everyone and our server picks what applies to your place,</li>
+  <li><strong>RainViewer</strong> — none of your data; only the list of radar images.</li>
+</ul>
+
+<h2>What goes directly from your device</h2>
+<p>The only exception are <strong>map images</strong>: the base map is loaded from <strong>Cloudflare R2</strong>
+storage and radar images from <strong>RainViewer</strong>. As with any image on the internet, these
+services see your IP address and which part of the map is being loaded.</p>
+
+<h2>Android app permissions</h2>
+<ul>
+  <li><strong>Location</strong> (approximate and precise) — determined <strong>while you use the app</strong>:
+    when you tap ⌖, set a route start from your location, or look for the nearest place.
+    The app <strong>does not access location in the background</strong>. It remembers the last known
+    location on your phone so the morning and evening report is for where you last were.</li>
+  <li><strong>Notifications</strong> — warnings about dangerous weather and the morning and evening report.
+    <strong>They are off until you turn them on.</strong> Once on, the app periodically sends the coordinates
+    of the watched place to our server, even when the app is closed, to check whether there is
+    anything to notify you about.</li>
+  <li><strong>Run at startup</strong> — so notifications you turned on keep working after a restart.</li>
+  <li><strong>Internet</strong> — for the weather, map and routes.</li>
+</ul>
+
+<h2>Donations</h2>
+<p>The app is free and a donation unlocks nothing. Payment happens <strong>outside the app</strong>
+(bank transfer, Revolut, PayPal) and the app collects nothing during it. We only see what the bank
+shows for an incoming payment.</p>
+
+<h2>Deleting your data</h2>
+<p>Delete saved places and routes in the places and routes manager. Delete everything else by
+uninstalling the app or clearing its data in Android settings (on the web, by clearing the site's
+data in your browser). Nothing about you is stored on the server, so there is nothing to delete there.</p>
+
+<h2>Changes</h2>
+<p>If the data the app uses changes, we will update this page and the date at the top.</p>
+
+<h2>Contact</h2>
+<p>Operator: Michal Foist<br>
+Privacy questions: <a href="mailto:appsupport@meteotrace.com">appsupport@meteotrace.com</a></p>
+
+</main>
+</body>
+</html>

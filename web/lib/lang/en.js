@@ -365,8 +365,9 @@ export default {
     precipitation: 'Precipitation',
     distance: 'Distance',
     about: 'About',
+    privacy: 'Privacy policy',
     version: 'MeteoTrace {version}',
-    sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ via MeteoAlarm. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
+    sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ, MeteoAlarm as backup. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
   },
 
   /* Donations (R7).

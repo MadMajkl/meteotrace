@@ -428,8 +428,9 @@ export default {
     precipitation: 'Srážky',
     distance: 'Vzdálenost',
     about: 'O aplikaci',
+    privacy: 'Zásady ochrany soukromí',
     version: 'MeteoTrace {version}',
-    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ přes MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
+    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ, záloha MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
 
   /* Dary (R7).

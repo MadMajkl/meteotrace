@@ -455,6 +455,14 @@
   <h3 data-i18n="settings.about"></h3>
   <p class="hint" id="about-version"></p>
   <p class="hint" data-i18n="settings.sources"></p>
+  <!-- 🚨 Zásady ochrany soukromí musí být dosažitelné Z APPKY, ne jen z Play
+       konzole — Google to u appky s polohou vyžaduje.
+       ⚠️ Adresa je ABSOLUTNÍ: v obalu appka běží na `appassets.androidplatform.net`,
+       kde by relativní `privacy.html` otevřelo kopii z balíčku uvnitř WebView
+       místo platné verze na webu. Takhle ji `shouldOverrideUrlLoading` pošle
+       do prohlížeče. -->
+  <p class="hint"><a id="privacy-link" href="https://meteotrace.com/privacy.html"
+     target="_blank" rel="noopener" data-i18n="settings.privacy"></a></p>
 </dialog>
 
 <!-- Dar. Vlastní dialog, ne sekce v nastavení: QR kód potřebuje místo
