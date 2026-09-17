@@ -92,30 +92,77 @@ try {
   pozor(`Rozsah od konce selhal: ${e.message}`, 'Viz výše.');
 }
 
-/* ── 4. CORS — jen když mapa leží jinde než appka ────────────────────── */
-try {
-  const domenaMapy = new URL(adresa).origin;
-  const domenaAppky = new URL(PUVOD).origin;
+/* ── 4. CORS — a to pro KAŽDOU adresu, na které appka běží ───────────── */
 
-  if (domenaMapy === domenaAppky) {
-    ok('mapa leží na téže doméně jako appka', 'CORS se vůbec neuplatní');
-  } else {
+/**
+ * Odkud všude se appka na mapu ptá.
+ *
+ * 🚨 DVĚ ADRESY, NE JEDNA. Na webu běží appka na `meteotrace.com`, ale
+ * v androidím obalu na `appassets.androidplatform.net` (`R13`). Kdyby se
+ * při zúžení CORS zapomnělo na tu druhou, **mapa by přestala fungovat
+ * jen v APK, zatímco na webu by jela dál** — a hledalo by se to těžko,
+ * protože „u mě to funguje" by byla pravda.
+ *
+ * Vlastní adresu jde předat druhým argumentem (`npm run tiles:check <url> <origin>`).
+ */
+const PUVODY = process.argv[3]
+  ? [process.argv[3]]
+  : ['https://meteotrace.com', 'https://appassets.androidplatform.net'];
+
+for (const puvod of PUVODY) {
+  try {
+    const domenaMapy = new URL(adresa).origin;
+    const domenaAppky = new URL(puvod).origin;
+
+    if (domenaMapy === domenaAppky) {
+      ok('mapa leží na téže doméně jako appka', 'CORS se vůbec neuplatní');
+      continue;
+    }
+
     const r = await fetch(adresa, { headers: { Range: 'bytes=0-16', Origin: domenaAppky } });
     const povoleno = r.headers.get('access-control-allow-origin');
     if (!povoleno) {
       spatne(`Chybí hlavička CORS pro ${domenaAppky}`,
         'Mapa je na jiné doméně než appka, takže prohlížeč bez povolení nevezme nic.\n'
-        + '        Server musí posílat: Access-Control-Allow-Origin: <doména appky>\n'
-        + '        (Preflight potřeba není — prostý rozsah bajtů si o něj neříká.)');
+        + '        Server musí posílat: Access-Control-Allow-Origin: <doména appky>');
     } else if (povoleno === '*' || povoleno === domenaAppky) {
-      ok('CORS povoluje přístup', povoleno);
+      ok(`CORS povoluje ${domenaAppky}`, povoleno);
     } else {
-      spatne(`CORS povoluje ${povoleno}, ale appka běží na ${domenaAppky}`,
-        'Doplň doménu appky mezi povolené.');
+      spatne(`CORS pro ${domenaAppky} vrací ${povoleno}`,
+        'Doplň tuhle adresu mezi povolené (tools/r2-cors.json).');
     }
+
+    /**
+     * Preflight.
+     *
+     * 🚨 Prostý `Range` je sice „jednoduchý" dotaz, ALE knihovna `pmtiles`
+     * ho posílá přes `fetch` s vlastní hlavičkou — a jakmile je v seznamu
+     * povolených hlaviček prázdno, prohlížeč dotaz zahodí ještě před
+     * odesláním. Server pak v logu nevidí vůbec nic a vypadá to, že mapa
+     * „prostě nejede".
+     */
+    const pre = await fetch(adresa, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: domenaAppky,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'range',
+      },
+    });
+    const hlavicky = (pre.headers.get('access-control-allow-headers') || '').toLowerCase();
+    const puvodPre = pre.headers.get('access-control-allow-origin');
+    if (!puvodPre) {
+      pozor(`Preflight pro ${domenaAppky} neodpověděl povolením`,
+        'U prostého rozsahu bajtů to nemusí vadit; jakmile si appka přidá vlastní hlavičku, vadit začne.');
+    } else if (hlavicky.includes('range') || hlavicky === '*') {
+      ok(`preflight pro ${domenaAppky} pouští Range`, hlavicky || '*');
+    } else {
+      pozor(`Preflight pro ${domenaAppky} nepouští hlavičku Range`,
+        'Doplň "range" do AllowedHeaders (tools/r2-cors.json), jinak prohlížeč dotaz nepošle.');
+    }
+  } catch (e) {
+    pozor(`CORS se nepodařilo ověřit pro ${puvod}: ${e.message}`, '');
   }
-} catch (e) {
-  pozor(`CORS se nepodařilo ověřit: ${e.message}`, '');
 }
 
 /* ── 5. Je to opravdu PMTiles, a co je uvnitř? ───────────────────────── */

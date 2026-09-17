@@ -1,0 +1,15 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://meteotrace.com",
+      "https://www.meteotrace.com",
+      "https://appassets.androidplatform.net",
+      "http://localhost:8099",
+      "http://127.0.0.1:8099"
+    ],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["range", "if-match", "if-none-match"],
+    "ExposeHeaders": ["content-range", "content-length", "accept-ranges", "etag"],
+    "MaxAgeSeconds": 86400
+  }
+]
