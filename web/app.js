@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.18.2';
+const VERZE = '0.19.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -93,7 +93,10 @@ const state = {
   primary: 'route',     // 'route' | 'station'
   units: null,
   place: null,          // {name, country, lat, lon}
-  fix: null,            // poloha ze zařízení; JEN pro řazení nabídky, viz odkudSeDivam()
+  fix: null,            // poloha ze zařízení; řazení nabídky (odkudSeDivam) a zprávy (R25)
+  fixNazev: '',         // jméno té polohy, aby zpráva řekla, PRO KTERÉ místo je
+  // Ranní a večerní zpráva (R25). Posílá je obal, web jen říká kdy a kam.
+  zpravy: { zapnuto: false, rano: '06:30', vecer: '20:00' },
   places: emptyStore(), // uložená místa a trasy
   banner: null,         // trvalé sdělení o stavu appky, viz notice()
   screen: 'station',    // 'station' | 'route'
@@ -139,6 +142,18 @@ function load() {
     if (MOTIVY.includes(saved.theme)) state.theme = saved.theme;
     if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
     if (typeof saved.notify === 'string') state.notify = saved.notify;
+    // 🚨 Poloha se obnovuje, protože na ní stojí ranní a večerní zpráva:
+    // bez ní by po restartu appky přestaly chodit, dokud by si člověk
+    // znovu nesáhl na ⌖ — a nic by mu to neřeklo.
+    if (isUsablePoint(saved.fix)) state.fix = { lat: saved.fix.lat, lon: saved.fix.lon };
+    if (typeof saved.fixNazev === 'string') state.fixNazev = saved.fixNazev;
+    if (saved.zpravy && typeof saved.zpravy === 'object') {
+      state.zpravy = {
+        zapnuto: saved.zpravy.zapnuto === true,
+        rano: /^d{1,2}:d{2}$/.test(saved.zpravy.rano) ? saved.zpravy.rano : '06:30',
+        vecer: /^d{1,2}:d{2}$/.test(saved.zpravy.vecer) ? saved.zpravy.vecer : '20:00',
+      };
+    }
     if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;
     if (saved.onboardingHotovo === true) state.onboardingHotovo = true;
     if (typeof saved.langManual === 'string') {
@@ -173,6 +188,7 @@ function save() {
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary,
       notify: state.notify, oznameno: state.oznameno,
+      fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       onboardingHotovo: state.onboardingHotovo,
       // 🚨 Rozepsaná trasa PŘEŽIJE OBNOVENÍ STRÁNKY. Do 31. 8. 2026 se
       // neukládala vůbec, takže refresh vyhodil zadaný start i cíl — a appka
@@ -567,7 +583,7 @@ function polohaProStart() {
       (pos) => {
         const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         if (!isUsablePoint(bod)) { hotovo(nahradniStart()); return; }
-        state.fix = bod;
+        zapamatujPolohu(bod);
         hotovo({ ...bod, name: t('search.myLocation', state.lang) });
       },
       () => hotovo(nahradniStart()),
@@ -594,7 +610,7 @@ function polohaDoTrasy() {
   if (!navigator.geolocation) { notice(t('search.locationFailed', state.lang)); return; }
 
   const dosad = (bod) => {
-    state.fix = bod;
+    zapamatujPolohu(bod);
     const misto = { ...bod, name: t('search.myLocation', state.lang) };
     state.route.from = misto;
     $('route-from').value = misto.name;
@@ -923,6 +939,14 @@ function openSettings() {
   ], state.notify || '');
   vypisStavUpozorneni();
 
+  fillOptions($('set-briefs'), [
+    { value: 'off', text: t('settings.briefsOff', state.lang) },
+    { value: 'on', text: t('settings.briefsOn', state.lang) },
+  ], state.zpravy?.zapnuto ? 'on' : 'off');
+  $('set-brief-morning').value = state.zpravy?.rano || '06:30';
+  $('set-brief-evening').value = state.zpravy?.vecer || '20:00';
+  vypisStavZprav();
+
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
 }
@@ -1108,6 +1132,137 @@ function zapisHlidani() {
   most.hlidejVystrahy(state.place.lat, state.place.lon, nadpis, state.lang, state.notify);
 }
 
+/* ============================================================
+   RANNÍ A VEČERNÍ ZPRÁVA (`R25`)
+
+   Michal 17. 9. 2026: *„večerní a ranní zprávy/předpovědi o počasí
+   v aktuální lokaci místa telefonu."*
+
+   🚨 „Aktuální lokace" znamená POSLEDNÍ, KTEROU APPKA ZNÁ. Zjišťovat
+   polohu na pozadí by chtělo `ACCESS_BACKGROUND_LOCATION`, tedy zvlášť
+   posuzované oprávnění na Play — a to by zdrželo vydání (`R25`). Proto
+   souřadnice posílá web pokaždé, když je má, a obal si je pamatuje.
+   ============================================================ */
+
+/** Most do obalu pro zprávy. `null` v prohlížeči i ve starším obalu. */
+function obalZpravy() {
+  const m = window.MeteoTraceObal;
+  return m && typeof m.umiZpravy === 'function' && m.umiZpravy() ? m : null;
+}
+
+/** „06:30" → 390. Neplatný tvar vrací výchozí hodnotu, ne NaN. */
+function minutyZCasu(hhmm, vychozi) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return vychozi;
+  const min = Number(m[1]) * 60 + Number(m[2]);
+  return min >= 0 && min < 1440 ? min : vychozi;
+}
+
+/**
+ * Jméno sady jednotek pro server.
+ *
+ * ⚠️ Posílá se JMÉNO, ne rozepsaná trojice: kdyby se posílaly jednotlivé
+ * jednotky, měl by server druhou tabulku a rozešly by se (`R17`).
+ */
+function sadaJednotek() {
+  if (state.units?.temp === 'f') return 'imperial';
+  if (state.units?.wind === 'mph') return 'uk';
+  return 'metric';
+}
+
+/**
+ * Jediný trychtýř pro polohu ze zařízení.
+ *
+ * 🚨 Dřív se `state.fix` zapisoval na pěti místech zvlášť. Zprávy potřebují
+ * tu polohu znát i po zavření appky, takže by stačilo zapomenout na jediné
+ * z nich a zprávy by tiše chodily pro staré místo.
+ *
+ * ⚠️ Jméno se dotahuje až potom a nikoho nezdržuje — je zadarmo z vlastních
+ * hranic ORP (`R15`). Do té doby se pošle poloha bez jména; zpráva by jinak
+ * musela čekat na dotaz, který s ní nesouvisí.
+ */
+function zapamatujPolohu(bod) {
+  if (!isUsablePoint(bod)) return;
+  state.fix = { lat: bod.lat, lon: bod.lon };
+  save();
+  zapisZpravy();
+  vypisStavZprav();
+
+  jmenoBodu(state.fix, 'fix-jmeno').then((nazev) => {
+    if (!nazev || !isUsablePoint(state.fix)) return;
+    state.fixNazev = nazev;
+    save();
+    zapisZpravy();
+    vypisStavZprav();
+  }).catch(() => { /* bez jména se pošle poloha tak jako tak */ });
+}
+
+/**
+ * Řekne obalu, kdy a pro co posílat zprávy — nebo že nemá posílat nic.
+ *
+ * ⚠️ Nadpisy se skládají TADY, v jazyce appky, a nesou jméno místa. Zpráva
+ * bez jména by se tvářila, že je „tady", i když je z minulého týdne.
+ */
+function zapisZpravy() {
+  const most = obalZpravy();
+  if (!most) return;
+
+  if (!state.zpravy?.zapnuto || !isUsablePoint(state.fix)) {
+    most.vypniZpravy();
+    return;
+  }
+
+  const place = state.fixNazev || t('search.myLocation', state.lang);
+  most.nastavZpravy(
+    state.fix.lat, state.fix.lon,
+    tf('brief.titleMorning', { place }, state.lang),
+    tf('brief.titleEvening', { place }, state.lang),
+    state.lang, sadaJednotek(),
+    minutyZCasu(state.zpravy.rano, 6 * 60 + 30),
+    minutyZCasu(state.zpravy.vecer, 20 * 60),
+  );
+}
+
+/**
+ * Co se o zprávách napíše v nastavení.
+ *
+ * 🚨 Nic z toho nesmí mlčet (`R17`): zapnutý přepínač bez polohy by sliboval
+ * zprávy, které nemají odkud chodit — a přišlo by se na to až tím, že ráno
+ * nic nedorazí.
+ */
+function vypisStavZprav() {
+  const vyber = $('set-briefs');
+  const rano = $('brief-times');
+  const vecer = $('brief-times-evening');
+  const p = $('brief-note');
+  if (!vyber || !p) return;
+
+  const most = obalZpravy();
+  const zapnuto = !!state.zpravy?.zapnuto;
+  vyber.value = zapnuto ? 'on' : 'off';
+  if (rano) rano.hidden = !zapnuto;
+  if (vecer) vecer.hidden = !zapnuto;
+
+  let text = '';
+  if (!most) {
+    // V prohlížeči zprávy chodit neumí — na pozadí by to chtělo push server.
+    text = t('settings.briefsWeb', state.lang);
+  } else if (!zapnuto) {
+    text = '';
+  } else if (!most.majiPovoleni()) {
+    text = t('notify.denied', state.lang);
+  } else if (!isUsablePoint(state.fix)) {
+    text = t('settings.briefsNoPlace', state.lang);
+  } else {
+    text = tf('settings.briefsWhere', {
+      place: state.fixNazev || t('search.myLocation', state.lang),
+    }, state.lang);
+  }
+
+  p.textContent = text;
+  p.hidden = !text;
+}
+
 /**
  * Zapnutí a vypnutí upozornění z nastavení.
  *
@@ -1233,6 +1388,10 @@ function zmenJednotku(osa, hodnota) {
 function prekresliVse() {
   applyI18n();
   renderSaved();
+  // 🚨 Zprávy nesou HOTOVÝ nadpis a jednotky — obal je neumí přeložit sám.
+  // Bez tohohle by po přepnutí jazyka chodily dál česky (`R25`, `R17`).
+  zapisZpravy();
+  vypisStavZprav();
   if (state.place) loadStation();
   if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
 }
@@ -1451,7 +1610,7 @@ async function tichaPoloha() {
         const bod = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         // 🚨 Prohlížeč bez lokalizační služby vrací 0, 0 — a to není poloha,
         // to je „nevím". Viz `isUsablePoint()`.
-        if (isUsablePoint(bod)) state.fix = bod;
+        if (isUsablePoint(bod)) zapamatujPolohu(bod);
       },
       () => { /* nevyšlo to — hledání jen nebude řadit podle okolí */ },
       { maximumAge: 10 * 60 * 1000, timeout: 5000 },
@@ -1571,7 +1730,7 @@ function locate() {
       // ⚠️ Poloha se nehlásí jako „data se nepodařilo načíst" — poloha nejsou
       // data a ta věta posílá hledat chybu v připojení místo v povolení.
       if (!isUsablePoint(bod)) { notice(t('search.locationFailed', state.lang)); return; }
-      state.fix = bod;
+      zapamatujPolohu(bod);
       selectPlace({
         name: t('search.myLocation', state.lang),
         lat: pos.coords.latitude, lon: pos.coords.longitude,
@@ -3974,6 +4133,35 @@ function init() {
     pouzijPoradi();
   });
   $('set-notify').addEventListener('change', (e) => zmenUpozorneni(e.target.value));
+
+  // Ranní a večerní zpráva (R25).
+  // 🚨 Povolení se žádá AŽ při zapnutí, stejně jako u výstrah: dialog,
+  // o který si nikdo neřekl, se odklikne pryč a podruhé ho Android nenabídne.
+  $('set-briefs').addEventListener('change', (e) => {
+    const zapnuto = e.target.value === 'on';
+    state.zpravy = { ...(state.zpravy || {}), zapnuto };
+    if (zapnuto) {
+      const most = obalZpravy();
+      if (most && !most.majiPovoleni()) most.zadejOPovoleni();
+    }
+    save();
+    zapisZpravy();
+    vypisStavZprav();
+  });
+  for (const [id, klic, vychozi] of [
+    ['set-brief-morning', 'rano', '06:30'],
+    ['set-brief-evening', 'vecer', '20:00'],
+  ]) {
+    $(id).addEventListener('change', (e) => {
+      // ⚠️ Prázdné pole se nebere: vymazaný čas by znamenal půlnoc, tedy
+      // zprávu v době, kdy nikdo nic nečte. Vrátí se poslední platný.
+      const hodnota = /^\d{1,2}:\d{2}$/.test(e.target.value) ? e.target.value : (state.zpravy?.[klic] || vychozi);
+      e.target.value = hodnota;
+      state.zpravy = { ...(state.zpravy || {}), [klic]: hodnota };
+      save();
+      zapisZpravy();
+    });
+  }
   for (const osa of Object.keys(JEDNOTKY)) {
     $(`set-${osa}`).addEventListener('change', (e) => zmenJednotku(osa, e.target.value));
   }
@@ -4076,7 +4264,10 @@ function init() {
   vykresliZpusoby();
   vykresliMezibody();
   zapniHodnoceni();
-  schovejDarVObalu();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
+  schovejDarVObalu();
+  // Obal si nastavení zpráv sám nepamatuje napříč přeinstalováním —
+  // web mu ho po startu připomene (R25).
+  zapisZpravy();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:
@@ -4499,7 +4690,7 @@ function zapojUvitani() {
         // uložil natrvalo a příště by appka startovala tam.
         if (!isUsablePoint(bod)) { uvitaniPoznamka(t('search.locationFailed', state.lang)); return; }
         uvitaniPoznamka(null);
-        state.fix = bod;
+        zapamatujPolohu(bod);
         uvitaniVyberMisto({
           name: `${bod.lat.toFixed(2)}, ${bod.lon.toFixed(2)}`, ...bod,
         });

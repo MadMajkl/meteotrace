@@ -12,4 +12,9 @@
     -->
     <string name="kanal_vystrahy">Meteo výstrahy</string>
     <string name="kanal_vystrahy_popis">Upozornění na výstrahy pro hlídané místo.</string>
+
+    <!-- ⚠️ Vlastní kanál, ne společný s výstrahami: ranní předpověď a bouřka
+         jsou dvě různé věci a musí jít vypnout zvlášť. -->
+    <string name="kanal_zpravy">Ranní a večerní zpráva</string>
+    <string name="kanal_zpravy_popis">Krátká předpověď pro poslední známou polohu.</string>
 </resources>

@@ -244,7 +244,10 @@ export async function serveProxy(req, deps) {
     if (plan.builder) {
       const stavitel = deps.builders?.[plan.builder];
       if (!stavitel) throw new Error(`Chybí stavitel ${plan.builder} pro službu ${plan.service}.`);
-      body = await stavitel({ fetchImpl, base: plan.url, nowMs: ted, log });
+      // ⚠️ `params` chodí až od 17. 9. 2026 (`R25`). Stavitelé ČHMÚ je
+      // nepotřebují (stahují všem totéž), ale zpráva o počasí ano — bez
+      // souřadnic a jazyka nemá co složit.
+      body = await stavitel({ fetchImpl, base: plan.url, nowMs: ted, params, log });
     } else if (pouzity === plan) {
       try {
         body = await fetchUpstream(fetchImpl, plan);

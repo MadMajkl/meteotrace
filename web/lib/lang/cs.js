@@ -429,6 +429,16 @@ export default {
     distance: 'Vzdálenost',
     about: 'O aplikaci',
     privacy: 'Zásady ochrany soukromí',
+    briefs: 'Ranní a večerní zpráva',
+    briefsOff: 'Vypnuto',
+    briefsOn: 'Zapnuto',
+    briefMorning: 'Ráno v',
+    briefEvening: 'Večer v',
+    // 🚨 Musí být vidět, PRO JAKÉ MÍSTO zpráva chodí — poloha je ta poslední,
+    // kterou appka zná, a kdo odjel a appku neotevřel, dostane starou (R25).
+    briefsWhere: 'Zprávy chodí pro {place} — poslední místo, kde appka zjistila polohu.',
+    briefsNoPlace: 'Zatím není odkud: zprávy chodí pro poslední zjištěnou polohu, a tu appka ještě nemá. Klepni na ⌖ u hledání.',
+    briefsWeb: 'V prohlížeči zprávy chodit neumí — potřebují appku z Google Play.',
     version: 'MeteoTrace {version}',
     sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ, záloha MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
@@ -481,6 +491,22 @@ export default {
   when: {
     tomorrow: 'zítra {time}',
     date: '{date} {time}',
+  },
+
+  /* Ranní a večerní zpráva (`R25`). Skládá je server, obal je jen zobrazí —
+     proto tady, a ne v `strings.xml` obalu: ten se řídí jazykem SYSTÉMU,
+     kdežto jazyk appky je volba uživatele (`R10`).
+     ⚠️ Věta musí být čitelná na zamčeném displeji, tedy krátká. */
+  brief: {
+    today: 'Dnes',
+    tomorrow: 'Zítra',
+    line: '{day} {min} až {max} · {what}',
+    // ⚠️ NE „déšť {p} %": jev už se jmenuje o řádek výš a vyšlo z toho
+    // „Déšť, déšť 70 %". Pravděpodobnost je navíc to, co ta hodnota je.
+    rain: 'pravděpodobnost {p} %',
+    wind: 'vítr až {w}',
+    titleMorning: 'Ráno · {place}',
+    titleEvening: 'Večer · {place}',
   },
 
   warnings: {

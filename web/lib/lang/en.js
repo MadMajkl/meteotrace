@@ -366,6 +366,14 @@ export default {
     distance: 'Distance',
     about: 'About',
     privacy: 'Privacy policy',
+    briefs: 'Morning and evening report',
+    briefsOff: 'Off',
+    briefsOn: 'On',
+    briefMorning: 'Morning at',
+    briefEvening: 'Evening at',
+    briefsWhere: 'Reports are for {place} — the last place where the app got your location.',
+    briefsNoPlace: 'Nowhere to report from yet: reports use your last known location and the app does not have one. Tap ⌖ next to search.',
+    briefsWeb: 'Reports do not work in a browser — they need the app from Google Play.',
     version: 'MeteoTrace {version}',
     sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ, MeteoAlarm as backup. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
   },
@@ -419,6 +427,16 @@ export default {
   when: {
     tomorrow: 'tomorrow {time}',
     date: '{date} {time}',
+  },
+
+  brief: {
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    line: '{day} {min} to {max} · {what}',
+    rain: 'chance {p}%',
+    wind: 'wind up to {w}',
+    titleMorning: 'Morning · {place}',
+    titleEvening: 'Evening · {place}',
   },
 
   warnings: {

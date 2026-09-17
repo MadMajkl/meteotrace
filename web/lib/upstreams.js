@@ -344,6 +344,32 @@ export const UPSTREAMS = {
     builder: 'chmiNowcast',
     ttl: 4 * MINUTE,
   },
+
+  /**
+   * Ranní a večerní zpráva o počasí (`R25`).
+   *
+   * Vrací JEDNU HOTOVOU VĚTU v jazyce appky — obal ji jen zobrazí.
+   * Skládá ji `web/lib/brief.js`, stahuje `server/brief.js`.
+   *
+   * ⚠️ Proto `builder`: z jedné odpovědi Open-Meteo se dělá text, ne průchod.
+   *
+   * 🚨 `lat`, `lon`, `kind`, `lang` a `units` jsou v `params`, NE v `local` —
+   * musí se dostat do klíče cache. Kdyby byly „místní", měly by všechny
+   * zprávy společný záznam a druhý tazatel by dostal větu prvního: cizí
+   * místo, cizí jazyk, klidně i cizí den.
+   *
+   * ⚠️ Adresu si stavitel skládá sám (parametry zprávy jsou jiné než
+   * parametry obrazovky), ale ZDROJ zůstává tady — katalog je jediné místo,
+   * kde se ví o cizích službách (`R2`).
+   */
+  brief: {
+    base: 'https://api.open-meteo.com/v1/forecast',
+    params: ['lat', 'lon', 'kind', 'lang', 'units'],
+    builder: 'meteoZprava',
+    // Deset minut: víc než dost na to, aby se ranní zpráva pro tentýž bod
+    // nestahovala dvakrát, a míň, než je rozestup mezi ránem a večerem.
+    ttl: 10 * MINUTE,
+  },
 };
 
 /**

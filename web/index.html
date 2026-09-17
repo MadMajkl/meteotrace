@@ -338,6 +338,26 @@
        výstraha. -->
   <p class="hint" id="notify-note" hidden></p>
 
+  <!-- Ranní a večerní zpráva (R25).
+       ⚠️ Časy jsou `time`, tedy systémový volič — stejná úvaha jako
+       u odjezdu (R26): člověk zná hodiny svého telefonu.
+       🚨 Pod tím MUSÍ být vidět, pro jaké místo zprávy chodí. Je to
+       poslední poloha, kterou appka zná, a kdo odjel a appku neotevřel,
+       dostane zprávu pro to staré místo. -->
+  <div class="setting">
+    <label for="set-briefs" data-i18n="settings.briefs"></label>
+    <select id="set-briefs"></select>
+  </div>
+  <div class="setting" id="brief-times" hidden>
+    <label for="set-brief-morning" data-i18n="settings.briefMorning"></label>
+    <input id="set-brief-morning" type="time" step="900" value="06:30">
+  </div>
+  <div class="setting" id="brief-times-evening" hidden>
+    <label for="set-brief-evening" data-i18n="settings.briefEvening"></label>
+    <input id="set-brief-evening" type="time" step="900" value="20:00">
+  </div>
+  <p class="hint" id="brief-note" hidden></p>
+
   <h3 data-i18n="settings.units"></h3>
   <p class="hint" data-i18n="settings.unitsNote"></p>
 

@@ -327,3 +327,96 @@ test('DONATE-COMEBACK je značka, která se najde ve všech dotčených souborec
     assert.match(readFileSync(cesta, 'utf8'), /DONATE-COMEBACK/, `${jmeno} nenese značku DONATE-COMEBACK`);
   }
 });
+
+/* ============================================================
+   RANNÍ A VEČERNÍ ZPRÁVA V OBALU (`R25`)
+
+   🚨 Tyhle vady se poznají jen tím, že zpráva NEPŘIJDE — a chybějící
+   upozornění nevypadá jako chyba. Proto se hlídají čtením zdrojáku.
+   ============================================================ */
+
+const ZPRAVY = join(dirname(fileURLToPath(import.meta.url)), '..', 'android', 'app', 'src',
+  'main', 'java', 'com', 'meteotrace', 'Zpravy.kt');
+const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), '..', 'android', 'app', 'src',
+  'main', 'AndroidManifest.xml');
+
+test('🚨 obal o počasí NIC nerozhoduje — text zprávy skládá server', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  // Kdyby si obal skládal větu sám, musel by znát kódy počasí, jednotky
+  // i jazyk. Tři tabulky, které se při první opravě rozejdou s appkou —
+  // a poznalo by se to tím, že zpráva tvrdí něco jiného než obrazovka.
+  for (const zakazane of ['weather_code', 'temperature_2m', '°C', 'Zataženo', 'Overcast']) {
+    assert.ok(!kt.includes(zakazane), `obal si skládá počasí sám: ${zakazane}`);
+  }
+  assert.match(kt, /api\/brief/, 'obal se musí ptát serveru');
+  assert.match(kt, /optString\("text"\)/, 'a brát hotový text');
+});
+
+test('🚨 prázdná zpráva se NEZVONÍ', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  // Server vrací `text: null`, když na ten den nic neví. Notifikace
+  // s prázdným textem vypadá jako vada appky.
+  assert.match(kt, /takeIf \{ it\.isNotEmpty\(\) && it != "null" \}/,
+    'chybí kontrola prázdného textu (a řetězce "null", který JSONObject vrací)');
+});
+
+test('🚨 ráno a večer mají RŮZNÁ id — jinak jedno přepíše druhé', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  const rano = /ID_RANO\s*=\s*(\d+)/.exec(kt)?.[1];
+  const vecer = /ID_VECER\s*=\s*(\d+)/.exec(kt)?.[1];
+  assert.ok(rano && vecer, 'id upozornění nejsou pojmenovaná');
+  assert.notEqual(rano, vecer);
+  assert.notEqual(rano, '1', 'id 1 patří výstrahám (Vystrahy.notify)');
+  assert.notEqual(vecer, '1', 'id 1 patří výstrahám (Vystrahy.notify)');
+});
+
+test('🚨 po zazvonění se hned plánuje další den', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  const prijemce = /class BudikZprav[\s\S]*?\n\}/.exec(kt)?.[0] || '';
+  assert.match(prijemce, /vyzvedni\(/, 'příjemce budíku má spustit stažení');
+  assert.match(prijemce, /naplanuj\(/,
+    'bez přeplánování by zpráva přišla jednou a pak už nikdy — a nikdo by si toho nevšiml');
+});
+
+/**
+ * Zdroják bez komentářů.
+ *
+ * 🚨 Bez tohohle test hlásil vadu kvůli VLASTNÍ poznámce: v komentáři
+ * u budíku stojí „setAndAllowWhileIdle, ne setExactAndAllowWhileIdle" —
+ * a hledání v holém textu tam ten zakázaný tvar našlo. Táž past jako
+ * u CSS o kus výš.
+ */
+function bezKomentaru(kod) {
+  return kod.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
+test('🚨 budík nesmí chtít oprávnění na PŘESNÝ čas', () => {
+  const kt = bezKomentaru(readFileSync(ZPRAVY, 'utf8'));
+  // `setExactAndAllowWhileIdle` chce od Androidu 12 zvlášť oprávnění, které
+  // Google dává jen budíkům a kalendářům. U ranní předpovědi je pár minut jedno.
+  assert.ok(!kt.includes('setExactAndAllowWhileIdle'), 'přesný budík by chtěl SCHEDULE_EXACT_ALARM');
+  assert.match(kt, /setAndAllowWhileIdle/, 'obyčejný `set` by v hlubokém spánku neprošel');
+  const manifest = readFileSync(MANIFEST, 'utf8');
+  assert.ok(!manifest.includes('SCHEDULE_EXACT_ALARM'), 'oprávnění na přesný budík se nežádá');
+  assert.ok(!manifest.includes('ACCESS_BACKGROUND_LOCATION'),
+    'poloha na pozadí se nežádá (R25) — je zvlášť posuzovaná a zdržela by vydání');
+});
+
+test('🚨 zprávy mají vlastní kanál, aby šly vypnout bez výstrah', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  assert.match(kt, /KANAL = "zpravy"/);
+  assert.match(kt, /IMPORTANCE_DEFAULT/, 'předpověď není výstraha a nemá právo vyrušit jako bouřka');
+  const vystrahy = readFileSync(join(dirname(ZPRAVY), 'Vystrahy.kt'), 'utf8');
+  assert.match(vystrahy, /KANAL = "vystrahy"/, 'výstrahy si musí nechat svůj kanál');
+});
+
+test('🚨 budíky se obnoví po restartu telefonu', () => {
+  const kt = readFileSync(ZPRAVY, 'utf8');
+  assert.match(kt, /class PoRestartu[\s\S]*ACTION_BOOT_COMPLETED[\s\S]*naplanuj/,
+    'po restartu Android budíky zahodí — bez obnovy by zprávy tiše přestaly chodit');
+  const manifest = readFileSync(MANIFEST, 'utf8');
+  assert.match(manifest, /<receiver android:name="\.PoRestartu"[\s\S]*?BOOT_COMPLETED/,
+    'příjemce restartu chybí v manifestu');
+  assert.match(manifest, /<receiver android:name="\.BudikZprav" android:exported="false"/,
+    'budík musí být neveřejný — otevřený by šel spustit cizí appkou');
+});

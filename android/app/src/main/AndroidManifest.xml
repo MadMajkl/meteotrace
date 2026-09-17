@@ -51,5 +51,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Budík ranní a večerní zprávy (R25).
+          ⚠️ `exported="false"`: budí ho jen náš vlastní `PendingIntent`.
+          Otevřený příjemce by šel spustit odkudkoli a zvonil by na povel
+          cizí appky.
+        -->
+        <receiver android:name=".BudikZprav" android:exported="false" />
+
+        <!--
+          Po restartu telefonu se budíky ztrácejí — Android je nedrží.
+          🚨 Bez tohohle by ranní zpráva po restartu tiše přestala chodit
+          a od vady by se to nedalo odlišit. (`WorkManager` u výstrah si
+          svou práci obnoví sám, budík ne.)
+        -->
+        <receiver android:name=".PoRestartu" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

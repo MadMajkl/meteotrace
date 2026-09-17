@@ -73,4 +73,54 @@ class MostDoWebu(
     fun zadejOPovoleni() {
         zadost()
     }
+
+    /* ── ranní a večerní zpráva (R25) ─────────────────────────────────── */
+
+    /** Umí tenhle obal posílat ranní a večerní zprávu? */
+    @JavascriptInterface
+    fun umiZpravy(): Boolean = true
+
+    /**
+     * Zapne ranní a večerní zprávu pro danou polohu.
+     *
+     * ⚠️ Nadpisy chodí HOTOVÉ z webu, v jazyce appky — `strings.xml` se řídí
+     * jazykem systému (viz `Vystrahy.Hlidane`). Jsou dva, protože ráno
+     * a večer se v nich liší slovo, a skládat to tady by znamenalo mít
+     * v obalu překlad.
+     *
+     * 🚨 Součástí nadpisu je JMÉNO MÍSTA. Zpráva chodí pro poslední polohu,
+     * kterou web zjistil — kdo odjel a appku neotevřel, dostane starou
+     * a musí to poznat (`R25`).
+     *
+     * @param ranoMin minuty od půlnoci (6:30 = 390)
+     */
+    @JavascriptInterface
+    fun nastavZpravy(
+        lat: Double,
+        lon: Double,
+        nadpisRano: String,
+        nadpisVecer: String,
+        lang: String,
+        units: String,
+        ranoMin: Int,
+        vecerMin: Int,
+    ) {
+        Zpravy.nastav(ctx, Zpravy.Nastaveni(lat, lon, nadpisRano, nadpisVecer, lang, units, ranoMin, vecerMin))
+    }
+
+    /** Vypne zprávy a zapomene i naplánované budíky. */
+    @JavascriptInterface
+    fun vypniZpravy() {
+        Zpravy.vypni(ctx)
+    }
+
+    /**
+     * Chodí zprávy?
+     *
+     * 🚨 Web se MUSÍ mít jak zeptat — stejně jako u výstrah. Bez toho by
+     * přepínač tvrdil „zapnuto", zatímco by se po odinstalaci povolení nebo
+     * po vypnutí kanálu nic nedělo.
+     */
+    @JavascriptInterface
+    fun zpravyZapnuty(): Boolean = Zpravy.zapnuto(ctx)
 }
