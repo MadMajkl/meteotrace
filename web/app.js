@@ -53,7 +53,7 @@ import {
   revolutUrl, paypalUrl, paymentNote,
 } from './lib/donate.js';
 import { qrEncode, qrPath } from './lib/qr.js';
-import { formatDistance } from './lib/units.js';
+import { formatDistance, formatElevation } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
   saveRoute, forgetRoute, touchRoute, routeKey, renameRoute, savedShortcuts,
@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.19.1';
+const VERZE = '0.19.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3942,9 +3942,13 @@ function vykresliTrasu({ view, plan, trasa, srovnani, mista, useky, odjezd }) {
     // ⚠️ Nula je platná nadmořská výška (hladina moře), takže se testuje
     // konečnost, ne pravdivost. Jinak by pobřežní bod vypadal, jako by se
     // výška neznala.
+    //
+    // 🚨 Výška jde přes překlad a jednotky jako na meteostanici. Do 18. 9. 2026
+    // tu bylo natvrdo „m n. m." — anglická appka tak psala česky a kdo měl
+    // míle, dostal metry. Přišlo se na to až na snímcích do obchodu.
     const kmText = formatDistance(p.distanceM, state.units, state.lang);
     const km = el('span', 'rp-km', Number.isFinite(p.elevationM)
-      ? `${kmText} · ${Math.round(p.elevationM)} m n. m.`
+      ? `${kmText} · ${tf('now.elevation', { value: formatElevation(p.elevationM, state.units, state.lang) }, state.lang)}`
       : kmText);
     const ikona = el('span', 'rp-icon', p.icon);
     const popis = el('span', 'rp-cond', p.condition || '');

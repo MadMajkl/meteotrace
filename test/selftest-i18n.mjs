@@ -27,6 +27,21 @@ import { MOON_KEYS } from '../web/lib/moon.js';
    PARITA PŘEKLADŮ
    ============================================================ */
 
+test('🚨 app.js nemá jednotky ani zkratky natvrdo česky', async () => {
+  // Body trasy psaly výšku jako `… m n. m.` přímo v šabloně — anglická appka
+  // tak mluvila česky a kdo měl míle, dostal metry. Paritní test to vidět
+  // nemohl: díra nebyla v překladech, ale vedle nich. Hlídá se tedy KÓD,
+  // bez komentářů (ty česky být smějí).
+  const zdroj = await readFile(new URL('../web/app.js', import.meta.url), 'utf8');
+  const kod = zdroj
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n').map((r) => r.replace(/(^|[^:'"`])\/\/.*$/, '$1')).join('\n');
+  for (const [co, vzor] of [['„n. m."', /n\. m\./], ['„km/h"', /['"`][^'"`\n]*\bkm\/h\b/]]) {
+    const nalez = kod.split('\n').find((r) => vzor.test(r));
+    assert.equal(nalez, undefined, `app.js má natvrdo ${co}: ${nalez?.trim()}`);
+  }
+});
+
 test('🚨 parita: každý jazyk má všechny klíče referenčního', () => {
   for (const r of checkAllLangs()) {
     assert.deepEqual(r.missing, [], `${r.lang}: chybí klíče ${r.missing.join(', ')}`);

@@ -1,7 +1,12 @@
 /**
  * Podklady do Google Play: snímky obrazovky a grafika záznamu.
  *
- *     npm run playstore            (vývojový server musí běžet)
+ *     npm run playstore                  (česky — vývojový server musí běžet)
+ *     npm run playstore -- --lang=en     (anglicky)
+ *
+ * Každý jazyk jde do vlastní složky `android/playstore/<jazyk>/`, protože
+ * každý jazyk záznamu v obchodu má vlastní grafiku. 🚨 Česká grafika na
+ * anglickém záznamu (a obráceně) je podle pravidel Play zavádějící.
  *
  * ⚠️ Kreslí to Chrome ze SKUTEČNÉ APPKY, ne z návrhu. Ručně poskládaný
  * obrázek by za měsíc ukazoval něco, co v appce není — a to je podle
@@ -26,9 +31,36 @@ import { tmpdir } from 'node:os';
 
 import { withPage } from './browser.mjs';
 
+/* ── jazyk ───────────────────────────────────────────────────────────── */
+
+/**
+ * Co se na grafice liší podle jazyka. Appka sama se přepne přes úložiště,
+ * tady je jen to, co do ní přichází zvenku: jméno země u ukázkových míst
+ * a texty hlavní grafiky.
+ */
+const JAZYKY = {
+  cs: {
+    zeme: 'Česko',
+    nadpis: 'Počasí v každém bodě cesty',
+    podnadpis: 'V čase, kdy tam doopravdy dorazíš.',
+  },
+  en: {
+    zeme: 'Czechia',
+    nadpis: 'Weather at every point of your trip',
+    podnadpis: 'At the time you actually get there.',
+  },
+};
+
+const LANG = (process.argv.find((a) => a.startsWith('--lang='))?.split('=')[1] || 'cs').toLowerCase();
+if (!JAZYKY[LANG]) {
+  console.error(`Neznámý jazyk „${LANG}". Umím: ${Object.keys(JAZYKY).join(', ')}.`);
+  process.exit(1);
+}
+const J = JAZYKY[LANG];
+
 const zde = dirname(fileURLToPath(import.meta.url));
 const KOREN = join(zde, '..');
-const CIL = join(KOREN, 'android', 'playstore');
+const CIL = join(KOREN, 'android', 'playstore', LANG);
 const PORT = process.env.PORT || 8099;
 const APPKA = `http://127.0.0.1:${PORT}/`;
 
@@ -39,9 +71,9 @@ const HUSTOTA = 3;
 
 /* ── ukázková data ───────────────────────────────────────────────────── */
 
-const PLZEN = { name: 'Plzeň', country: 'Česko', lat: 49.7475, lon: 13.3776 };
-const PRAHA = { name: 'Praha', country: 'Česko', lat: 50.0880, lon: 14.4208 };
-const HORSOVSKY_TYN = { name: 'Horšovský Týn', country: 'Česko', lat: 49.5307, lon: 12.9436 };
+const PLZEN = { name: 'Plzeň', country: J.zeme, lat: 49.7475, lon: 13.3776 };
+const PRAHA = { name: 'Praha', country: J.zeme, lat: 50.0880, lon: 14.4208 };
+const HORSOVSKY_TYN = { name: 'Horšovský Týn', country: J.zeme, lat: 49.5307, lon: 12.9436 };
 
 /** Zítřek v osm — ať je na snímku vidět, že jde naplánovat odjezd (R26). */
 function zitraOsm() {
@@ -53,7 +85,7 @@ function zitraOsm() {
 
 function ulozeno(extra) {
   return JSON.stringify({
-    onboardingHotovo: true, langManual: 'cs', lang: 'cs', theme: 'dark',
+    onboardingHotovo: true, langManual: LANG, lang: LANG, theme: 'dark',
     ...extra,
   });
 }
@@ -209,8 +241,15 @@ const G_VYSKA = 500;
  * (`og-build.mjs`) — jedna appka, jeden vzhled.
  */
 function grafikaHtml(znackaSvg) {
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><style>
+  return `<!DOCTYPE html><html lang="${LANG}"><head><meta charset="utf-8"><style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* 🚨 Pozadí musí mít i html. Jinak se pozadí body přenese na plátno
+     stránky, přechod se změří podle VÝŘEZU okna (headless ho dá jen ~1008 px)
+     a za jeho hranou začne další dlaždice — pravých 16 px grafiky bylo
+     ploché. V náhledu konzole to vidět nebylo, jen při měření pixelů
+     (18. 9. 2026). První pokus s overflow nepomohl: posuvník to nebyl.
+     ⚠️ Tenhle komentář je uvnitř šablonového řetězce: žádné zpětné apostrofy. */
+  html { background: #0f151c; overflow: hidden; }
   body {
     width: ${G_SIRKA}px; height: ${G_VYSKA}px;
     display: flex; flex-direction: column; justify-content: center;
@@ -229,8 +268,8 @@ function grafikaHtml(znackaSvg) {
   p { margin-top: 16px; font-size: 24px; color: #93a2b2; }
 </style></head><body>
   <div class="znacka">${znackaSvg}<span class="jmeno">MeteoTrace</span></div>
-  <h1>Počasí v každém bodě cesty</h1>
-  <p>V čase, kdy tam doopravdy dorazíš.</p>
+  <h1>${J.nadpis}</h1>
+  <p>${J.podnadpis}</p>
 </body></html>`;
 }
 
@@ -242,6 +281,12 @@ async function grafika() {
   writeFileSync(html, grafikaHtml(svg), 'utf8');
   try {
     await withPage(pathToFileURL(html).href, async (s) => {
+      // Výřez přesně na rozměr grafiky — okno headless Chromu je o kus užší,
+      // než se mu řekne (viz poznámka u `html` výše).
+      await s.send('Emulation.setDeviceMetricsOverride', {
+        width: G_SIRKA, height: G_VYSKA, deviceScaleFactor: 1, mobile: false,
+      });
+      await s.eval(pockej(300));
       const out = await s.send('Page.captureScreenshot', {
         format: 'png',
         clip: { x: 0, y: 0, width: G_SIRKA, height: G_VYSKA, scale: 1 },
@@ -259,9 +304,12 @@ async function grafika() {
 
 async function main() {
   mkdirSync(CIL, { recursive: true });
-  console.log(`Podklady do Play → android/playstore/`);
-  await snimkyTrasy();
-  await snimkyStanice();
+  console.log(`Podklady do Play (${LANG}) → android/playstore/${LANG}/`);
+  // `--jen-grafika`: jen hlavní grafika, bez snímků appky (ty chtějí síť a pár minut).
+  if (!process.argv.includes('--jen-grafika')) {
+    await snimkyTrasy();
+    await snimkyStanice();
+  }
   await grafika();
   console.log('\nHotovo. Ikona do obchodu je web/icons/icon-512.png.');
 }
