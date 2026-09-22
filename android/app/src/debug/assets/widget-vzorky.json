@@ -1,0 +1,857 @@
+[
+ {
+  "nazev": "Jasno, poledne",
+  "misto": "Praha",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "☀️",
+   "popis": "Jasno",
+   "pocitove": "Pocitově 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Příštích 12 hodin nic nespadne",
+   "vetaDo": 1789942800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "☀️",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "☀️",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "☀️",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "☀️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "☀️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "☀️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "☀️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#1B63C6",
+    "do": "#358AD4",
+    "zare": "#FFD36A"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Slunce přes závoj, dlouhý popis",
+  "misto": "Horšovský Týn",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "🌥️",
+   "popis": "Slunce přes vysokou oblačnost",
+   "pocitove": "Pocitově 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Příštích 12 hodin nic nespadne",
+   "vetaDo": 1789942800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "☁️",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "☁️",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "☁️",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "☁️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "☁️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#1B63C6",
+    "do": "#358AD4",
+    "zare": "#FFD36A"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Déšť odpoledne",
+  "misto": "Plzeň",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "⛅",
+   "popis": "Slunce přes vysokou oblačnost",
+   "pocitove": "Pocitově 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Od 15:00 déšť",
+   "vetaDo": 1789909200000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "⛅",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "⛅",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "🌧️",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "🌧️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "🌧️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "⛅",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "⛅",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#1B63C6",
+    "do": "#358AD4",
+    "zare": "#FFD36A"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Prší a nepřestane",
+  "misto": "Brno",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "11°",
+   "ikona": "🌧️",
+   "popis": "Déšť",
+   "pocitove": "Pocitově 8°",
+   "maxMin": "↑12°  ↓8°",
+   "veta": "Příštích 12 hodin bude pršet",
+   "vetaDo": 1789942800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "🌧️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "🌧️",
+     "teplota": "11°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "🌧️",
+     "teplota": "11°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "🌧️",
+     "teplota": "10°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "🌧️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "🌧️",
+     "teplota": "8°"
+    }
+   ],
+   "pozadi": {
+    "od": "#2C3E55",
+    "do": "#4F6782",
+    "zare": "#7FB2FF"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Bouřka",
+  "misto": "České Budějovice",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "24°",
+   "ikona": "⛈️",
+   "popis": "Bouřka",
+   "pocitove": "Pocitově 26°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Od 15:00 sucho",
+   "vetaDo": 1789909200000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "🌧️",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "🌧️",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "⛈️",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "⛈️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "⛈️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "⛈️",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#241F42",
+    "do": "#463C70",
+    "zare": "#B9A4FF"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Jasná noc",
+  "misto": "Moje poloha",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "🌙",
+   "popis": "Jasno",
+   "pocitove": "Pocitově 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Příštích 12 hodin nic nespadne",
+   "vetaDo": 1789980000000,
+   "hodiny": [
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789945200000,
+     "cas": "01:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789948800000,
+     "cas": "02:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789952400000,
+     "cas": "03:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789956000000,
+     "cas": "04:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789959600000,
+     "cas": "05:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789963200000,
+     "cas": "06:00",
+     "ikona": "🌙",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789966800000,
+     "cas": "07:00",
+     "ikona": "🌙",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789970400000,
+     "cas": "08:00",
+     "ikona": "🌙",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789974000000,
+     "cas": "09:00",
+     "ikona": "🌙",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789977600000,
+     "cas": "10:00",
+     "ikona": "🌙",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789981200000,
+     "cas": "11:00",
+     "ikona": "🌙",
+     "teplota": "21°"
+    }
+   ],
+   "pozadi": {
+    "od": "#0A1430",
+    "do": "#20335E",
+    "zare": "#C9D6FF"
+   },
+   "vydano": 1789936800000
+  }
+ },
+ {
+  "nazev": "Sníh",
+  "misto": "Špindlerův Mlýn",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "-3°",
+   "ikona": "🌨️",
+   "popis": "Sněžení",
+   "pocitove": "Pocitově -8°",
+   "maxMin": "↑1°  ↓-6°",
+   "veta": "Od 16:00 přestane sněžit",
+   "vetaDo": 1789912800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "🌨️",
+     "teplota": "1°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "🌨️",
+     "teplota": "0°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "🌨️",
+     "teplota": "-1°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "☁️",
+     "teplota": "-3°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "☁️",
+     "teplota": "-4°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "☁️",
+     "teplota": "-6°"
+    }
+   ],
+   "pozadi": {
+    "od": "#3F5C80",
+    "do": "#6787AA",
+    "zare": "#E8F1FF"
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Mlha",
+  "misto": "Ústí nad Labem",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "🌫️",
+   "popis": "Mlha",
+   "pocitove": "Pocitově 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Příštích 12 hodin nic nespadne",
+   "vetaDo": 1789942800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "🌫️",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "🌫️",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "🌫️",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "🌫️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "🌫️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "🌫️",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#56616E",
+    "do": "#7D8793",
+    "zare": null
+   },
+   "vydano": 1789899600000
+  }
+ },
+ {
+  "nazev": "Preview (EN)",
+  "misto": "Prague",
+  "posunoutDoTed": true,
+  "data": {
+   "v": 1,
+   "teplota": "17°",
+   "ikona": "⛅",
+   "popis": "Sun through high cloud",
+   "pocitove": "Feels 16°",
+   "maxMin": "↑21°  ↓9°",
+   "veta": "Rain from 16:00",
+   "vetaDo": 1789912800000,
+   "hodiny": [
+    {
+     "ms": 1789902000000,
+     "cas": "13:00",
+     "ikona": "⛅",
+     "teplota": "21°"
+    },
+    {
+     "ms": 1789905600000,
+     "cas": "14:00",
+     "ikona": "⛅",
+     "teplota": "19°"
+    },
+    {
+     "ms": 1789909200000,
+     "cas": "15:00",
+     "ikona": "⛅",
+     "teplota": "17°"
+    },
+    {
+     "ms": 1789912800000,
+     "cas": "16:00",
+     "ikona": "🌧️",
+     "teplota": "15°"
+    },
+    {
+     "ms": 1789916400000,
+     "cas": "17:00",
+     "ikona": "🌧️",
+     "teplota": "12°"
+    },
+    {
+     "ms": 1789920000000,
+     "cas": "18:00",
+     "ikona": "🌧️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789923600000,
+     "cas": "19:00",
+     "ikona": "⛅",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789927200000,
+     "cas": "20:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789930800000,
+     "cas": "21:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789934400000,
+     "cas": "22:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789938000000,
+     "cas": "23:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    },
+    {
+     "ms": 1789941600000,
+     "cas": "00:00",
+     "ikona": "☁️",
+     "teplota": "9°"
+    }
+   ],
+   "pozadi": {
+    "od": "#1B63C6",
+    "do": "#358AD4",
+    "zare": "#FFD36A"
+   },
+   "vydano": 1789899600000
+  }
+ }
+]

@@ -370,6 +370,26 @@ export const UPSTREAMS = {
     // nestahovala dvakrát, a míň, než je rozestup mezi ránem a večerem.
     ttl: 10 * MINUTE,
   },
+
+  /**
+   * Widget na ploše (`R29`).
+   *
+   * Vrací HOTOVÝ OBSAH widgetu v jazyce appky — obal ho jen nakreslí.
+   * Skládá ho `web/lib/widget.js` nad `buildStationView()`, stahuje
+   * `server/widget.js`.
+   *
+   * 🚨 `lat`, `lon`, `lang` a `units` jsou v `params` — musí se dostat do
+   * klíče cache, jinak by druhý tazatel dostal widget prvního (jako `brief`).
+   *
+   * ⚠️ Deset minut: widget se obnovuje po půlhodině, takže se ze sítě
+   * stahuje nanejvýš jednou za obnovu — a obsah je při tom čerstvý dost.
+   */
+  widget: {
+    base: 'https://api.open-meteo.com/v1/forecast',
+    params: ['lat', 'lon', 'lang', 'units'],
+    builder: 'meteoWidget',
+    ttl: 10 * MINUTE,
+  },
 };
 
 /**

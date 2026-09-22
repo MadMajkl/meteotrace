@@ -420,3 +420,91 @@ test('🚨 budíky se obnoví po restartu telefonu', () => {
   assert.match(manifest, /<receiver android:name="\.BudikZprav" android:exported="false"/,
     'budík musí být neveřejný — otevřený by šel spustit cizí appkou');
 });
+
+/* ============================================================
+   WIDGET NA PLOŠE (R29)
+   ============================================================ */
+
+const WIDGET_KT = join(dirname(fileURLToPath(import.meta.url)), '..', 'android', 'app', 'src',
+  'main', 'java', 'com', 'meteotrace', 'PocasiWidget.kt');
+const RES = join(dirname(fileURLToPath(import.meta.url)), '..', 'android', 'app', 'src', 'main', 'res');
+
+test('🚨 widget o počasí NIC nerozhoduje — obsah i barvy skládá server', () => {
+  const kt = bezKomentaru(readFileSync(WIDGET_KT, 'utf8'));
+  for (const zakazane of ['weather_code', 'temperature_2m', '°C', 'Zataženo', 'Overcast', 'thunderstorm']) {
+    assert.ok(!kt.includes(zakazane), `obal si skládá počasí sám: ${zakazane}`);
+  }
+  assert.match(kt, /api\/widget/, 'obal se musí ptát serveru');
+  assert.match(kt, /optJSONObject\("pozadi"\)/, 'i barvy oblohy chodí ze serveru');
+});
+
+test('🚨 každý prvek, na který widget sahá, v rozvržení OPRAVDU JE', () => {
+  // Nastavení textu na prvek, který v rozvržení chybí, shodí CELÝ widget —
+  // launcher místo něj ukáže „Widget nelze načíst". A pozná se to až na
+  // telefonu, protože kompilátor ani samotest webu to nevidí.
+  const kt = readFileSync(WIDGET_KT, 'utf8');
+  const varianty = [...kt.matchAll(/Varianta\(\s*R\.layout\.(\w+),[^,]+,[^,]+,\s*setOf\(([^)]*)\)/g)];
+  assert.ok(varianty.length >= 4, `našel jsem jen ${varianty.length} variant rozvržení`);
+  for (const [, layout, ids] of varianty) {
+    const xml = readFileSync(join(RES, 'layout', `${layout}.xml`), 'utf8');
+    // Bez těchhle dvou widget nejde vůbec: pozadí se nastavuje vždycky
+    // a klepnutí visí na kořeni.
+    for (const id of ['w_pozadi']) {
+      assert.ok(xml.includes(`"@+id/${id}"`), `${layout}: chybí ${id}`);
+    }
+    assert.match(xml, /android:id="@android:id\/background"/, `${layout}: kořen nemá @android:id/background`);
+    for (const id of ids.match(/R\.id\.(\w+)/g).map((s) => s.slice(5))) {
+      // ⚠️ `includes`, ne RegExp: `@\+id` v šabloně je snadné zkazit (heredoc
+      // to 22. 9. 2026 udělal) a z „+" se pak stane „jeden nebo víc zavináčů".
+      assert.ok(xml.includes(`"@+id/${id}"`), `${layout}: kód sahá na ${id}, v rozvržení není`);
+    }
+  }
+});
+
+test('🚨 staré číslo se nevydává za čerstvé — čas načtení je vidět a po 3 h varuje', () => {
+  const kt = readFileSync(WIDGET_KT, 'utf8');
+  assert.match(kt, /STARE_MS = 3 \* 60 \* 60 \* 1000L/);
+  assert.match(kt, /"⚠ \$cas"/, 'stará data musí mít výstrahu u času');
+  assert.match(kt, /h\.optLong\("ms"\) <= ted\) continue/, 'uplynulé hodiny se nesmí ukazovat');
+  assert.match(kt, /optLong\("vetaDo"/, 'věta o srážkách se po své platnosti nesmí opakovat');
+});
+
+test('🚨 bez widgetu na ploše se nic nestahuje', () => {
+  const kt = readFileSync(WIDGET_KT, 'utf8');
+  const prace = /class ObnovaWidgetu[\s\S]*?override suspend fun doWork\(\): Result \{([\s\S]*?)\n        \}/.exec(kt)?.[1] || '';
+  assert.match(prace.split('\n').slice(0, 4).join('\n'), /if \(!maWidgety\(ctx\)\) return Result\.success\(\)/,
+    'kdo widget nemá, nesmí kvůli němu platit baterií ani daty');
+  assert.match(kt, /override fun onDisabled[^\n]*Widget\.zrus/, 'po odebrání posledního widgetu se obnova ruší');
+});
+
+test('widget je v manifestu, neveřejný, a po restartu ho obnoví WorkManager', () => {
+  const manifest = readFileSync(MANIFEST, 'utf8');
+  assert.match(manifest, /<receiver android:name="\.PocasiWidget" android:exported="false">[\s\S]*?APPWIDGET_UPDATE[\s\S]*?@xml\/widget_pocasi_info/);
+  const info = readFileSync(join(RES, 'xml', 'widget_pocasi_info.xml'), 'utf8');
+  // Stohování se systémovým počasím (Samsung) chce tutéž mřížku: 4 × 2.
+  assert.match(info, /targetCellWidth="4"/);
+  assert.match(info, /targetCellHeight="2"/);
+  assert.match(info, /resizeMode="horizontal\|vertical"/, 'bez změny velikosti nejde na 4 × 1');
+  assert.match(info, /updatePeriodMillis="0"/, 'obnovu řídí WorkManager, ne systém');
+});
+
+test('🚨 anglické texty obalu drží krok s českými', () => {
+  const jmena = (cesta) => [...readFileSync(cesta, 'utf8').matchAll(/<string name="(\w+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(jmena(join(RES, 'values-en', 'strings.xml')), jmena(join(RES, 'values', 'strings.xml')));
+});
+
+test('🚨 web posílá widgetu POSLEDNÍ POLOHU i se jménem (R25)', () => {
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const fn = /function zapisWidget\(\) \{([\s\S]*?)\n\}/.exec(app)?.[1] || '';
+  assert.match(fn, /isUsablePoint\(state\.fix\)\s*\?/, 'poloha telefonu má přednost před místem z meteostanice');
+  assert.match(fn, /nastavWidget\(bod\.lat, bod\.lon, bod\.name/, 'bez jména by widget nepoznal, pro jaké místo je');
+});
+
+test('🚨 značka DONATE-COMEBACK visí jen na daru, ne na zprávách', () => {
+  // Do 22. 9. 2026 byla omylem u `zapisZpravy()`: podle ní by se po návratu
+  // daru smazal řádek, bez kterého ranní zprávy po reinstalaci přestanou chodit.
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const kodove = app.split('\n').filter((r) => r.includes('DONATE-COMEBACK') && !/^\s*(\*|\/\/)/.test(r));
+  assert.ok(kodove.length > 0, 'značka z kódu zmizela úplně');
+  for (const r of kodove) assert.match(r, /schovejDarVObalu/, `značka na cizím řádku: ${r.trim()}`);
+});

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jedna hodina v pruhu widgetu (R29). Šířku dělí rovným dílem `layout_weight`. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/w_h_cas"
+        style="@style/WidgetText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:alpha="0.8"
+        android:singleLine="true"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/w_h_ikona"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:includeFontPadding="false"
+        android:textSize="17sp" />
+
+    <TextView
+        android:id="@+id/w_h_teplota"
+        style="@style/WidgetText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:fontFamily="sans-serif-medium"
+        android:singleLine="true"
+        android:textSize="13sp" />
+</LinearLayout>

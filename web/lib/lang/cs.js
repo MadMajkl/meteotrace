@@ -509,6 +509,22 @@ export default {
     titleEvening: 'Večer · {place}',
   },
 
+  // Widget na ploše (R29). Schválně krátce — widget 4×1 má jeden řádek.
+  widget: {
+    feels: 'Pocitově {temp}',
+    hiLo: '↑{hi}  ↓{lo}',
+    // ⚠️ „Od {when} déšť", ne „Kolem {when} začne pršet": `when` bývá
+    // i „zítra 03:00" a „kolem zítra" se česky neřekne.
+    rainAt: 'Od {when} déšť',
+    snowAt: 'Od {when} sněžení',
+    dryAt: 'Od {when} sucho',
+    snowStops: 'Od {when} přestane sněžit',
+    keepsRaining: 'Příštích 12 hodin bude pršet',
+    keepsSnowing: 'Příštích 12 hodin bude sněžit',
+    // ⚠️ Ne „bez deště": v zimě by to byla polopravda — sníh je taky srážka.
+    dry: 'Příštích 12 hodin nic nespadne',
+  },
+
   warnings: {
     title: 'Výstrahy',
     none: 'Aktuálně nemáme žádné meteo výstrahy.',

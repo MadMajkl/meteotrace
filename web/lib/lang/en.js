@@ -439,6 +439,20 @@ export default {
     titleEvening: 'Evening · {place}',
   },
 
+  // Home-screen widget (R29). Short on purpose — a 4×1 widget has one line.
+  widget: {
+    feels: 'Feels {temp}',
+    hiLo: '↑{hi}  ↓{lo}',
+    rainAt: 'Rain from {when}',
+    snowAt: 'Snow from {when}',
+    dryAt: 'Dry from {when}',
+    snowStops: 'Snow eases from {when}',
+    keepsRaining: 'Rain for the next 12 hours',
+    keepsSnowing: 'Snow for the next 12 hours',
+    // Neither rain nor snow — "no rain" would be a half-truth in winter.
+    dry: 'Dry for the next 12 hours',
+  },
+
   warnings: {
     title: 'Warnings',
     none: 'No weather warnings right now.',

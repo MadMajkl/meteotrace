@@ -210,6 +210,8 @@ export function buildStationView(a) {
       windDirKey: windDirKey(pick(cur.wind_direction_10m, H.wind_direction_10m?.[iNow])) || '',
       gustKmh: pick(cur.wind_gusts_10m, H.wind_gusts_10m?.[iNow]) ?? null,
       tempC: pick(cur.temperature_2m, H.temperature_2m?.[iNow]) ?? null,
+      // Pocitovka jako číslo — widget ji píše zkráceně („12°"), z „12 °C" to nejde.
+      feelsC: pick(cur.apparent_temperature, H.apparent_temperature?.[iNow]) ?? null,
       cloudPct: pick(cur.cloud_cover, H.cloud_cover?.[iNow]) ?? null,
       // Patra zvlášť: podle nich se pozná, jestli je slunce vidět.
       cloudLow: patra.low ?? null,
@@ -338,7 +340,10 @@ export function buildStationView(a) {
           ? (jeZitra(ms, hourMs[iNow], off) ? t('forecast.tomorrow', lang) : formatWeekday(ms, tz, lang))
           : '',
         icon: weatherIcon(c, isDaylight(ms, sunrise[0], sunset[0])),
+        // Kód jako číslo: widget podle něj pozná, jestli padá déšť, nebo sníh.
+        code: Number.isInteger(c) ? c : null,
         temp: formatTemp(H.temperature_2m?.[i], units, lang),
+        tempC: Number.isFinite(H.temperature_2m?.[i]) ? H.temperature_2m[i] : null,
         precipProb: pct(H.precipitation_probability?.[i], lang),
         precip: formatPrecip(H.precipitation?.[i], units, lang),
       };

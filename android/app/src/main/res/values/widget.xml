@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Text ve widgetu (R29): bílý se jemným stínem.
+      ⚠️ Obloha za ním se mění podle počasí, od světle modré po noc. Kontrast
+      bílé vůči všem barvám hlídá `selftest-widget.mjs`; stín je pojistka
+      pro místa, kde záře (slunce, měsíc) text prosvětlí.
+    -->
+    <style name="WidgetText">
+        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:shadowColor">#66000000</item>
+        <item name="android:shadowDy">1</item>
+        <item name="android:shadowRadius">3</item>
+    </style>
+</resources>

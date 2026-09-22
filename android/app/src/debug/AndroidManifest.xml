@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  JEN LADICÍ SESTAVENÍ. Náhled widgetu (R29) pro ověření vzhledu na
+  emulátoru. Do balíčku pro Google Play se tenhle soubor nedostane —
+  release sestavení bere jen `src/main`.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".NahledWidgetu"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+    </application>
+</manifest>

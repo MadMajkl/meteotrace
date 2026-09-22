@@ -17,4 +17,15 @@
          jsou dvě různé věci a musí jít vypnout zvlášť. -->
     <string name="kanal_zpravy">Ranní a večerní zpráva</string>
     <string name="kanal_zpravy_popis">Krátká předpověď pro poslední známou polohu.</string>
+
+    <!--
+        Widget na ploše (R29). Tyhle texty ukazuje VÝBĚR WIDGETŮ, tedy systém —
+        proto jazyk systému. Co je ve widgetu, když už má data, posílá server
+        v jazyce appky.
+    -->
+    <string name="widget_popis">Počasí pro poslední známou polohu: teplota, šest hodin dopředu a kdy začne pršet.</string>
+    <string name="widget_prazdny">Otevři MeteoTrace a zjisti polohu — widget pak ukáže počasí tady.</string>
+    <string name="widget_nahled_misto">Praha</string>
+    <string name="widget_nahled_popis">Polojasno</string>
+    <string name="widget_nahled_veta">Od 16:00 déšť</string>
 </resources>

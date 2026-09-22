@@ -123,4 +123,25 @@ class MostDoWebu(
      */
     @JavascriptInterface
     fun zpravyZapnuty(): Boolean = Zpravy.zapnuto(ctx)
+
+    /* ── widget na ploše (R29) ────────────────────────────────────────── */
+
+    /** Umí tenhle obal widget? Web se ptá, aby starému obalu nic neposílal. */
+    @JavascriptInterface
+    fun umiWidget(): Boolean = true
+
+    /**
+     * Pro jaké místo má widget ukazovat počasí.
+     *
+     * ⚠️ `misto` chodí HOTOVÉ z webu (jméno, nebo „Moje poloha" v jazyce
+     * appky) a ukazuje se ve widgetu vždycky — widget jde pro POSLEDNÍ
+     * známou polohu, ne pro tu, kde je telefon teď (`R25`).
+     *
+     * Web to volá při každém startu i poloze; stahuje se ale jen při změně
+     * nebo u starých dat (`Widget.nastav`).
+     */
+    @JavascriptInterface
+    fun nastavWidget(lat: Double, lon: Double, misto: String, lang: String, units: String) {
+        Widget.nastav(ctx, lat, lon, misto, lang, units)
+    }
 }

@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.19.2';
+const VERZE = '0.20.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1186,6 +1186,7 @@ function zapamatujPolohu(bod) {
   state.fix = { lat: bod.lat, lon: bod.lon };
   save();
   zapisZpravy();
+  zapisWidget();
   vypisStavZprav();
 
   jmenoBodu(state.fix, 'fix-jmeno').then((nazev) => {
@@ -1193,6 +1194,7 @@ function zapamatujPolohu(bod) {
     state.fixNazev = nazev;
     save();
     zapisZpravy();
+    zapisWidget();
     vypisStavZprav();
   }).catch(() => { /* bez jména se pošle poloha tak jako tak */ });
 }
@@ -1221,6 +1223,42 @@ function zapisZpravy() {
     minutyZCasu(state.zpravy.rano, 6 * 60 + 30),
     minutyZCasu(state.zpravy.vecer, 20 * 60),
   );
+}
+
+/* ============================================================
+   WIDGET NA PLOŠE (`R29`)
+
+   Obsah skládá server (`/api/widget`), obal ho jen kreslí. Web mu řekne
+   jediné: pro jaké místo.
+   ============================================================ */
+
+/** Most do obalu pro widget. `null` v prohlížeči i ve starším obalu. */
+function obalWidget() {
+  const m = window.MeteoTraceObal;
+  return m && typeof m.umiWidget === 'function' && m.umiWidget() ? m : null;
+}
+
+/**
+ * Řekne obalu, pro jaké místo má widget ukazovat počasí.
+ *
+ * 🚨 Stejně jako ranní zpráva (`R25`): POSLEDNÍ POLOHA, KTEROU APPKA ZNÁ.
+ * Výchozí widget počasí na ploše ukazuje polohu telefonu — a MeteoTrace
+ * se s ním má dát nastohovat, takže musí jít pro totéž místo. Kdo polohu
+ * appce nikdy nedal, dostane místo z meteostanice; bez toho by widget
+ * zůstal prázdný, i když appka nějaké místo zná.
+ *
+ * ⚠️ Volá se často (start, každá poloha, každé místo, jazyk); obal stahuje
+ * jen při změně nebo u starých dat.
+ */
+function zapisWidget() {
+  const most = obalWidget();
+  if (!most) return;
+  const bod = isUsablePoint(state.fix)
+    ? { lat: state.fix.lat, lon: state.fix.lon, name: state.fixNazev || t('search.myLocation', state.lang) }
+    : isUsablePoint(state.place) ? state.place : null;
+  // Bez místa widget sám řekne, co udělat (`widget_pocasi_prazdny`).
+  if (!bod) return;
+  most.nastavWidget(bod.lat, bod.lon, bod.name || '', state.lang, sadaJednotek());
 }
 
 /**
@@ -1391,6 +1429,8 @@ function prekresliVse() {
   // 🚨 Zprávy nesou HOTOVÝ nadpis a jednotky — obal je neumí přeložit sám.
   // Bez tohohle by po přepnutí jazyka chodily dál česky (`R25`, `R17`).
   zapisZpravy();
+  // Totéž widget: obsah skládá server v jazyce a jednotkách appky (`R29`).
+  zapisWidget();
   vypisStavZprav();
   if (state.place) loadStation();
   if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
@@ -2097,6 +2137,9 @@ function renderWarnings(payload) {
 
   // Co obal hlídá, se řídí právě prohlíženým místem — a to se mění.
   zapisHlidani();
+  // Widget jde pro polohu telefonu; místo z meteostanice je jen záloha pro
+  // toho, kdo polohu appce nedal (`R29`).
+  zapisWidget();
   // A když appka zrovna běží, umí upozornit sama: obal by o nové výstraze
   // věděl až při příští kontrole, tedy klidně za čtvrt hodiny.
   upozorniPokudNove(payload, view.stav);
@@ -4268,10 +4311,14 @@ function init() {
   vykresliZpusoby();
   vykresliMezibody();
   zapniHodnoceni();
-  schovejDarVObalu();
+  schovejDarVObalu();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
   // Obal si nastavení zpráv sám nepamatuje napříč přeinstalováním —
   // web mu ho po startu připomene (R25).
-  zapisZpravy();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
+  // 🚨 Značka DONATE-COMEBACK byla do 22. 9. 2026 omylem TADY, u zpráv.
+  // Při návratu daru by se podle ní smazalo `zapisZpravy()` a ranní zprávy
+  // by po reinstalaci tiše přestaly chodit. Patří o řádek výš.
+  zapisZpravy();
+  zapisWidget();
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:

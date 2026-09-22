@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget, který ještě nemá pro jaké místo ukazovat (R29).
+
+  🚨 Nesmí mlčet (`R17`, „mlčící správné chování"): prázdný widget vypadá
+  jako rozbitý. Řekne, co udělat.
+
+  ⚠️ Tady — a JEN tady — je text ze `strings.xml`, tedy v jazyce systému.
+  Jazyk appky se widget dozví až od webu, a ten se ještě neozval.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_nahled_pozadi">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:importantForAccessibility="no"
+            android:text="⛅"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/w_prazdny_text"
+            style="@style/WidgetText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="3"
+            android:text="@string/widget_prazdny"
+            android:textSize="13sp" />
+    </LinearLayout>
+</FrameLayout>

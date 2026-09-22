@@ -149,6 +149,21 @@ export function formatTemp(celsius, units, locale, digits = 0) {
   return `${num(rounded, locale, digits)} ${SYMBOL[units.temp]}`;
 }
 
+/**
+ * Krátká teplota bez jednotky: „14°". Pro widget na ploše, kde se jednotka
+ * rozumí z nastavení a každý znak ubírá místo číslu.
+ *
+ * ⚠️ Táž pravidla jako `formatTemp` — hlavně žádné „−0°" — a stejná cesta
+ * přes `convert.temp`, takže °F z nastavení platí i tady.
+ */
+export function formatTempShort(celsius, units, locale) {
+  const v = convert.temp(celsius, units.temp);
+  if (v == null) return '—';
+  let rounded = Math.round(v);
+  if (rounded === 0) rounded = 0;          // −0 === 0, tímhle se znaménko zahodí
+  return `${num(rounded, locale, 0)}°`;
+}
+
 export function formatWind(kmh, units, locale, digits = 0) {
   const v = convert.wind(kmh, units.wind);
   if (v == null) return '—';

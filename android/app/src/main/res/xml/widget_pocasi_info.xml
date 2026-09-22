@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget na ploše (R29).
+
+  ⚠️ Výchozí velikost 4 × 2 a volná změna velikosti oběma směry: Samsung
+  (One UI) stohuje jen widgety STEJNÉ velikosti — a výchozí widget počasí
+  je tam 4 × 2 (resp. 4 × 1). Kdo chce MeteoTrace nastohovat se systémovým
+  počasím, musí jít na tutéž mřížku.
+
+  ⚠️ `updatePeriodMillis="0"`: obnovu řídí WorkManager (30 min, jen se sítí).
+  Systémová obnova by budila telefon i bez sítě a volala by se nejdřív po
+  třiceti minutách tak jako tak (vzor Gulpka).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="60dp"
+    android:minResizeHeight="40dp"
+    android:maxResizeWidth="600dp"
+    android:maxResizeHeight="400dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_pocasi_prazdny"
+    android:previewLayout="@layout/widget_pocasi_nahled"
+    android:previewImage="@drawable/widget_nahled"
+    android:description="@string/widget_popis"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

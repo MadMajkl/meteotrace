@@ -71,5 +71,20 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          Widget na ploše (R29).
+          ⚠️ `exported="false"` jako u Gulpky: aktualizaci doručuje systém,
+          který na neexportovaného příjemce dosáhne; cizí appka ne.
+          Obnovu po restartu telefonu si WorkManager obnoví sám (viz výše).
+        -->
+        <receiver android:name=".PocasiWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_pocasi_info" />
+        </receiver>
     </application>
 </manifest>

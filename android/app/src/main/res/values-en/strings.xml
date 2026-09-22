@@ -1,0 +1,20 @@
+<resources>
+    <!--
+        English system language. Until R29 the wrapper had Czech strings only,
+        so an English phone showed Czech channel names in Android settings.
+        ⚠️ Keep this file in step with `values/strings.xml`.
+    -->
+    <string name="app_name">MeteoTrace</string>
+
+    <string name="kanal_vystrahy">Weather warnings</string>
+    <string name="kanal_vystrahy_popis">Warnings for the place you watch.</string>
+
+    <string name="kanal_zpravy">Morning and evening report</string>
+    <string name="kanal_zpravy_popis">A short forecast for your last known location.</string>
+
+    <string name="widget_popis">Weather for your last known location: temperature, the next six hours and when rain starts.</string>
+    <string name="widget_prazdny">Open MeteoTrace and find your location — the widget will then show the weather there.</string>
+    <string name="widget_nahled_misto">Prague</string>
+    <string name="widget_nahled_popis">Partly cloudy</string>
+    <string name="widget_nahled_veta">Rain from 16:00</string>
+</resources>
