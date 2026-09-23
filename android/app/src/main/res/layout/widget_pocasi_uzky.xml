@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
-            android:textSize="28sp" />
+            android:textSize="30sp" />
 
         <TextView
             android:id="@+id/w_teplota"
@@ -41,7 +41,7 @@
             android:layout_marginStart="6dp"
             android:fontFamily="sans-serif-light"
             android:includeFontPadding="false"
-            android:textSize="34sp" />
+            android:textSize="38sp" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -58,8 +58,12 @@
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
                 android:singleLine="true"
-                android:textSize="13sp" />
+                android:textSize="15sp" />
 
+            <!-- ⚠️ Dva řádky, ne jeden: „Příštích 12 hodin nic nespadne" se
+                 na šířku 4 × 1 při větším písmu nevejde a useknutá věta
+                 („nic nesp…") neřekne nic. Když se vejde, řádek zůstane
+                 jeden — `maxLines` výšku nenafoukne. -->
             <TextView
                 android:id="@+id/w_veta"
                 style="@style/WidgetText"
@@ -67,33 +71,22 @@
                 android:layout_height="wrap_content"
                 android:alpha="0.9"
                 android:ellipsize="end"
-                android:singleLine="true"
-                android:textSize="12sp" />
+                android:maxLines="2"
+                android:textSize="13sp" />
         </LinearLayout>
 
-        <LinearLayout
+        <!-- 🚨 Max/min tu NENÍ schválně. Po zvětšení písma (23. 9. 2026) se
+             věta o dešti usekávala uprostřed — a z „Příštích 12 hodin nic
+             nesp…" se nedá nic vyčíst. Na 4 × 1 má přednost věta; max/min
+             ukazuje 4 × 2 i 2 × 2. Proto `w_maxmin` chybí i ve `VARIANTY`. -->
+        <TextView
+            android:id="@+id/w_cas"
+            style="@style/WidgetText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:gravity="end"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/w_maxmin"
-                style="@style/WidgetText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:singleLine="true"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/w_cas"
-                style="@style/WidgetText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:alpha="0.75"
-                android:singleLine="true"
-                android:textSize="10sp" />
-        </LinearLayout>
+            android:alpha="0.75"
+            android:singleLine="true"
+            android:textSize="11sp" />
     </LinearLayout>
 </FrameLayout>

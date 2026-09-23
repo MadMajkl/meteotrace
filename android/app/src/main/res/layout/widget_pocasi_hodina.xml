@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:alpha="0.8"
         android:singleLine="true"
-        android:textSize="11sp" />
+        android:textSize="12sp" />
 
     <TextView
         android:id="@+id/w_h_ikona"
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="1dp"
         android:includeFontPadding="false"
-        android:textSize="17sp" />
+        android:textSize="20sp" />
 
     <TextView
         android:id="@+id/w_h_teplota"
@@ -32,5 +32,5 @@
         android:layout_marginTop="1dp"
         android:fontFamily="sans-serif-medium"
         android:singleLine="true"
-        android:textSize="13sp" />
+        android:textSize="15sp" />
 </LinearLayout>

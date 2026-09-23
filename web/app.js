@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.1';
+const VERZE = '0.20.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -87,10 +87,17 @@ const state = {
   lang: null,
   langManual: '',      // co si uživatel vybral ručně; prázdné = podle zařízení
   theme: '',           // '' = podle zařízení · 'light' · 'dark'
-  // Co je vlevo — a tím pádem i to, čím appka začíná. Výchozí je TRASA:
-  // meteostanici pro jedno místo umí kdekdo, odlišovač je počasí po cestě
-  // (`R8`). Komu to nesedí, přehodí si to v nastavení (Michal, 25. 8. 2026).
-  primary: 'route',     // 'route' | 'station'
+  // Co je vlevo — a tím pádem i to, čím appka začíná.
+  //
+  // ♻️ Od 23. 9. 2026 je výchozí MÍSTO (`R30`). Do té doby byla trasa jako
+  // odlišovač (`R8`), jenže appka pak startovala prázdným formulářem, kdežto
+  // místo ukáže počasí hned. Michal: *„změň u appky defaultní zobrazení
+  // z trasy na místo."* Komu to nesedí, přehodí si to v nastavení.
+  primary: 'station',   // 'route' | 'station'
+  // 🚨 Vlastní volba se pamatuje ZVLÁŠŤ od výsledku — jinak by nešlo odlišit
+  // „vybral jsem si trasu" od „tak to appka dřív měla". Bez toho by změna
+  // výchozí hodnoty buď nikoho nepřesunula, nebo přebila i vědomou volbu.
+  primaryManual: false,
   units: null,
   place: null,          // {name, country, lat, lon}
   fix: null,            // poloha ze zařízení; řazení nabídky (odkudSeDivam) a zprávy (R25)
@@ -140,7 +147,14 @@ function load() {
     // překlep) by jinak zůstal v `data-theme` a appka by běžela bez
     // proměnných — tedy bíle na bílém.
     if (MOTIVY.includes(saved.theme)) state.theme = saved.theme;
-    if (saved.primary === 'route' || saved.primary === 'station') state.primary = saved.primary;
+    // 🚨 Uložená domovská obrazovka platí JEN tehdy, když si ji člověk vybral
+    // sám. Do 23. 9. 2026 se ukládala i ta výchozí (tehdy trasa), takže by
+    // změna výchozí hodnoty (`R30`) nikoho nepřesunula — každý by měl v datech
+    // „trasu" a vypadalo by to, že se nic nezměnilo.
+    state.primaryManual = saved.primaryManual === true;
+    if (state.primaryManual && (saved.primary === 'route' || saved.primary === 'station')) {
+      state.primary = saved.primary;
+    }
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     // 🚨 Poloha se obnovuje, protože na ní stojí ranní a večerní zpráva:
     // bez ní by po restartu appky přestaly chodit, dokud by si člověk
@@ -189,7 +203,7 @@ function save() {
       // Ruční volba se ukládá zvlášť od výsledku: prázdná znamená „ptej se
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
-      theme: state.theme, primary: state.primary,
+      theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
       notify: state.notify, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       onboardingHotovo: state.onboardingHotovo,
@@ -4179,6 +4193,9 @@ function init() {
   // fungovat, aniž by se dalo poznat proč.
   $('set-primary').addEventListener('change', (e) => {
     state.primary = e.target.value === 'route' ? 'route' : 'station';
+    // Od téhle chvíle je to VLASTNÍ volba a přebije i budoucí změnu výchozí
+    // hodnoty (`R30`).
+    state.primaryManual = true;
     save();
     pouzijPoradi();
   });

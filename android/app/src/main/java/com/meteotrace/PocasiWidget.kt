@@ -117,7 +117,10 @@ class PocasiWidget : AppWidgetProvider() {
                 ),
                 Varianta(
                     R.layout.widget_pocasi_uzky, SizeF(200f, 50f),
-                    setOf(R.id.w_misto, R.id.w_cas, R.id.w_ikona, R.id.w_teplota, R.id.w_maxmin, R.id.w_veta),
+                    // Bez `w_maxmin`: po zvětšení písma se na jeden řádek
+                    // vejde buď věta o dešti, nebo max/min — a rozhoduje se
+                    // podle věty (23. 9. 2026).
+                    setOf(R.id.w_misto, R.id.w_cas, R.id.w_ikona, R.id.w_teplota, R.id.w_veta),
                     hodin = 0,
                 ),
                 Varianta(
@@ -219,6 +222,13 @@ class PocasiWidget : AppWidgetProvider() {
                 if (va.layout == R.layout.widget_pocasi_drobny) {
                     v.setViewVisibility(R.id.w_cas, if (stare) View.VISIBLE else View.GONE)
                     v.setViewVisibility(R.id.w_misto, if (stare) View.GONE else View.VISIBLE)
+                }
+                // 2 × 2 taky: po zvětšení písma (23. 9. 2026) se dlouhý popis
+                // zalomí na dva řádky a řádek navíc už se nevejde. Čas je
+                // z toho, co je na čtverci vidět, nejmíň důležitý — DOKUD
+                // nezestárne. Pak se ukáže, protože to je celý jeho smysl.
+                if (va.layout == R.layout.widget_pocasi_maly) {
+                    v.setViewVisibility(R.id.w_cas, if (stare) View.VISIBLE else View.GONE)
                 }
             }
 

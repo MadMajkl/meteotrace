@@ -296,6 +296,28 @@ test('🚨 každá animace má cestu ven přes prefers-reduced-motion', () => {
    se tiše rozbít — schovaný dar se totiž pozná jen tím, že tam něco NENÍ.
    ============================================================ */
 
+test('🚨 domovská obrazovka: výchozí je MÍSTO, vlastní volba se pozná zvlášť (R30)', () => {
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+
+  // Výchozí hodnota. Do 23. 9. 2026 to byla trasa (`R8`).
+  assert.match(app, /primary: 'station',/, 'výchozí domovská obrazovka má být místo');
+
+  // 🚨 Kdyby se uložená hodnota brala bez `primaryManual`, změna výchozí
+  // hodnoty by nikoho nepřesunula: každý má v datech „route" z dob, kdy to
+  // bylo výchozí — a vypadalo by to, že oprava nic neudělala.
+  assert.match(app, /state\.primaryManual = saved\.primaryManual === true;/,
+    'vlastní volba se musí načítat zvlášť od výsledku');
+  assert.match(app, /if \(state\.primaryManual && \(saved\.primary === 'route'/,
+    'uložená obrazovka smí platit jen jako VLASTNÍ volba');
+  assert.match(app, /primaryManual: state\.primaryManual,/, 'volba se neukládá');
+
+  // A změna v nastavení tu značku musí nastavit — jinak by vědomou volbu
+  // přebila příští změna výchozí hodnoty.
+  const rukou = /\$\('set-primary'\)\.addEventListener\([\s\S]*?\n {2}\}\);/.exec(app)?.[0] || '';
+  assert.match(rukou, /state\.primaryManual = true;/,
+    'vlastní volba se při přepnutí v ⚙ nezaznamenává');
+});
+
 test('🚨 dar se v obalu schovává podle MOSTU, ne podle CSS ani userAgent', () => {
   const app = readFileSync(join(WEB, 'app.js'), 'utf8');
   const fn = /function schovejDarVObalu\(\)\s*\{[\s\S]*?\n\}/.exec(app);
@@ -467,7 +489,10 @@ test('🚨 každý prvek, na který widget sahá, v rozvržení OPRAVDU JE', () 
   // Nastavení textu na prvek, který v rozvržení chybí, shodí CELÝ widget —
   // launcher místo něj ukáže „Widget nelze načíst". A pozná se to až na
   // telefonu, protože kompilátor ani samotest webu to nevidí.
-  const kt = readFileSync(WIDGET_KT, 'utf8');
+  // 🚨 Bez komentářů: vysvětlivka u varianty (a je jich tam potřeba) obsahuje
+  // čárky a rozbila by hledání. 23. 9. 2026 to test nahlásil jako „našel jsem
+  // jen 3 varianty" — tedy jako vadu v kódu, ne v sobě.
+  const kt = bezKomentaru(readFileSync(WIDGET_KT, 'utf8'));
   const varianty = [...kt.matchAll(/Varianta\(\s*R\.layout\.(\w+),[^,]+,[^,]+,\s*setOf\(([^)]*)\)/g)];
   assert.ok(varianty.length >= 4, `našel jsem jen ${varianty.length} variant rozvržení`);
   for (const [, layout, ids] of varianty) {
