@@ -19,11 +19,11 @@
  * Kdyby se použila táž ikona, přišla by kapka na kruhové masce o špičku
  * a nikdo by nevěděl proč.
  *
- * ♻️ **Od 23. 9. 2026 se nezmenšuje nic.** Předloha je překreslená tak, že
- * se sama vejde do kruhu o poloměru 33 ze 108 (tedy 61 % plochy), což je
- * uvnitř bezpečné zóny i pro masku. Zmenšovat ji tu podruhé by znamenalo
- * lem ploché barvy kolem přechodu oblohy — a ten by byl vidět jako šev.
- * Hlídá `test/selftest-ikona.mjs`.
+ * ♻️ **Od 23. 9. 2026 se nezmenšuje, ale OŘEZÁVÁ** (viz `vyrez` níž).
+ * Zmenšování nechávalo kolem kresby lem barvy pozadí stránky — u ploché
+ * modré to nebylo poznat, u přechodu oblohy z toho byl šev. Ořez přes
+ * `viewBox` navíc dělá přesně to, co dělá launcher, takže ikona na webu
+ * vypadá jako ta na ploše telefonu. Hlídá `test/selftest-ikona.mjs`.
  * ────────────────────────────────────────────────────────────────────────
  */
 
@@ -42,28 +42,46 @@ const CIL = join(KOREN, 'web', 'icons');
 /**
  * Co se vyrábí.
  *
- * `zmenseni` je podíl plochy, který kresba zabere — u maskovatelné ikony
- * se nechává okraj, viz poznámka nahoře.
+ * ════════════════════════════════════════════════════════════════════════
+ * 🚨 `vyrez` = KOLIK ZE 108 JE VIDĚT. A není to jen tak nějaké číslo.
+ *
+ * Předloha je kreslená jako **androidí adaptivní ikona**: plátno má 108,
+ * ale launcher z něj ukazuje jen vnitřních **72** — zbytek je nájezd pro
+ * masku a paralaxu. Kresba proto sedí v kruhu o poloměru 33, což na ploše
+ * telefonu vyplní kolečko skoro celé.
+ *
+ * Kdo tutéž předlohu vykreslí přes CELÝCH 108, dostane týž motiv o třetinu
+ * menší, obklopený okrajem, který na telefonu nikdo nevidí. Michal
+ * 23. 9. 2026: *„hlavní motiv v obrovské ikoně je děsně malinký."*
+ *
+ * · běžné ikony (web, iPhone) → `vyrez: 72`, tedy TOTÉŽ, co ukazuje launcher
+ * · maskovatelná ikona        → `vyrez: 108`; ta se bude ořezávat znovu
+ *   a bezpečný je u ní kruh o průměru 80 % plochy
+ * ════════════════════════════════════════════════════════════════════════
  */
 const IKONY = [
-  { soubor: 'icon-192.png', px: 192, zmenseni: 1 },
-  { soubor: 'icon-512.png', px: 512, zmenseni: 1 },
-  { soubor: 'icon-maskable-512.png', px: 512, zmenseni: 1 },
+  { soubor: 'icon-192.png', px: 192, vyrez: 72 },
+  { soubor: 'icon-512.png', px: 512, vyrez: 72 },
+  { soubor: 'icon-maskable-512.png', px: 512, vyrez: 108 },
   // iPhone: Safari chce PNG a nemá rád průhlednost — pozadí je plné.
-  { soubor: 'apple-touch-icon.png', px: 180, zmenseni: 1 },
+  { soubor: 'apple-touch-icon.png', px: 180, vyrez: 72 },
 ];
 
 /** Stránka, ze které se fotí: jedna ikona přes celé okno, nic víc. */
-function stranka(svg, px, zmenseni) {
-  const okraj = Math.round((px * (1 - zmenseni)) / 2);
+function stranka(svg, px, vyrez) {
+  // ⚠️ Výřez se dělá přes `viewBox`, ne zvětšením kresby: přechod oblohy je
+  // v souřadnicích plátna (`userSpaceOnUse`), takže se ořízne stejně jako
+  // na telefonu — a ikona na webu vypadá jako ta na ploše.
+  const okraj = (108 - vyrez) / 2;
+  const orez = svg.replace('viewBox="0 0 108 108"', `viewBox="${okraj} ${okraj} ${vyrez} ${vyrez}"`);
   return `<!doctype html><meta charset="utf-8">
 <style>
   /* Horní barva oblohy z předlohy — vidět není, kresba plochu pokryje celou. */
   html, body { margin: 0; padding: 0; background: #0E5490; }
   .ram { width: ${px}px; height: ${px}px; display: grid; place-items: center; }
-  svg { width: ${px - 2 * okraj}px; height: ${px - 2 * okraj}px; display: block; }
+  svg { width: ${px}px; height: ${px}px; display: block; }
 </style>
-<div class="ram">${svg}</div>`;
+<div class="ram">${orez}</div>`;
 }
 
 async function main() {
@@ -73,7 +91,7 @@ async function main() {
 
   for (const ikona of IKONY) {
     const html = join(docasny, `${ikona.soubor}.html`);
-    writeFileSync(html, stranka(svg, ikona.px, ikona.zmenseni), 'utf8');
+    writeFileSync(html, stranka(svg, ikona.px, ikona.vyrez), 'utf8');
 
     const data = await withPage(pathToFileURL(html).href, async (s) => {
       await s.send('Page.enable');
