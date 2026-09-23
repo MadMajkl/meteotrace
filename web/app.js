@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.0';
+const VERZE = '0.20.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -150,8 +150,11 @@ function load() {
     if (saved.zpravy && typeof saved.zpravy === 'object') {
       state.zpravy = {
         zapnuto: saved.zpravy.zapnuto === true,
-        rano: /^d{1,2}:d{2}$/.test(saved.zpravy.rano) ? saved.zpravy.rano : '06:30',
-        vecer: /^d{1,2}:d{2}$/.test(saved.zpravy.vecer) ? saved.zpravy.vecer : '20:00',
+        // 🚨 Zpětná lomítka tu MUSÍ být: `/^d{1,2}:d{2}$/` (bez nich) hledá
+        // písmeno „d", takže neprojde žádný čas a vlastní nastavení se při
+        // každém spuštění tiše vrátilo na výchozí. Hlídá to samotest.
+        rano: /^\d{1,2}:\d{2}$/.test(saved.zpravy.rano) ? saved.zpravy.rano : '06:30',
+        vecer: /^\d{1,2}:\d{2}$/.test(saved.zpravy.vecer) ? saved.zpravy.vecer : '20:00',
       };
     }
     if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;

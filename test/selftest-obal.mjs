@@ -378,6 +378,31 @@ test('🚨 po zazvonění se hned plánuje další den', () => {
     'bez přeplánování by zpráva přišla jednou a pak už nikdy — a nikdo by si toho nevšiml');
 });
 
+test('🚨 vlastní čas zprávy PŘEŽIJE start appky', () => {
+  // 23. 9. 2026: v `load()` stálo `/^d{1,2}:d{2}$/` — bez zpětných lomítek.
+  // Takový tvar hledá PÍSMENO „d", takže neprošel žádný čas a nastavení se
+  // při každém spuštění tiše vrátilo na 6:30 a 20:00. Ověřeno na emulátoru:
+  // zadáno 7:24, Android dostal budík na 6:30.
+  //
+  // ⚠️ Test tvar NEHLEDÁ, ale SPOUŠTÍ. Porovnání textu (`includes('\\d')`)
+  // by prošlo i u jiné vady, tohle projde jen tehdy, když to vážně funguje.
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const radky = app.split('\n').filter((r) => /saved\.zpravy\.(rano|vecer)/.test(r));
+  assert.equal(radky.length, 2, 'načítání časů zpráv se přestěhovalo — uprav test');
+
+  for (const radek of radky) {
+    const zapis = /\/\^(.+?)\$\//.exec(radek);
+    assert.ok(zapis, `čas se při načtení nekontroluje: ${radek.trim()}`);
+    const tvar = new RegExp(`^${zapis[1]}$`);
+    for (const cas of ['06:30', '7:05', '20:00', '23:59']) {
+      assert.ok(tvar.test(cas), `platný čas ${cas} by se zahodil a vrátil na výchozí`);
+    }
+    for (const nesmysl of ['', 'ráno', '6:3', 'dd:dd']) {
+      assert.ok(!tvar.test(nesmysl), `neplatný čas „${nesmysl}" projde jako platný`);
+    }
+  }
+});
+
 /**
  * Zdroják bez komentářů.
  *
