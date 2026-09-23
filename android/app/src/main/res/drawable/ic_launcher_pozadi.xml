@@ -1,0 +1,37 @@
+<!--
+  Pozadí adaptivní ikony: OBLOHA, ne plochá modrá.
+
+  🚨 Michal 23. 9. 2026: *„má moc tmavou modrou v pozadí, to neevokuje nebe."*
+  Plochá `#0E5490` byla zvolená kvůli kontrastu zlatého slunce (5,1 : 1),
+  ne proto, že by se líbila. Přechod dá obojí: nahoře zůstává hluboká modrá,
+  na kterou slunce dosedá, dole se rozsvítí jako obloha u obzoru.
+
+  ⚠️ Světlá barva patří DOLŮ, ne nahoru. Skutečná obloha je nejtmavší
+  v zenitu a světlá u obzoru — a hlavně: slunce je v horní části ikony,
+  takže mu tmavá polovina drží kontrast (4,8 : 1 nahoře kotouče,
+  4,2 : 1 dole) a bílá trasa má na světlejším dole pořád 4,1 : 1.
+
+  ⚠️ Stejné barvy jsou v `web/icons/icon.svg`. Kdyby se rozešly, má appka
+  jinou ikonu na ploše telefonu než na webu.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path android:pathData="M0,0 h108 v108 h-108 Z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="0"
+                android:endX="54"
+                android:endY="108"
+                android:type="linear">
+                <item android:color="#0C4A83" android:offset="0" />
+                <item android:color="#125C97" android:offset="0.6" />
+                <item android:color="#3888D0" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

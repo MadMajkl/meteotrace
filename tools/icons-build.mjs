@@ -18,6 +18,12 @@
  *
  * Kdyby se použila táž ikona, přišla by kapka na kruhové masce o špičku
  * a nikdo by nevěděl proč.
+ *
+ * ♻️ **Od 23. 9. 2026 se nezmenšuje nic.** Předloha je překreslená tak, že
+ * se sama vejde do kruhu o poloměru 33 ze 108 (tedy 61 % plochy), což je
+ * uvnitř bezpečné zóny i pro masku. Zmenšovat ji tu podruhé by znamenalo
+ * lem ploché barvy kolem přechodu oblohy — a ten by byl vidět jako šev.
+ * Hlídá `test/selftest-ikona.mjs`.
  * ────────────────────────────────────────────────────────────────────────
  */
 
@@ -42,9 +48,9 @@ const CIL = join(KOREN, 'web', 'icons');
 const IKONY = [
   { soubor: 'icon-192.png', px: 192, zmenseni: 1 },
   { soubor: 'icon-512.png', px: 512, zmenseni: 1 },
-  { soubor: 'icon-maskable-512.png', px: 512, zmenseni: 0.68 },
+  { soubor: 'icon-maskable-512.png', px: 512, zmenseni: 1 },
   // iPhone: Safari chce PNG a nemá rád průhlednost — pozadí je plné.
-  { soubor: 'apple-touch-icon.png', px: 180, zmenseni: 0.86 },
+  { soubor: 'apple-touch-icon.png', px: 180, zmenseni: 1 },
 ];
 
 /** Stránka, ze které se fotí: jedna ikona přes celé okno, nic víc. */
@@ -52,7 +58,8 @@ function stranka(svg, px, zmenseni) {
   const okraj = Math.round((px * (1 - zmenseni)) / 2);
   return `<!doctype html><meta charset="utf-8">
 <style>
-  html, body { margin: 0; padding: 0; background: #0E5490; }
+  /* Horní barva oblohy z předlohy — vidět není, kresba plochu pokryje celou. */
+  html, body { margin: 0; padding: 0; background: #0C4A83; }
   .ram { width: ${px}px; height: ${px}px; display: grid; place-items: center; }
   svg { width: ${px - 2 * okraj}px; height: ${px - 2 * okraj}px; display: block; }
 </style>
@@ -70,6 +77,13 @@ async function main() {
 
     const data = await withPage(pathToFileURL(html).href, async (s) => {
       await s.send('Page.enable');
+      // 🚨 Velikost okna NENÍ velikost plátna. `--window-size` je vnější
+      // rozměr okna, takže skutečné plátno vyšlo nižší — a dole zbýval pruh
+      // holého pozadí stránky. U ploché modré to nebylo poznat; jakmile
+      // 23. 9. 2026 přibyl přechod oblohy, byl z toho viditelný šev.
+      await s.send('Emulation.setDeviceMetricsOverride', {
+        width: ikona.px, height: ikona.px, deviceScaleFactor: 1, mobile: false,
+      });
       // ⚠️ `captureBeyondViewport: false` — jinak Chrome přifoukne obrázek
       // podle výšky dokumentu a ikona vyjde obdélníková.
       const { data: base64 } = await s.send('Page.captureScreenshot', {
