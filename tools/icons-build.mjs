@@ -59,7 +59,7 @@ function stranka(svg, px, zmenseni) {
   return `<!doctype html><meta charset="utf-8">
 <style>
   /* Horní barva oblohy z předlohy — vidět není, kresba plochu pokryje celou. */
-  html, body { margin: 0; padding: 0; background: #0C4A83; }
+  html, body { margin: 0; padding: 0; background: #0E5490; }
   .ram { width: ${px}px; height: ${px}px; display: grid; place-items: center; }
   svg { width: ${px - 2 * okraj}px; height: ${px - 2 * okraj}px; display: block; }
 </style>

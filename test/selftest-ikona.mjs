@@ -168,31 +168,71 @@ test('🚨 web a Android kreslí TOTÉŽ', () => {
   assert.ok(svg.includes('#FFC83D') && xml.includes('#FFC83D'), 'slunce má být zlaté v obou');
 });
 
-test('🚨 obloha: světlá patří DOLŮ a barvy sedí s webem', () => {
-  const pozadi = readFileSync(join(KOREN, 'android', 'app', 'src', 'main', 'res',
-    'drawable', 'ic_launcher_pozadi.xml'), 'utf8');
-  const svg = readFileSync(SVG, 'utf8');
+/* ── obloha ───────────────────────────────────────────────────────────── */
 
-  const barvy = [...pozadi.matchAll(/android:color="(#[0-9A-F]{6})"/g)].map((m) => m[1]);
-  assert.deepEqual(barvy, ['#0C4A83', '#125C97', '#3888D0'], 'barvy oblohy se změnily');
-  for (const b of barvy) assert.ok(svg.includes(b), `web nemá barvu oblohy ${b}`);
-
-  // Jas poslední barvy musí být vyšší než první: obráceně by to bylo
-  // zatažené nebe nad světlou zemí, ne obloha.
-  const jas = (hex) => {
-    const kanal = (i) => {
-      const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
-      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * kanal(0) + 0.7152 * kanal(1) + 0.0722 * kanal(2);
+function jas(hex) {
+  const kanal = (i) => {
+    const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   };
-  assert.ok(jas(barvy[2]) > jas(barvy[0]) * 2, 'dole má obloha svítit, jinak to není nebe');
+  return 0.2126 * kanal(0) + 0.7152 * kanal(1) + 0.0722 * kanal(2);
+}
 
-  // 🚨 A kontrast zlatého slunce na HORNÍ barvě musí vydržet — kvůli němu
-  // bylo pozadí 27. 8. 2026 ztmaveno (na 16 px byla ze slunce jinak skvrna).
-  const pomer = (a, b) => (Math.max(jas(a), jas(b)) + 0.05) / (Math.min(jas(a), jas(b)) + 0.05);
-  assert.ok(pomer('#FFC83D', barvy[0]) >= 4.5,
-    `zlaté slunce má na horní modré jen ${pomer('#FFC83D', barvy[0]).toFixed(2)} : 1`);
-  assert.ok(pomer('#FFFFFF', barvy[2]) >= 3.5,
-    `bílá trasa má na spodní modré jen ${pomer('#FFFFFF', barvy[2]).toFixed(2)} : 1`);
+const pomer = (a, b) => (Math.max(jas(a), jas(b)) + 0.05) / (Math.min(jas(a), jas(b)) + 0.05);
+
+/** Zarážky přechodu z androidího pozadí: `{barva, kde}`, `kde` je podíl výšky. */
+function obloha() {
+  const xml = readFileSync(join(KOREN, 'android', 'app', 'src', 'main', 'res',
+    'drawable', 'ic_launcher_pozadi.xml'), 'utf8');
+  return [...xml.matchAll(/android:color="(#[0-9A-F]{6})"\s+android:offset="([\d.]+)"/g)]
+    .map((m) => ({ barva: m[1], kde: Number(m[2]) }));
+}
+
+/** Barva oblohy ve výšce `y` (0–108) — lineárně mezi zarážkami. */
+function barvaVeVysce(y) {
+  const zarazky = obloha();
+  const kde = Math.min(Math.max(y / 108, 0), 1);
+  const horni = [...zarazky].reverse().find((z) => z.kde <= kde) || zarazky[0];
+  const dolni = zarazky.find((z) => z.kde >= kde) || zarazky[zarazky.length - 1];
+  if (horni.barva === dolni.barva) return horni.barva;
+  const t = (kde - horni.kde) / (dolni.kde - horni.kde);
+  const kanal = (i) => {
+    const a = parseInt(horni.barva.slice(1 + i * 2, 3 + i * 2), 16);
+    const b = parseInt(dolni.barva.slice(1 + i * 2, 3 + i * 2), 16);
+    return Math.round(a + (b - a) * t).toString(16).padStart(2, '0');
+  };
+  return `#${kanal(0)}${kanal(1)}${kanal(2)}`.toUpperCase();
+}
+
+test('🚨 obloha: světlá patří DOLŮ a barvy sedí s webem', () => {
+  const zarazky = obloha();
+  assert.equal(zarazky.length, 3, 'přechod má mít tři zarážky');
+
+  const svg = readFileSync(SVG, 'utf8');
+  for (const { barva } of zarazky) assert.ok(svg.includes(barva), `web nemá barvu oblohy ${barva}`);
+
+  // Obráceně by to bylo zatažené nebe nad světlou zemí, ne obloha.
+  assert.ok(jas(zarazky[2].barva) > jas(zarazky[0].barva) * 2,
+    'dole má obloha svítit, jinak to není nebe');
+});
+
+test('🚨 slunce a trasa jsou čitelné TAM, KDE LEŽÍ', () => {
+  // ⚠️ Neměří se krajní zarážky přechodu, ale barva ve výšce, kde kresba
+  // doopravdy leží. Spodní zarážku vidí jen prázdná obloha POD trasou —
+  // kdyby se hlídala ona, musela by být zbytečně tmavá a po zesvětlení
+  // (Michal 23. 9. 2026: *„ještě malinko světlejší"*) by test zakazoval
+  // přesně to, co si člověk přál.
+  const tvary = zVektoru();
+  const dno = (t) => Math.max(...t.body.map(([, y]) => y)) + t.tah / 2;
+
+  const spodekSlunce = dno(tvary[0]);                 // kotouč je první cesta
+  const spodekTrasy = dno(tvary[tvary.length - 1]);   // trasa poslední
+  assert.ok(spodekSlunce < spodekTrasy, 'slunce má být nad trasou');
+
+  const naSlunci = pomer('#FFC83D', barvaVeVysce(spodekSlunce));
+  assert.ok(naSlunci >= 4.5,
+    `zlaté slunce má u spodního okraje jen ${naSlunci.toFixed(2)} : 1 — na 16 px z něj bude skvrna`);
+
+  const naTrase = pomer('#FFFFFF', barvaVeVysce(spodekTrasy));
+  assert.ok(naTrase >= 3, `bílá trasa má pod sebou jen ${naTrase.toFixed(2)} : 1`);
 });
