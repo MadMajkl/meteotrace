@@ -32,6 +32,12 @@
 export const VYCHOZI_DLAZDICE = 'data/cz.pmtiles';
 
 /**
+ * Hrubý archiv celého světa (`R32`), do z8. Pod podrobnou mapou prosvítá
+ * všude, kam podrobná nesahá — bez něj uživatel v Chile neviděl vůbec nic.
+ */
+export const VYCHOZI_SVET = 'data/svet-z8.pmtiles';
+
+/**
  * Přečte adresu podkladu z hlavičky stránky.
  *
  * @param {Document|{querySelector: Function}} [doc]
@@ -53,7 +59,25 @@ export function tilesSource(doc = globalThis.document) {
  * @param {Document} [doc]
  */
 export function tilesUrl(base = globalThis.location?.href, doc) {
-  const zdroj = tilesSource(doc);
+  return uplna(tilesSource(doc), base);
+}
+
+/**
+ * Adresa archivu světa ze značky `meteotrace:tiles-world`, jinak soubor
+ * vedle appky (vývoj).
+ * @param {Document|{querySelector: Function}} [doc]
+ */
+export function worldTilesSource(doc = globalThis.document) {
+  const znacka = doc?.querySelector?.('meta[name="meteotrace:tiles-world"]');
+  return znacka?.getAttribute('content')?.trim() || VYCHOZI_SVET;
+}
+
+/** Úplná adresa archivu světa — viz `tilesUrl`. */
+export function worldTilesUrl(base = globalThis.location?.href, doc) {
+  return uplna(worldTilesSource(doc), base);
+}
+
+function uplna(zdroj, base) {
   if (/^https?:\/\//i.test(zdroj)) return zdroj;
   if (!base) return zdroj;
   return new URL(zdroj, base).href;

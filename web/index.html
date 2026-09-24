@@ -10,6 +10,9 @@
      Prázdná hodnota = soubor vedle appky, tak to jede při vývoji.
      ⚠️ Doména musí umět Range i CORS, jinak se z archivu nenačte nic. -->
 <meta name="meteotrace:tiles" content="https://dlazdice.meteotrace.eu/cz.pmtiles">
+<!-- Celý svět do z8 (R32), leží v mapě POD podrobným archivem. Bez něj
+     uživatel mimo střední Evropu neviděl vůbec nic. -->
+<meta name="meteotrace:tiles-world" content="https://dlazdice.meteotrace.eu/svet-z8.pmtiles">
 <!-- ══ CO O SOBĚ APPKA ŘEKNE VYHLEDÁVAČŮM A PŘI SDÍLENÍ ═════════════════
      🚨 Tohle je JEDINÉ, co si robot přečte bez spuštění JavaScriptu.
      Appka se celá kreslí skriptem, takže mimo tuhle hlavičku je stránka

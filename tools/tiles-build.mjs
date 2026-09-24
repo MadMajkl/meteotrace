@@ -6,7 +6,8 @@
  * ročně). Výsledek je jeden soubor `web/data/cz.pmtiles`, který od té chvíle
  * **vlastníme** a hostujeme sami.
  *
- *     npm run tiles
+ *     npm run tiles             # Česko s příhraničím, do z14
+ *     npm run tiles -- --svet   # celý svět, jen do z8 (R32)
  *
  * ────────────────────────────────────────────────────────────────────────
  * PROČ SE VYŘEZÁVÁ Z HOTOVÉ PLANETY A NEGENERUJE OD NULY
@@ -37,7 +38,15 @@ const KOREN = join(zde, '..');
 const NASTROJ = join(KOREN, 'tools', 'bin', process.platform === 'win32' ? 'pmtiles.exe' : 'pmtiles');
 const NASTROJ_VERZE = '1.31.2';
 
-const CIL = join(KOREN, 'web', 'data', 'cz.pmtiles');
+/**
+ * 🌍 `--svet`: hrubý archiv celé planety do z8 (`R32`, 24. 9. 2026). Leží
+ * v mapě POD podrobným a MapLibre ho nad z8 sám zvětšuje, takže mimo střední
+ * Evropu je vidět aspoň státy, města a hlavní silnice. Má 555 MB; do z14 by
+ * měl 68 GB (změřeno `--dry-run`).
+ */
+const SVET = process.argv.includes('--svet');
+
+const CIL = join(KOREN, 'web', 'data', SVET ? 'svet-z8.pmtiles' : 'cz.pmtiles');
 
 /**
  * ČR s příhraničím. Okraj je tam schválně: trasa do Drážďan nebo do Lince
@@ -62,7 +71,7 @@ const VYREZ = '10.5,47.4,20.8,52.0';
  * Vyšší číslo by archiv několikanásobně nafouklo a k počasí na trase by
  * nepřidalo nic — radar má rozlišení v kilometrech.
  */
-const MAXZOOM = 14;
+const MAXZOOM = SVET ? 8 : 14;
 
 function den(posun) {
   const d = new Date(Date.now() - posun * 86400_000);
@@ -104,12 +113,14 @@ a rozbal do tools/bin/.
   console.log('Hledám nejnovější sestavení planety…');
   const zdroj = await najdiSestaveni();
   console.log(`Zdroj: ${zdroj}`);
-  console.log(`Výřez: ${VYREZ}, přiblížení do z${MAXZOOM}`);
-  console.log('Stahuje se jen náš kousek — čekej řádově pět minut a 1,4 GB.\n');
+  console.log(`Výřez: ${SVET ? 'celý svět' : VYREZ}, přiblížení do z${MAXZOOM}`);
+  console.log(SVET
+    ? 'Stahuje se 555 MB — pár minut.\n'
+    : 'Stahuje se jen náš kousek — čekej řádově pět minut a 2,2 GB.\n');
 
   await spust(NASTROJ, [
     'extract', zdroj, CIL,
-    `--bbox=${VYREZ}`,
+    ...(SVET ? [] : [`--bbox=${VYREZ}`]),
     `--maxzoom=${MAXZOOM}`,
     '--download-threads=8',
   ]);

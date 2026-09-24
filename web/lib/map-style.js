@@ -112,36 +112,78 @@ function popisek(lang) {
   return ['coalesce', ['get', `name:${lang}`], ['get', 'name']];
 }
 
+/** Zdroj celého světa (`R32`). Id vrstev nad ním mají předponu `svet-`. */
+const ZDROJ_SVET = 'svet';
+
+/**
+ * Od kterého přiblížení kreslí podrobný (český) archiv, když je vedle něj svět.
+ *
+ * 🚨 Svět má dlaždice jen do z8 — dál je MapLibre sám zvětšuje (overzoom),
+ * takže v Chile mapa při přiblížení nezmizí, jen zhrubne. Do z8 jsou oba
+ * archivy táž data z téže planety, a kreslit je dvakrát by jen zdvojilo
+ * popisky. Proto svět do z8 všude a od z9 nad ním Česko v plném detailu.
+ */
+export const DETAIL_OD_ZOOMU = 9;
+
+/** Popisky, ze kterých si klepnutí do mapy bere jméno místa (`map-pick.js`). */
+export const VRSTVY_POPISKU = ['mesta', 'ctvrti', 'svet-mesta', 'svet-ctvrti'];
+
 /**
  * Sestaví styl mapy.
  *
  * @param {object} a
  * @param {string} a.tilesUrl  adresa archivu `.pmtiles` (naše doména)
+ * @param {string} [a.svetUrl] adresa hrubého archivu celého světa (`R32`);
+ *                              bez ní mapa končí na okraji `tilesUrl`
  * @param {string} [a.fontsUrl] adresa složky s písmy (viz `PISMA_VYCHOZI`)
  * @param {boolean} [a.dark]
  * @param {string} [a.lang]
  * @returns {object} styl pro MapLibre
  */
-export function buildStyle({ tilesUrl, fontsUrl = PISMA_VYCHOZI, dark = false, lang = 'en' }) {
+export function buildStyle({ tilesUrl, svetUrl = '', fontsUrl = PISMA_VYCHOZI, dark = false, lang = 'en' }) {
   const c = dark ? PALETA.dark : PALETA.light;
   const jmeno = popisek(lang);
+  const zdroj = (url) => ({
+    type: 'vector',
+    url: `pmtiles://${url}`,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  });
+
+  // 🚨 Pořadí je podstatné: celý svět DOLŮ, detail NAD něj. Plochy detailu
+  // (země, voda) jsou neprůhledné, takže tam, kde detail je, svět zakryjí
+  // i s jeho silnicemi a popisky; kde detail není, prosvítá svět.
+  const vrstvy = svetUrl
+    ? [...vrstvyPodkladu(ZDROJ_SVET, 'svet-', 0, c, jmeno),
+       ...vrstvyPodkladu(ZDROJ, '', DETAIL_OD_ZOOMU, c, jmeno)]
+    : vrstvyPodkladu(ZDROJ, '', 0, c, jmeno);
 
   return {
     version: 8,
     name: 'MeteoTrace',
-    // ⚠️ Obě adresy míří na NÁS. Styl je jediné místo, kde by se dala do mapy
-    // propašovat cizí doména, takže se to hlídá testem (R2, R12).
+    // ⚠️ Všechny adresy míří na NÁS. Styl je jediné místo, kde by se dala do
+    // mapy propašovat cizí doména, takže se to hlídá testem (R2, R12).
     glyphs: `${fontsUrl}{fontstack}/{range}.pbf`,
-    sources: {
-      [ZDROJ]: {
-        type: 'vector',
-        url: `pmtiles://${tilesUrl}`,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      },
-    },
+    sources: svetUrl
+      ? { [ZDROJ_SVET]: zdroj(svetUrl), [ZDROJ]: zdroj(tilesUrl) }
+      : { [ZDROJ]: zdroj(tilesUrl) },
     layers: [
       { id: 'pozadi', type: 'background', paint: { 'background-color': c.zeme } },
+      ...vrstvy,
+    ],
+  };
+}
 
+/**
+ * Vrstvy nad jedním archivem.
+ *
+ * @param {string} zdroj    jméno zdroje ve stylu
+ * @param {string} predpona předpona id vrstev (`''` pro detail, aby zůstala
+ *                          jména, na která se odkazuje zvenku)
+ * @param {number} odZoomu  nejnižší přiblížení, od kterého se kreslí
+ */
+function vrstvyPodkladu(zdroj, predpona, odZoomu, c, jmeno) {
+  const ZDROJ = zdroj;
+  return [
       { id: 'zeme', type: 'fill', source: ZDROJ, 'source-layer': 'earth',
         paint: { 'fill-color': c.zeme } },
 
@@ -242,8 +284,10 @@ export function buildStyle({ tilesUrl, fontsUrl = PISMA_VYCHOZI, dark = false, l
           'text-halo-color': c.popisekObrys,
           'text-halo-width': 1.2,
         } },
-    ],
-  };
+  ].map((v) => {
+    const min = Math.max(v.minzoom ?? 0, odZoomu);
+    return { ...v, id: predpona + v.id, ...(min ? { minzoom: min } : {}) };
+  });
 }
 
 /** Jména vrstev stylu — kvůli testu a kvůli vkládání radaru pod popisky. */

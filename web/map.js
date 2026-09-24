@@ -25,8 +25,8 @@ import {
   radarSource, TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
-import { buildStyle, fontsUrlFrom } from './lib/map-style.js';
-import { tilesUrl } from './lib/tiles-config.js';
+import { buildStyle, fontsUrlFrom, VRSTVY_POPISKU } from './lib/map-style.js';
+import { tilesUrl, worldTilesUrl } from './lib/tiles-config.js';
 import { placeFromMap } from './lib/map-pick.js';
 import { spojOsu, jeVeVyrezu, rohy as vyrezRohy } from './lib/nowcast.js';
 
@@ -169,6 +169,9 @@ function jeTma() {
 
 const styleFor = () => buildStyle({
   tilesUrl: tilesUrl(),
+  // Pod podrobnou mapou celý svět do z8 (`R32`) — jinak mimo střední
+  // Evropu nebylo vidět vůbec nic.
+  svetUrl: worldTilesUrl(),
   // Písma leží vedle appky, ať sedí i v obalu pro Android (`…/assets/www/`).
   fontsUrl: fontsUrlFrom(document.baseURI),
   dark: jeTma(),
@@ -260,7 +263,10 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       ];
       let popisky = [];
       try {
-        popisky = map.queryRenderedFeatures(ramecek, { layers: ['mesta', 'ctvrti'] })
+        // ⚠️ Jen vrstvy, které ve stylu opravdu jsou — dotaz na chybějící
+        // vrstvu MapLibre neodpustí.
+        const vrstvy = VRSTVY_POPISKU.filter((id) => map.getLayer(id));
+        popisky = map.queryRenderedFeatures(ramecek, { layers: vrstvy })
           .map((f) => ({
             name: typeof f.properties?.name === 'string' ? f.properties.name : '',
             lat: f.geometry?.coordinates?.[1],

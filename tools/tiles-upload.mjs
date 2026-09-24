@@ -29,11 +29,14 @@ import { dirname, join } from 'node:path';
 
 const zde = dirname(fileURLToPath(import.meta.url));
 const KOREN = join(zde, '..');
-const ARCHIV = join(KOREN, 'web', 'data', 'cz.pmtiles');
+/** `--svet`: hrubý archiv celého světa do z8 (`R32`) místo českého. */
+const SVET = process.argv.includes('--svet');
+const JMENO = SVET ? 'svet-z8.pmtiles' : 'cz.pmtiles';
+const ARCHIV = join(KOREN, 'web', 'data', JMENO);
 const RCLONE = join(KOREN, 'tools', 'bin', process.platform === 'win32' ? 'rclone.exe' : 'rclone');
 
 /** Jméno souboru v úložišti. Drží se jméno místní — hledá se pak líp. */
-const CIL = 'cz.pmtiles';
+const CIL = JMENO;
 
 function chybi(co, rada) {
   console.error(`CHYBA: ${co}\n${rada}`);

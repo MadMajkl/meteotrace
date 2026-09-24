@@ -114,7 +114,9 @@ function main() {
     recursive: true,
     filter: (src) => {
       const rel = relative(ZDROJ, src).split('\\').join('/');
-      if (NEBRAT.includes(rel)) {
+      // 🚨 Žádný archiv mapy, ani ten, který tu zatím není: od 24. 9. 2026
+      // jsou dva (svět + Česko) a výčet jmen by příští přidaný tiše vzal.
+      if (NEBRAT.includes(rel) || rel.endsWith('.pmtiles')) {
         vynechane.push(rel);
         return false;
       }

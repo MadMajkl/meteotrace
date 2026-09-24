@@ -91,7 +91,8 @@ tohle je jen shrnutí.**
 | Hledání míst a **adres** (R14) | Pelias u HeiGIT + Open-Meteo jako záloha; řadí od nejbližšího podle vybraného místa nebo (je-li povolená) polohy ze zařízení |
 | Ukládání míst | `web/lib/places.js` + správa v dialogu, ověřené naživo |
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
-| Vlastní mapa (R3) | `web/data/cz.pmtiles` (1,4 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
+| Vlastní mapa (R3) | `web/data/cz.pmtiles` (2,2 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
+| Svět pod mapou (R32) | `web/data/svet-z8.pmtiles` (555 MB, celá planeta z0–8), vyrábí `npm run tiles -- --svet`. Ve stylu DVA zdroje: svět dole, Česko nad ním od z9. 🚨 Ne jeden slepený archiv — MapLibre zvětšuje jen nad maxzoom zdroje, chybějící dlaždici ne |
 | **Hosting mapy** | Cloudflare R2, bucket `meteotrace-maps`, nahrává `npm run tiles:upload`; adresa je konfigurace (`meta[name=meteotrace:tiles]`) |
 | Výstrahy: zdroj (R20) | **ČHMÚ NAPŘÍMO** (`opendata.chmi.cz/…/alerts/cap/`), MeteoAlarm jako záloha. Čtení CAP je `web/lib/cap.js` (čisté), stahování `server/chmi-warnings.js`. 🚨 Nejnovější soubor se pozná podle ČASU ÚPRAVY — jména se po měsíci přepisují. Ořez řídí `normalize: 'warnings'` v katalogu, ne jméno služby |
 | Stáří zdroje výstrah (R20) | `sent` z CAP jde až ke klientovi. Starší než 12 h → karta se NESCHOVÁ a řekne to. 🚨 Chybějící `sent` = „nevíme", ne „čerstvé". Zastaralost nepřebije platné výstrahy |

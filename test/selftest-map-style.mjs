@@ -10,8 +10,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildStyle, styleLayerIds } from '../web/lib/map-style.js';
-import { tilesSource, tilesUrl, VYCHOZI_DLAZDICE } from '../web/lib/tiles-config.js';
+import { buildStyle, styleLayerIds, DETAIL_OD_ZOOMU, VRSTVY_POPISKU } from '../web/lib/map-style.js';
+import {
+  tilesSource, tilesUrl, VYCHOZI_DLAZDICE, worldTilesSource, worldTilesUrl, VYCHOZI_SVET,
+} from '../web/lib/tiles-config.js';
 
 const TILES = 'http://localhost:8099/data/cz.pmtiles';
 const styl = (over = {}) => buildStyle({ tilesUrl: TILES, ...over });
@@ -164,4 +166,65 @@ test('relativní adresa se doplní podle adresy stránky', () => {
 test('chybějící dokument nespadne', () => {
   assert.equal(tilesSource(undefined), VYCHOZI_DLAZDICE);
   assert.equal(tilesUrl(undefined, undefined), VYCHOZI_DLAZDICE);
+});
+
+/* ============================================================
+   SVĚT POD PODROBNOU MAPOU (R32)
+   ============================================================ */
+
+const SVET = 'http://localhost:8099/data/svet-z8.pmtiles';
+
+test('🚨 se světem: dva zdroje, oba na naší adrese, svět DOLE', () => {
+  const s = styl({ svetUrl: SVET });
+  assert.deepEqual(Object.keys(s.sources), ['svet', 'meteotrace']);
+  assert.equal(s.sources.svet.url, `pmtiles://${SVET}`);
+  // Pořadí vrstev: pozadí, pak CELÝ svět, pak detail. Kdyby se promíchaly,
+  // prosvítaly by v Česku hrubé silnice a popisky světa přes detail.
+  const zdroje = s.layers.filter((l) => l.source).map((l) => l.source);
+  const prvniDetail = zdroje.indexOf('meteotrace');
+  assert.ok(prvniDetail > 0);
+  assert.ok(zdroje.slice(0, prvniDetail).every((z) => z === 'svet'));
+  assert.ok(zdroje.slice(prvniDetail).every((z) => z === 'meteotrace'));
+});
+
+test('🚨 se světem: detail kreslí až od z9, svět od nuly', () => {
+  // Do z8 jsou oba archivy táž data — kreslit oba by zdvojilo popisky.
+  const s = styl({ svetUrl: SVET });
+  for (const l of s.layers.filter((v) => v.source === 'meteotrace')) {
+    assert.ok((l.minzoom ?? 0) >= DETAIL_OD_ZOOMU, l.id);
+  }
+  assert.equal(s.layers.find((l) => l.id === 'svet-zeme').minzoom, undefined);
+  // Vlastní spodní hranice vrstvy (budovy od z14) se nesmí srazit dolů.
+  assert.equal(s.layers.find((l) => l.id === 'budovy').minzoom, 14);
+});
+
+test('🚨 se světem: každá vrstva detailu má dvojče ve světě, a naopak', () => {
+  const s = styl({ svetUrl: SVET });
+  const detail = s.layers.filter((l) => l.source === 'meteotrace').map((l) => l.id);
+  const svet = s.layers.filter((l) => l.source === 'svet').map((l) => l.id);
+  assert.deepEqual(svet, detail.map((id) => 'svet-' + id));
+});
+
+test('bez světa zůstává styl, jaký byl — jeden zdroj, detail od nuly', () => {
+  const s = styl();
+  assert.deepEqual(Object.keys(s.sources), ['meteotrace']);
+  assert.equal(s.layers.find((l) => l.id === 'zeme').minzoom, undefined);
+});
+
+test('🚨 popisky pro klepnutí do mapy existují ve stylu se světem', () => {
+  const ids = styleLayerIds(styl({ svetUrl: SVET }));
+  for (const id of VRSTVY_POPISKU) assert.ok(ids.includes(id), id);
+});
+
+test('adresa světa: ze značky, jinak soubor vedle appky', () => {
+  const hlavicka = (hodnota) => ({
+    querySelector: (sel) => (sel.includes('meteotrace:tiles-world') && hodnota !== null
+      ? { getAttribute: () => hodnota } : null),
+  });
+  assert.equal(worldTilesSource(hlavicka(null)), VYCHOZI_SVET);
+  assert.equal(worldTilesSource(hlavicka('  ')), VYCHOZI_SVET);
+  assert.equal(worldTilesUrl('http://localhost:8099/index.html', hlavicka(null)),
+    'http://localhost:8099/data/svet-z8.pmtiles');
+  const r2 = 'https://dlazdice.meteotrace.eu/svet-z8.pmtiles';
+  assert.equal(worldTilesUrl('http://localhost:8099/', hlavicka(r2)), r2);
 });
