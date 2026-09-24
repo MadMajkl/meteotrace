@@ -98,6 +98,8 @@ export default {
     here: 'Here',
     hereHome: 'Here (where I am now)',
     hereAction: 'Weather where I am now',
+    // Carousel next to the target — words split by a bar, ALWAYS three.
+    hereCarousel: 'What’s|it like|here',
     save: 'Save this place',
     // ⚠️ Verb with an object, not a bare „Save" — symmetrical with the route.
     saveShort: 'Save place',

@@ -405,3 +405,13 @@ test('🚨 odhad jazyka bere i jednotné `navigator.language`', () => {
   assert.equal(jako([], 'cs'), 'cs');
   assert.equal(jako(['de', 'cs'], 'de'), 'cs', 'první ZNÁMÝ jazyk vyhrává');
 });
+
+test('🚨 karusel u terče „Tady" má v každém jazyce právě tři neprázdná slova', () => {
+  // Keyframes `tady-karusel` ve style.css počítají se třemi zastávkami.
+  // Čtvrté slovo by se nikdy neukázalo, s dvěma by karusel stál na prázdnu.
+  for (const lang of Object.keys(LANGS)) {
+    const slova = t('places.hereCarousel', lang).split('|');
+    assert.equal(slova.length, 3, lang);
+    assert.ok(slova.every((s) => s.trim()), lang);
+  }
+});

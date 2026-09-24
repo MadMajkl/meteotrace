@@ -472,6 +472,27 @@ body {
 /* Terč je o kus větší než hvězdička — ⌖ z pole hledání by tu zanikl. */
 .tady-ikona { width: 24px; height: 24px; flex: none; }
 
+/* Karusel „Jak · je · tady". Okénko je vysoké na jeden řádek a široké jako
+   NEJDELŠÍ slovo (sloupec flexu bere šířku nejširší položky), takže se
+   terč při střídání slov necuká. Na „tady" se stojí nejdéle — to je
+   odpověď; první slovo je v pásu dvakrát, aby smyčka navázala bez skoku. */
+.tady-karusel {
+  display: inline-block; height: 1.25em; line-height: 1.25em;
+  overflow: hidden; vertical-align: middle;
+}
+.tady-pas { display: flex; flex-direction: column; animation: tady-karusel 6s infinite; }
+.tady-pas > span { height: 1.25em; }
+@keyframes tady-karusel {
+  0%, 13%  { transform: translateY(0); }
+  17%, 30% { transform: translateY(-1.25em); }
+  34%, 85% { transform: translateY(-2.5em); }
+  89%, 100% { transform: translateY(-3.75em); }
+}
+/* Bez pohybu stojí rovnou na posledním slově. */
+@media (prefers-reduced-motion: reduce) {
+  .tady-pas { animation: none; transform: translateY(-2.5em); }
+}
+
 /* ---------- upozornění ---------- */
 
 .notice {

@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.8';
+const VERZE = '0.20.9';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1607,6 +1607,15 @@ function commitRename(place, input) {
    PŘEKLADY DO STRÁNKY
    ============================================================ */
 
+/**
+ * Karusel u terče „Tady": tři slova a za nimi znovu to první, aby smyčka
+ * v CSS navázala bez skoku. ⚠️ Keyframes počítají s TŘEMI slovy.
+ */
+function vyplnKarusel() {
+  const slova = t('places.hereCarousel', state.lang).split('|');
+  $('here-pas').replaceChildren(...[...slova, slova[0]].map((s) => el('span', '', s)));
+}
+
 function applyI18n() {
   document.documentElement.lang = state.lang;
   for (const el of document.querySelectorAll('[data-i18n]')) {
@@ -1622,6 +1631,7 @@ function applyI18n() {
     }
   }
   $('splash-text').textContent = t('search.placeholder', state.lang);
+  vyplnKarusel();
   document.title = `${t('app.name', state.lang)} — ${t('app.tagline', state.lang)}`;
   // Sbalený řádek a bublina nad značkou se skládají v kódu, ne ze značek —
   // po přepnutí jazyka by jinak zůstaly v tom předchozím.
