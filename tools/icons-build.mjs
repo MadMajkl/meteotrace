@@ -60,11 +60,11 @@ const CIL = join(KOREN, 'web', 'icons');
  * ════════════════════════════════════════════════════════════════════════
  */
 const IKONY = [
-  { soubor: 'icon-192.png', px: 192, vyrez: 72 },
-  { soubor: 'icon-512.png', px: 512, vyrez: 72 },
+  { soubor: 'icon-192.png', px: 192, vyrez: 92 },
+  { soubor: 'icon-512.png', px: 512, vyrez: 92 },
   { soubor: 'icon-maskable-512.png', px: 512, vyrez: 108 },
   // iPhone: Safari chce PNG a nemá rád průhlednost — pozadí je plné.
-  { soubor: 'apple-touch-icon.png', px: 180, vyrez: 72 },
+  { soubor: 'apple-touch-icon.png', px: 180, vyrez: 92 },
 ];
 
 /** Stránka, ze které se fotí: jedna ikona přes celé okno, nic víc. */

@@ -318,6 +318,47 @@ test('🚨 domovská obrazovka: výchozí je MÍSTO, vlastní volba se pozná zv
     'vlastní volba se při přepnutí v ⚙ nezaznamenává');
 });
 
+test('🚨 obnovení stránky NEPŘEHODÍ obrazovku', () => {
+  // Michal 24. 9. 2026: *„pokud potáhneš/refreshneš palcem na trase, nemělo
+  // by ti tam skočit místo a pokud refreshneš na místě, neměla by ti tam
+  // skočit trasa."* Do té doby `init()` poslal člověka vždycky na domovskou
+  // obrazovku, protože neznal rozdíl mezi startem appky a obnovením stránky.
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+
+  assert.match(app, /prepniObrazovku\(obrazovkaPoObnoveni\(\)\);/,
+    'init() musí brát obrazovku z funkce, ne rovnou z nastavení');
+
+  const fn = /function obrazovkaPoObnoveni\(\)\s*\{[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /sessionStorage\.getItem/, 'obrazovka sezení se nečte');
+  assert.match(fn, /state\.primary === 'route'/, 'bez uložené obrazovky platí nastavení');
+
+  // 🚨 `sessionStorage`, ne `localStorage`: jinak by si appka záložku
+  // pamatovala navždy a domovská obrazovka z nastavení by přestala platit.
+  assert.ok(!/localStorage\.(get|set)Item\(\s*KLIC_OBRAZOVKY/.test(app),
+    'obrazovka patří do sezení, ne do trvalého úložiště');
+
+  // A zápis musí být tam, kde se obrazovka mění — ne u jednoho tlačítka.
+  const prepni = /function prepniObrazovku\(kam\)\s*\{[\s\S]*?presunMapu\(\);/.exec(app)?.[0] || '';
+  assert.match(prepni, /sessionStorage\.setItem\(KLIC_OBRAZOVKY, kam\)/,
+    'přepnutí obrazovky se do sezení nezapisuje');
+
+  // ⚠️ Obojí v `try`: v anonymním okně `sessionStorage` vyhodí výjimku
+  // a appka by se kvůli zapamatování záložky nespustila vůbec.
+  for (const kus of [fn, prepni]) {
+    assert.match(kus, /try \{/, 'sáhnutí na sessionStorage musí být v try');
+  }
+});
+
+test('🚨 potažení dolů obnovuje TU obrazovku, na které jsem', () => {
+  // Druhá polovina téhož přání: samo gesto nesmí obrazovku měnit.
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const fn = /function coObnovit\(\)\s*\{[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /state\.screen === 'route'/, 'gesto musí rozlišovat obrazovku');
+  assert.match(fn, /loadRoute\(\)/, 'na trase se má načíst trasa');
+  assert.match(fn, /loadStation\(\)/, 'na místě se má načíst místo');
+  assert.ok(!/prepniObrazovku/.test(fn), 'obnovení nesmí přepínat obrazovku');
+});
+
 test('🚨 dar se v obalu schovává podle MOSTU, ne podle CSS ani userAgent', () => {
   const app = readFileSync(join(WEB, 'app.js'), 'utf8');
   const fn = /function schovejDarVObalu\(\)\s*\{[\s\S]*?\n\}/.exec(app);

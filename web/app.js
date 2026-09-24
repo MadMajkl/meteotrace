@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.5';
+const VERZE = '0.20.6';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -3204,8 +3204,33 @@ const KROK_M = 25000;
  */
 const STEJNE_MISTO_M = 150;
 
+/** Klíč sezení: kde appka byla, než se stránka načetla znovu. */
+const KLIC_OBRAZOVKY = 'meteotrace.obrazovka';
+
+/**
+ * Na které obrazovce začít.
+ *
+ * Při obnovení stránky tam, kde člověk byl; při novém spuštění appky na
+ * domovské obrazovce z nastavení (`R24`, `R30`).
+ *
+ * ⚠️ Čtení i zápis v `try` — v anonymním okně a ve WebView bez úložiště
+ * `sessionStorage` vyhodí výjimku a appka by se kvůli zapamatování záložky
+ * vůbec nespustila.
+ */
+function obrazovkaPoObnoveni() {
+  let ulozena = null;
+  try {
+    ulozena = sessionStorage.getItem(KLIC_OBRAZOVKY);
+  } catch (e) { /* bez úložiště se prostě začne domovskou obrazovkou */ }
+  if (ulozena === 'route' || ulozena === 'station') return ulozena;
+  return state.primary === 'route' ? 'route' : 'station';
+}
+
 function prepniObrazovku(kam) {
   state.screen = kam;
+  try {
+    sessionStorage.setItem(KLIC_OBRAZOVKY, kam);
+  } catch (e) { /* viz `obrazovkaPoObnoveni()` */ }
   $('station').hidden = kam !== 'station' || !state.place;
   $('route').hidden = kam !== 'route';
   $('splash').hidden = kam !== 'station' || !!state.place;
@@ -4408,7 +4433,18 @@ function init() {
   // ⚠️ Prázdný formulář na startu není chyba: je to obrazovka, o kterou si
   // člověk řekl v nastavení. A po téhle opravě bývá vyplněný, protože se
   // zadání pamatuje.
-  prepniObrazovku(state.primary === 'route' ? 'route' : 'station');
+  //
+  // 🚨 ALE OBNOVENÍ STRÁNKY NENÍ SPUŠTĚNÍ APPKY. Kdo potáhne dolů (nebo dá
+  // refresh) nad trasou, má zůstat u trasy — a nad místem u místa. Do
+  // 24. 9. 2026 ho to pokaždé přehodilo na domovskou obrazovku, protože
+  // `init()` neznal rozdíl mezi „appka startuje" a „táž appka se načetla
+  // znovu". Michal: *„pokud potáhneš/refreshneš palcem na trase, nemělo by
+  // ti tam skočit místo."*
+  //
+  // ⚠️ Proto `sessionStorage`, ne `localStorage`: sezení skončí se zavřením
+  // appky, takže PŘÍŠTÍ spuštění zase začne domovskou obrazovkou. Ta volba
+  // z nastavení tím zůstává v platnosti (`R24`, `R30`).
+  prepniObrazovku(obrazovkaPoObnoveni());
 
   // Uvítání až úplně nakonec, kdy je appka pod ním hotová. Kdyby se
   // spustilo dřív, ukázaly by poslední dva kroky rozestavěnou obrazovku.
