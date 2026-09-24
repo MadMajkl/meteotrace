@@ -17,6 +17,8 @@
   --warn-bg: #fff5e2;
   --warn-line: #e6b45c;
   --warn-text: #7a4f0d;
+  /* Střed terče „Tady" (R31): tmavší zelená na světlém podkladu. */
+  --tady-stred: #1e9e52;
   /* 🚨 ŠÍŘKA OBSAHOVÉHO SLOUPCE. Musí ji držet hlavička i `main` ze
      společného zdroje — když se rozešly, pole „Najít místo…" šlo na širokém
      okně od kraje ke kraji, zatímco formulář trasy seděl v kartě uprostřed.
@@ -42,6 +44,7 @@
     --warn-bg: #2e2413;
     --warn-line: #8a6a2a;
     --warn-text: #f0d9a8;
+    --tady-stred: #5fd98a;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
   }
 }
@@ -60,6 +63,7 @@
   --warn-bg: #2e2413;
   --warn-line: #8a6a2a;
   --warn-text: #f0d9a8;
+  --tady-stred: #5fd98a;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
 }
 
@@ -471,6 +475,32 @@ body {
 .place-akce .tady { margin-top: -6px; }
 /* Terč je o kus větší než hvězdička — ⌖ z pole hledání by tu zanikl. */
 .tady-ikona { width: 24px; height: 24px; flex: none; }
+
+/* Terčík jemně pulzuje: zelený střed se nadechne a z něj se rozejde slabá
+   vlna k prstenci. Rytmus 2,6 s jako mince v hlavičce, ať spolu nepulzují
+   každý jinak. */
+.tady-stred {
+  fill: var(--tady-stred);
+  transform-box: fill-box; transform-origin: center;
+  animation: tady-dech 2.6s ease-in-out infinite;
+}
+.tady-vlna {
+  fill: var(--tady-stred); opacity: 0;
+  transform-box: fill-box; transform-origin: center;
+  animation: tady-vlna 2.6s ease-out infinite;
+}
+@keyframes tady-dech {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.25); }
+}
+@keyframes tady-vlna {
+  0%   { transform: scale(1);   opacity: .45; }
+  70%  { transform: scale(2.3); opacity: 0; }
+  100% { transform: scale(2.3); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tady-stred, .tady-vlna { animation: none; }
+}
 
 /* Karusel „Jak · je · tady". Okénko je vysoké na jeden řádek a široké jako
    NEJDELŠÍ slovo (sloupec flexu bere šířku nejširší položky), takže se
