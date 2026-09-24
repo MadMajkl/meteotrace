@@ -108,6 +108,10 @@ export default {
     saved: 'Uložená místa',
     savedAll: 'Uložená místa a trasy',
     mine: 'Moje místa',
+    // ⚠️ „Tady", ne „Moje poloha": štítek je úzký a tohle je kratší i živější.
+    // Delší jméno („Moje poloha") zůstává u výsledku, kde je na něj místo.
+    here: 'Tady',
+    hereHome: 'Tady (kde právě jsem)',
     save: 'Uložit tohle místo',
     // ⚠️ Sloveso s předmětem, ne holé „Uložit" — symetricky s trasou.
     // Z pouhého slovesa nepoznáš, co se vlastně uloží.

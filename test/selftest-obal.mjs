@@ -307,8 +307,10 @@ test('🚨 domovská obrazovka: výchozí je MÍSTO, vlastní volba se pozná zv
   // bylo výchozí — a vypadalo by to, že oprava nic neudělala.
   assert.match(app, /state\.primaryManual = saved\.primaryManual === true;/,
     'vlastní volba se musí načítat zvlášť od výsledku');
-  assert.match(app, /if \(state\.primaryManual && \(saved\.primary === 'route'/,
+  assert.match(app, /if \(state\.primaryManual && JE_OBRAZOVKA\.includes\(saved\.primary\)\)/,
     'uložená obrazovka smí platit jen jako VLASTNÍ volba');
+  assert.match(app, /const JE_OBRAZOVKA = \['route', 'station', 'here'\];/,
+    'seznam povolených domovských obrazovek se změnil');
   assert.match(app, /primaryManual: state\.primaryManual,/, 'volba se neukládá');
 
   // A změna v nastavení tu značku musí nastavit — jinak by vědomou volbu
@@ -328,9 +330,17 @@ test('🚨 obnovení stránky NEPŘEHODÍ obrazovku', () => {
   assert.match(app, /prepniObrazovku\(obrazovkaPoObnoveni\(\)\);/,
     'init() musí brát obrazovku z funkce, ne rovnou z nastavení');
 
+  const zeSezeni = /function obrazovkaZeSezeni\(\)\s*\{[\s\S]*?\n\}/.exec(app)?.[0] || '';
   const fn = /function obrazovkaPoObnoveni\(\)\s*\{[\s\S]*?\n\}/.exec(app)?.[0] || '';
-  assert.match(fn, /sessionStorage\.getItem/, 'obrazovka sezení se nečte');
+  assert.match(zeSezeni, /sessionStorage\.getItem/, 'obrazovka sezení se nečte');
   assert.match(fn, /state\.primary === 'route'/, 'bez uložené obrazovky platí nastavení');
+
+  // 🚨 „Tady" se při spuštění zjišťuje, po obnovení NE — jinak by refresh
+  // přepsal místo, které si člověk mezitím vybral (`R31`).
+  assert.match(app, /const pokracujeSezeni = !!obrazovkaZeSezeni\(\);/,
+    'stav sezení se musí zjistit PŘED přepnutím obrazovky');
+  assert.match(app, /if \(state\.primary === 'here' && !pokracujeSezeni\) ukazTady\(\);/,
+    'domovská obrazovka „Tady" se nespouští, nebo se spouští i po refreshi');
 
   // 🚨 `sessionStorage`, ne `localStorage`: jinak by si appka záložku
   // pamatovala navždy a domovská obrazovka z nastavení by přestala platit.
@@ -342,11 +352,40 @@ test('🚨 obnovení stránky NEPŘEHODÍ obrazovku', () => {
   assert.match(prepni, /sessionStorage\.setItem\(KLIC_OBRAZOVKY, kam\)/,
     'přepnutí obrazovky se do sezení nezapisuje');
 
-  // ⚠️ Obojí v `try`: v anonymním okně `sessionStorage` vyhodí výjimku
-  // a appka by se kvůli zapamatování záložky nespustila vůbec.
-  for (const kus of [fn, prepni]) {
+  // ⚠️ Čtení i zápis v `try`: v anonymním okně `sessionStorage` vyhodí
+  // výjimku a appka by se kvůli zapamatování záložky nespustila vůbec.
+  for (const kus of [zeSezeni, prepni]) {
     assert.match(kus, /try \{/, 'sáhnutí na sessionStorage musí být v try');
   }
+});
+
+test('🚨 „Tady" je akce, ne uložené místo (R31)', () => {
+  // Michal 24. 9. 2026 v Plzni: *„proč mi appka hlásí výstrahy pro Horšovský
+  // Týn?"* — protože obrazovka Místo ukazuje VYBRANÉ místo, ne to, kde je.
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+
+  // Štítek je vždycky první a řádek se kvůli němu ukazuje i bez uložených míst.
+  assert.match(app, /polozky: \[\{ kind: 'here', name: t\('places\.here'/,
+    '„Tady" musí být první položkou řádku míst');
+  assert.match(app, /\$\('saved'\)\.hidden = false;/,
+    'řádek se musí ukázat i bez jediného uloženého místa');
+
+  // 🚨 Klepnutí přepne na Místo. Nad trasou by jinak zjistilo polohu
+  // a nechalo člověka koukat na cestu — tedy by se zdálo, že nic nedělá.
+  const fn = /function ukazTady\(\)\s*\{[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /prepniObrazovku\('station'\)/, '„Tady" musí přepnout na Místo');
+  assert.match(fn, /locate\(\)/, '„Tady" musí zjistit polohu');
+
+  // 🚨 A když prohlížeč polohu neumí, musí to ŘÍCT. Do 24. 9. 2026 se
+  // `locate()` jen tiše vrátilo a od rozbitého tlačítka to nešlo odlišit.
+  const loc = /function locate\(\)\s*\{[\s\S]*?notice\(t\('search\.searching'/.exec(app)?.[0] || '';
+  assert.match(loc, /if \(!navigator\.geolocation\) \{ notice\(/,
+    'bez lokalizační služby musí appka promluvit, ne mlčet');
+
+  // Musí to jít i jako domovská obrazovka — a nesmí to rozbít pořadí záložek.
+  assert.match(app, /value: 'here', text: t\('places\.hereHome'/, 'chybí volba v nastavení');
+  assert.match(app, /data-primary', state\.primary === 'route' \? 'route' : 'station'/,
+    'do značky pořadí záložek nesmí propadnout „here"');
 });
 
 test('🚨 potažení dolů obnovuje TU obrazovku, na které jsem', () => {

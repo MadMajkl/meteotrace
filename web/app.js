@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.6';
+const VERZE = '0.20.7';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -93,7 +93,7 @@ const state = {
   // odlišovač (`R8`), jenže appka pak startovala prázdným formulářem, kdežto
   // místo ukáže počasí hned. Michal: *„změň u appky defaultní zobrazení
   // z trasy na místo."* Komu to nesedí, přehodí si to v nastavení.
-  primary: 'station',   // 'route' | 'station'
+  primary: 'station',   // 'route' | 'station' | 'here' (R31)
   // 🚨 Vlastní volba se pamatuje ZVLÁŠŤ od výsledku — jinak by nešlo odlišit
   // „vybral jsem si trasu" od „tak to appka dřív měla". Bez toho by změna
   // výchozí hodnoty buď nikoho nepřesunula, nebo přebila i vědomou volbu.
@@ -152,7 +152,7 @@ function load() {
     // změna výchozí hodnoty (`R30`) nikoho nepřesunula — každý by měl v datech
     // „trasu" a vypadalo by to, že se nic nezměnilo.
     state.primaryManual = saved.primaryManual === true;
-    if (state.primaryManual && (saved.primary === 'route' || saved.primary === 'station')) {
+    if (state.primaryManual && JE_OBRAZOVKA.includes(saved.primary)) {
       state.primary = saved.primary;
     }
     if (typeof saved.notify === 'string') state.notify = saved.notify;
@@ -337,11 +337,19 @@ function renderSaved() {
     box: 'group-places',
     radek: 'saved-list',
     panel: 'places-panel',
-    polozky: list.map((p) => ({ kind: 'place', item: p, name: p.name })),
+    // 🚨 „Tady" je VŽDYCKY první a není to uložené místo (`R31`). Do 24. 9.
+    // 2026 se k počasí pro aktuální polohu šlo jen přes ⌖ v hledání, takže
+    // appka mluvila o vybraném místě, i když byl člověk stovky kilometrů
+    // jinde. Michal v Plzni: *„proč mi appka hlásí výstrahy pro Horšovský
+    // Týn?"* — protože měl vybraný domov.
+    polozky: [{ kind: 'here', name: t('places.here', state.lang) },
+      ...list.map((p) => ({ kind: 'place', item: p, name: p.name }))],
     current,
   });
 
-  $('saved').hidden = !list.length && !state.places.routes.length;
+  // ⚠️ Řádek se ukazuje i bez jediného uloženého místa — „Tady" v něm je
+  // vždycky, a je to ta nejrychlejší cesta k počasí.
+  $('saved').hidden = false;
 }
 
 /**
@@ -386,6 +394,21 @@ function radekSpravy(klic = 'places.manage') {
 function stitekPolozky(polozka, current) {
   const li = document.createElement('li');
   const je = polozka.item;
+
+  // „Tady" — počasí pro polohu, kde právě jsem (`R31`). Není to uložené
+  // místo: nemá klíč, nedá se přejmenovat ani smazat, a pokaždé se poloha
+  // zjišťuje znovu. Proto i jiný znak než ostatní štítky.
+  if (polozka.kind === 'here') {
+    const tlacitko = el('button', 'chip chip-tady', [
+      el('span', 'chip-znak', '⌖'),
+      el('span', '', polozka.name),
+    ]);
+    tlacitko.type = 'button';
+    tlacitko.setAttribute('aria-label', polozka.name);
+    tlacitko.addEventListener('click', () => { zavriPanely(); ukazTady(); });
+    li.append(tlacitko);
+    return li;
+  }
 
   // ⚠️ Trasa musí být na první pohled poznat, jinak řádek vypadá jako
   // seznam míst, ve kterém se jedno chová divně.
@@ -931,6 +954,9 @@ function openSettings() {
   fillOptions($('set-primary'), [
     { value: 'route', text: t('nav.route', state.lang) },
     { value: 'station', text: t('nav.station', state.lang) },
+    // „Tady" je obrazovka Místo, která si při spuštění rovnou zjistí polohu
+    // (`R31`). Proto je ve výběru s vysvětlením, ne jako holé slovo.
+    { value: 'here', text: t('places.hereHome', state.lang) },
   ], state.primary);
 
   fillOptions($('set-theme'), [
@@ -1773,8 +1799,22 @@ function selectPlace(place, textDoPole = '') {
    POLOHA
    ============================================================ */
 
+/**
+ * „Tady": ukázat počasí tam, kde právě jsem (`R31`).
+ *
+ * 🚨 Přepne i obrazovku. Klepnutí na „Tady" nad trasou znamená „chci vidět
+ * počasí", ne „doplň mi to do cesty" — stejně jako klepnutí na uložené místo
+ * nad hotovou trasou (30. 8. 2026).
+ */
+function ukazTady() {
+  prepniObrazovku('station');
+  locate();
+}
+
 function locate() {
-  if (!navigator.geolocation) return;
+  // ⚠️ Mlčení tu nestačí: prohlížeč bez lokalizační služby by prostě nic
+  // neudělal a od rozbitého tlačítka by se to nedalo odlišit.
+  if (!navigator.geolocation) { notice(t('search.locationFailed', state.lang)); return; }
   notice(t('search.searching', state.lang));
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -2467,7 +2507,9 @@ function pouzijPoradi() {
   // ⚠️ Značka jde na záložky I na uložené věci: skupiny sedí pod svými
   // záložkami, takže když se prohodí záložky, musí se prohodit i ony.
   for (const el of [document.querySelector('.tabs'), $('saved')]) {
-    el?.setAttribute('data-primary', state.primary);
+    // ⚠️ Do značky patří JEN 'route' nebo 'station' — pořadí záložek zná
+    // dvě, kdežto 'here' je obrazovka Místo se zjištěním polohy navíc.
+    el?.setAttribute('data-primary', state.primary === 'route' ? 'route' : 'station');
   }
 }
 
@@ -3208,6 +3250,14 @@ const STEJNE_MISTO_M = 150;
 const KLIC_OBRAZOVKY = 'meteotrace.obrazovka';
 
 /**
+ * Co smí stát v nastavení jako domovská obrazovka.
+ *
+ * ⚠️ `here` NENÍ třetí záložka — je to obrazovka Místo, která si při spuštění
+ * sama zjistí polohu (`R31`). Záložky zůstávají dvě.
+ */
+const JE_OBRAZOVKA = ['route', 'station', 'here'];
+
+/**
  * Na které obrazovce začít.
  *
  * Při obnovení stránky tam, kde člověk byl; při novém spuštění appky na
@@ -3217,13 +3267,17 @@ const KLIC_OBRAZOVKY = 'meteotrace.obrazovka';
  * `sessionStorage` vyhodí výjimku a appka by se kvůli zapamatování záložky
  * vůbec nespustila.
  */
-function obrazovkaPoObnoveni() {
-  let ulozena = null;
+function obrazovkaZeSezeni() {
   try {
-    ulozena = sessionStorage.getItem(KLIC_OBRAZOVKY);
-  } catch (e) { /* bez úložiště se prostě začne domovskou obrazovkou */ }
-  if (ulozena === 'route' || ulozena === 'station') return ulozena;
-  return state.primary === 'route' ? 'route' : 'station';
+    const ulozena = sessionStorage.getItem(KLIC_OBRAZOVKY);
+    return ulozena === 'route' || ulozena === 'station' ? ulozena : null;
+  } catch (e) {
+    return null; /* bez úložiště se prostě začne domovskou obrazovkou */
+  }
+}
+
+function obrazovkaPoObnoveni() {
+  return obrazovkaZeSezeni() || (state.primary === 'route' ? 'route' : 'station');
 }
 
 function prepniObrazovku(kam) {
@@ -4217,7 +4271,7 @@ function init() {
   // verze) by jinak uložila `primary: ''` a domovská obrazovka by přestala
   // fungovat, aniž by se dalo poznat proč.
   $('set-primary').addEventListener('change', (e) => {
-    state.primary = e.target.value === 'route' ? 'route' : 'station';
+    state.primary = JE_OBRAZOVKA.includes(e.target.value) ? e.target.value : 'station';
     // Od téhle chvíle je to VLASTNÍ volba a přebije i budoucí změnu výchozí
     // hodnoty (`R30`).
     state.primaryManual = true;
@@ -4444,7 +4498,15 @@ function init() {
   // ⚠️ Proto `sessionStorage`, ne `localStorage`: sezení skončí se zavřením
   // appky, takže PŘÍŠTÍ spuštění zase začne domovskou obrazovkou. Ta volba
   // z nastavení tím zůstává v platnosti (`R24`, `R30`).
+  // 🚨 Zjistit PŘED přepnutím: `prepniObrazovku()` si obrazovku do sezení
+  // rovnou zapíše, takže potom už nejde poznat, jestli appka startuje.
+  const pokracujeSezeni = !!obrazovkaZeSezeni();
   prepniObrazovku(obrazovkaPoObnoveni());
+
+  // Domovská obrazovka „Tady" (`R31`): při spuštění se rovnou zjistí poloha.
+  // ⚠️ Jen při spuštění, ne po obnovení stránky — jinak by refresh přepsal
+  // místo, které si člověk mezitím vybral.
+  if (state.primary === 'here' && !pokracujeSezeni) ukazTady();
 
   // Uvítání až úplně nakonec, kdy je appka pod ním hotová. Kdyby se
   // spustilo dřív, ukázaly by poslední dva kroky rozestavěnou obrazovku.

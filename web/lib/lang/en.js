@@ -94,6 +94,9 @@ export default {
     saved: 'Saved places',
     savedAll: 'Saved places and routes',
     mine: 'My places',
+    // ⚠️ „Here", not „My location": the chip is narrow and this is shorter.
+    here: 'Here',
+    hereHome: 'Here (where I am now)',
     save: 'Save this place',
     // ⚠️ Verb with an object, not a bare „Save" — symmetrical with the route.
     saveShort: 'Save place',

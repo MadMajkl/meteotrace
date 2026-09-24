@@ -1558,6 +1558,14 @@ main {
 .chip-route { display: inline-flex; align-items: center; gap: 6px; }
 .chip-znak { color: var(--accent); font-size: 15px; line-height: 1; }
 
+/* „Tady" (R31) není uložené místo, tak ani nevypadá jako ostatní štítky:
+   obtažené barvou značky, aby bylo poznat, že je to akce — zjisti polohu —
+   a ne jedno z míst, která si člověk pojmenoval. */
+.chip-tady {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+
 /* Věta o cíli. Nejdůležitější řádek obrazovky trasy: kilometry si člověk
    umí představit, počasí v cíli je to, kvůli čemu sem přišel. */
 .route-arrival {
