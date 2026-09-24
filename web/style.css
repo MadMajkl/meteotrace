@@ -460,6 +460,18 @@ body {
 .star[aria-pressed="true"] { color: var(--accent); }
 .star[disabled] { color: var(--text-soft); cursor: default; }
 
+/* Hvězdička a pod ní „Tady" (R31). Sloupec zarovnaný doprava, aby obě
+   tlačítka začínala u téhož okraje karty. */
+.place-akce {
+  flex: none;
+  display: flex; flex-direction: column; align-items: flex-end;
+  margin: -8px -8px 0 0;
+}
+.place-akce .star { margin: 0; }
+.place-akce .tady { margin-top: -6px; }
+/* Terč je o kus větší než hvězdička — ⌖ z pole hledání by tu zanikl. */
+.tady-ikona { width: 24px; height: 24px; flex: none; }
+
 /* ---------- upozornění ---------- */
 
 .notice {

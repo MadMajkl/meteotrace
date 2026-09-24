@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.20.7';
+const VERZE = '0.20.8';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -4240,6 +4240,7 @@ function init() {
   $('search-form').addEventListener('submit', (e) => e.preventDefault());
   $('btn-locate').addEventListener('click', locate);
   $('btn-save').addEventListener('click', toggleSave);
+  $('btn-here').addEventListener('click', ukazTady);
   $('routes-toggle').addEventListener('click', () => prepniPanel('routes-toggle', 'routes-panel'));
   $('places-toggle').addEventListener('click', () => prepniPanel('places-toggle', 'places-panel'));
 

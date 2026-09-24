@@ -97,6 +97,7 @@ export default {
     // ⚠️ „Here", not „My location": the chip is narrow and this is shorter.
     here: 'Here',
     hereHome: 'Here (where I am now)',
+    hereAction: 'Weather where I am now',
     save: 'Save this place',
     // ⚠️ Verb with an object, not a bare „Save" — symmetrical with the route.
     saveShort: 'Save place',
