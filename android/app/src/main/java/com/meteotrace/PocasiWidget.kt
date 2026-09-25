@@ -20,8 +20,13 @@ import android.graphics.Shader
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
+import android.util.TypedValue
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.RemoteViews
+import android.widget.TextView
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -38,6 +43,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Date
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
@@ -72,15 +78,19 @@ import kotlin.math.roundToInt
 class PocasiWidget : AppWidgetProvider() {
 
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
-        for (id in ids) vykresli(ctx, mgr, id)
+        // Kreslení (s měřením písma) běží na pozadí; `goAsync` drží proces
+        // naživu, dokud nedoběhne.
+        val hotovo = goAsync()
+        Widget.prekresli(ctx, ids) { hotovo.finish() }
         Widget.planuj(ctx)
         // Po přidání widgetu na plochu nečekat půl hodiny na první data.
         if (Widget.zastarale(ctx, Widget.CERSTVE_MS)) Widget.obnovHned(ctx)
     }
 
     override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
-        // Změna velikosti: jiné rozvržení a jinak velké pozadí.
-        vykresli(ctx, mgr, id)
+        // Změna velikosti: jiné rozvržení, jiné písmo a jinak velké pozadí.
+        val hotovo = goAsync()
+        Widget.prekresli(ctx, intArrayOf(id)) { hotovo.finish() }
     }
 
     override fun onEnabled(ctx: Context) = Widget.planuj(ctx)
@@ -144,17 +154,316 @@ class PocasiWidget : AppWidgetProvider() {
 
         /** Skutečná velikost widgetu v dp. */
         private fun velikost(mgr: AppWidgetManager, id: Int): SizeF {
+            velikosti(mgr, id).firstOrNull()?.let { return it }
             val o = mgr.getAppWidgetOptions(id)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                @Suppress("DEPRECATION")
-                val velikosti = o.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
-                velikosti?.firstOrNull()?.let { return it }
-            }
             // Na výšku: šířka je ta menší, výška ta větší (tak to launchery hlásí).
             return SizeF(
                 o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).toFloat(),
                 o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 150).toFloat(),
             )
+        }
+
+        /**
+         * Všechny velikosti, ve kterých launcher widget ukazuje (Android 12+):
+         * typicky dvě — telefon na výšku a na šířku. Prázdné, když je nehlásí.
+         */
+        private fun velikosti(mgr: AppWidgetManager, id: Int): List<SizeF> {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return emptyList()
+            @Suppress("DEPRECATION")
+            return mgr.getAppWidgetOptions(id)
+                .getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+                ?.filter { it.width > 0f && it.height > 0f }?.distinct()?.take(8) ?: emptyList()
+        }
+
+        /* ── velikost písma podle skutečné velikosti widgetu ──────────── */
+
+        /*
+         * 🚨 PÍSMO SE NEVOLÍ, MĚŘÍ SE (Michal 25. 9. 2026: „chtěl bych, aby to
+         * bylo co největší… úplně nejvíc optimální velikost fontu").
+         *
+         * Velikosti v XML jsou jen POMĚRY mezi texty. Skutečné měřítko se
+         * najde tak, že se rozvržení nafoukne v paměti přesně v té velikosti,
+         * jakou widgetu přidělil launcher, a půlením intervalu se hledá největší
+         * měřítko, při kterém je všechno celé vidět. Proto sedí na každém
+         * telefonu a v každé velikosti — pevné `sp` sedělo jen na jedné buňce
+         * a všude jinde nechávalo prázdné místo.
+         *
+         * „Celé vidět" = žádný text nevyleze z widgetu, nic se neusekne a nic
+         * se nezkrátí na tři tečky. Výjimkou jsou jen JMÉNO MÍSTA a VĚTA
+         * O DEŠTI, a i ty jen tehdy, když se nevešly už v základní velikosti —
+         * zvětšení písma nesmí zkrátit nic, co předtím bylo celé.
+         */
+
+        /** Texty, které smí mít tři tečky (když je měly už v základu). */
+        private val SMI_ZKRATIT = setOf(R.id.w_misto, R.id.w_veta)
+
+        /** Texty, které se smí zalomit na víc řádků. Všechno ostatní na jeden. */
+        private val VICERADKOVE = setOf(R.id.w_popis, R.id.w_veta)
+
+        /**
+         * Hlavní dvojice: číslo a ikona. Po prvním kroku zůstávají, jak jsou,
+         * a ve druhém se zvětšuje už jen zbytek (viz `meritko`).
+         */
+        private val HLAVNI = setOf(R.id.w_teplota, R.id.w_ikona)
+
+        /** Rozsah měřítka: pod 0,6 je text nečitelný, nad 3,2 už nic nepřidá. */
+        private const val MERITKO_MIN = 0.6f
+        private const val MERITKO_MAX = 3.2f
+
+        /** Jak moc smí ostatní texty ve druhém kroku přerůst hlavní dvojici. */
+        private const val DOROVNANI_MAX = 1.8f
+
+        /**
+         * Rezerva na zaokrouhlení: launcher hlásí velikost v celých dp a písmo
+         * se vykresluje s vyhlazením, takže úplně na hranu se nejde.
+         */
+        private const val REZERVA = 0.97f
+
+        /**
+         * Měřítko písma proti XML.
+         * @param s všechno (první krok)
+         * @param k zvětšení navíc pro jednotlivé texty (druhý krok); teplota
+         *          a ikona v něm nikdy nejsou
+         */
+        private class Meritko(val s: Float, val k: Map<Int, Float> = emptyMap()) {
+            fun pro(id: Int) = s * (k[id] ?: 1f)
+        }
+
+        private val ZAKLADNI = Meritko(1f)
+
+        /** Buňka hodiny roste jako celek — čas, ikona a teplota pod sebou. */
+        private val HODINA = setOf(R.id.w_h_cas, R.id.w_h_ikona, R.id.w_h_teplota)
+
+        private fun skupina(id: Int): Set<Int> = if (id in HODINA) HODINA else setOf(id)
+
+        /** Základní velikosti písma (px) z XML, pro každé rozvržení jednou. */
+        private val ZAKLAD = HashMap<Int, Map<Int, Float>>()
+
+        private fun zaklad(ctx: Context, layout: Int): Map<Int, Float> = ZAKLAD.getOrPut(layout) {
+            val m = HashMap<Int, Float>()
+            fun projdi(v: View) {
+                if (v is TextView && v.id != View.NO_ID) m[v.id] = v.textSize
+                if (v is ViewGroup) for (i in 0 until v.childCount) projdi(v.getChildAt(i))
+            }
+            projdi(LayoutInflater.from(ctx).inflate(layout, FrameLayout(ctx), false))
+            m
+        }
+
+        /** Které texty jsou zkrácené nebo useknuté (prázdná množina = vše celé). */
+        private fun zkracene(root: View, w: Int, h: Int): Set<Int> {
+            val vysledek = HashSet<Int>()
+            // 🚨 Písmo nesmí až na hranu widgetu (4 dp): rohy jsou zaoblené a text má stín.
+            // Na úzkém 4 × 1 jinak spodek „déšť" ořízl roh (25. 9. 2026).
+            val okraj = (4 * root.resources.displayMetrics.density).roundToInt()
+            fun projdi(v: View, x: Int, y: Int) {
+                if (v.visibility != View.VISIBLE) return
+                val l = x + v.left
+                val t = y + v.top
+                if (v is TextView && v.text.isNotEmpty()) {
+                    val lay = v.layout
+                    val klic = if (v.id != View.NO_ID) v.id else -1
+                    if (lay == null) { vysledek.add(klic); return }
+                    val vnitrniSirka = v.width - v.totalPaddingLeft - v.totalPaddingRight
+                    val tecky = (0 until lay.lineCount).any { lay.getEllipsisCount(it) > 0 }
+                    // ⚠️ `getLineMax`, ne `getLineWidth`: to druhé počítá i mezeru
+                    // na konci zalomeného řádku a „Slunce přes vysokou␣" by pak
+                    // vypadalo, že přetéká, i když se vejde.
+                    val preteka = (0 until lay.lineCount).any { lay.getLineMax(it) > vnitrniSirka + 1 }
+                    // 🚨 Zlomená teplota („16" a pod tím „°") nic nepřetéká ani
+                    // neusekne — jen odsune zbytek. Jednořádkové texty se proto
+                    // hlídají zvlášť (zjištěno na čtverci 2 × 2, 25. 9. 2026).
+                    val zlomene = lay.lineCount > 1 && v.id !in VICERADKOVE
+                    // 🚨 Výška se měří podle NAKRESLENÉHO písma, ne podle řádku.
+                    // Řádek počítá i s místem na dotahy („g", „j"), které „17°"
+                    // nemá — a teplota by pak vycházela zbytečně malá.
+                    // ⚠️ Emoji (ikona počasí) hlásí rámeček celého čtverce emoji
+                    // písma, ne nakreslené sluníčko — u nich se výška neměří.
+                    // Sedí v řádku s teplotou, která ji omezí stejně.
+                    val emoji = v.id == R.id.w_ikona || v.id == R.id.w_h_ikona
+                    val ramec = android.graphics.Rect()
+                    var nizke = false
+                    for (i in 0 until if (emoji) 0 else lay.lineCount) {
+                        val konec = lay.getLineEnd(i) - lay.getEllipsisCount(i)
+                        if (konec <= lay.getLineStart(i)) continue
+                        v.paint.getTextBounds(v.text, lay.getLineStart(i), konec, ramec)
+                        val zaklad = v.totalPaddingTop + lay.getLineBaseline(i)
+                        val nahore = zaklad + ramec.top
+                        val dole = zaklad + ramec.bottom
+                        // Uvnitř vlastního prvku (ten kreslení ořízne) i celého widgetu.
+                        if (nahore < -1 || dole > v.height + 1 || t + nahore < okraj || t + dole > h - okraj) nizke = true
+                    }
+                    val venku = l < -1 || l + v.width > w + 1
+                    if (tecky || preteka || zlomene || nizke || venku) vysledek.add(klic)
+                }
+                if (v is ViewGroup) for (i in 0 until v.childCount) projdi(v.getChildAt(i), l, t)
+            }
+            projdi(root, 0, 0)
+            return vysledek
+        }
+
+        /** Nafoukne variantu v daném měřítku do velikosti `w × h` px a řekne, co je zkrácené. */
+        /**
+         * Widget nafouknutý JEDNOU; každý další pokus jen přenastaví velikosti
+         * písma na hotových pohledech. Nafukovat celý widget i se šesti buňkami
+         * hodin pro každý krok půlení trvalo vteřiny (46 kroků × ~50 ms).
+         */
+        private class Mereni(ctx: Context, va: Varianta, st: Widget.Stav) {
+            val pohled: View = naplnVariantu(ctx, va, st, null, ZAKLADNI).apply(ctx, FrameLayout(ctx))
+            /** Každý text s id a jeho základní velikostí (px) — buňky hodin jsou tu šestkrát. */
+            val texty = ArrayList<Pair<TextView, Float>>()
+            init {
+                fun projdi(v: View) {
+                    if (v is TextView && v.id != View.NO_ID) texty.add(v to v.textSize)
+                    if (v is ViewGroup) for (i in 0 until v.childCount) projdi(v.getChildAt(i))
+                }
+                projdi(pohled)
+            }
+        }
+
+        private fun zmer(mr: Mereni, m: Meritko, w: Int, h: Int): Set<Int>? = try {
+            for ((tv, px) in mr.texty) tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, px * m.pro(tv.id))
+            val pohled = mr.pohled
+            pohled.measure(
+                View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY),
+            )
+            pohled.layout(0, 0, w, h)
+            zkracene(pohled, w, h)
+        } catch (e: Exception) {
+            null
+        }
+
+        /** Největší hodnota z `od..do`, pro kterou `vejde` platí (půlení intervalu). */
+        private fun nejvic(od: Float, doHodnoty: Float, vejde: (Float) -> Boolean): Float {
+            var lo = od
+            var hi = doHodnoty
+            if (!vejde(lo)) return lo
+            if (vejde(hi)) return hi
+            // 7 kroků půlení = přesnost ~2 % z rozsahu. Víc oko nepozná a každý
+            // krok je jedno nafouknutí celého widgetu.
+            repeat(7) {
+                val m = (lo + hi) / 2f
+                if (vejde(m)) lo = m else hi = m
+            }
+            return lo
+        }
+
+        /**
+         * Největší písmo, při kterém je ve widgetu dané velikosti (dp) všechno
+         * vidět. ⚠️ Volá se z vlákna kreslení (`Widget.prekresli`), NE z hlavního:
+         * nafukuje desítky pohledů a trvá to stovky milisekund.
+         *
+         * Dva kroky:
+         *   1. všechno stejně — najde se strop, na který narazí první text
+         *      (typicky teplota, která se nesmí zlomit),
+         *   2. teplota a ikona zůstanou a zvětšuje se zbytek, dokud je kam.
+         *      Bez toho zůstávalo na čtverci pod popisem prázdné místo, protože
+         *      strop určila šířka řádku s teplotou, ne výška (25. 9. 2026).
+         */
+        private fun meritko(ctx: Context, va: Varianta, st: Widget.Stav, v: SizeF): Meritko {
+            val hustota = ctx.resources.displayMetrics.density
+            val w = (v.width * hustota).roundToInt()
+            val h = (v.height * hustota).roundToInt()
+            if (w <= 0 || h <= 0) return ZAKLADNI
+            // Stejný obsah ve stejné velikosti se neměří znovu (překreslení
+            // po otevření appky, na výšku/na šířku, opakovaná obnova).
+            val klic = klicMereni(va, st, w, h)
+            synchronized(NAMERENO) { NAMERENO[klic] }?.let { return it }
+            return zmerMeritko(ctx, va, st, v, w, h).also { synchronized(NAMERENO) { NAMERENO[klic] = it } }
+        }
+
+        /** Posledních pár naměřených měřítek (nejdéle používané vypadne). */
+        private val NAMERENO = object : LinkedHashMap<String, Meritko>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Meritko>?) = size > 24
+        }
+
+        /**
+         * Co všechno ovlivní výsledek měření: rozvržení, velikost, texty
+         * (celá data), stáří (ukáže se čas) a které hodiny jsou ještě před námi.
+         */
+        private fun klicMereni(va: Varianta, st: Widget.Stav, w: Int, h: Int): String {
+            val ted = System.currentTimeMillis()
+            val stare = ted - st.nacteno > Widget.STARE_MS
+            val hodiny = st.data.optJSONArray("hodiny")
+            var prvni = 0L
+            if (hodiny != null) for (i in 0 until hodiny.length()) {
+                val ms = hodiny.optJSONObject(i)?.optLong("ms") ?: continue
+                if (ms > ted) { prvni = ms; break }
+            }
+            val veta = ted < st.data.optLong("vetaDo", Long.MAX_VALUE)
+            return "${va.layout}|$w×$h|${st.misto}|$stare|$prvni|$veta|${st.data}"
+        }
+
+        private fun zmerMeritko(ctx: Context, va: Varianta, st: Widget.Stav, v: SizeF, w: Int, h: Int): Meritko {
+            val zacatek = System.nanoTime()
+            var mereni = 0
+            // Co bylo zkrácené už v základní velikosti, smí zůstat zkrácené.
+            val mr = try { Mereni(ctx, va, st) } catch (e: Exception) { return ZAKLADNI }
+            val vZakladu = zmer(mr, ZAKLADNI, w, h) ?: return ZAKLADNI
+            val povoleno = vZakladu.filter { it in SMI_ZKRATIT }.toSet()
+            fun vejde(m: Meritko): Boolean { mereni++; return zmer(mr, m, w, h)?.all { it in povoleno } ?: false }
+
+            val s = nejvic(MERITKO_MIN, MERITKO_MAX) { vejde(Meritko(it)) } * REZERVA
+
+            // Druhý krok jako „nalévání vody": ostatní texty rostou SPOLEČNĚ;
+            // který narazí, ten se zastaví, a zbytek roste dál. Jinak by
+            // „↑18° ↓1°" vedle ikony (kde místo není) zastavilo i popis
+            // a větu pod ní (kde místo je).
+            // ⚠️ Co má tři tečky už v základu, neroste — bylo by z něj vidět ještě míň.
+            val kandidati = zaklad(ctx, va.layout).keys
+                .filter { it in va.ids && it !in HLAVNI && it !in povoleno }.toMutableSet()
+            if (R.id.w_hodiny in va.ids) kandidati += HODINA
+            val zmrazene = HashMap<Int, Float>()
+            var k = 1f
+            while (kandidati.isNotEmpty()) {
+                fun sestav(x: Float) = Meritko(s, zmrazene + kandidati.associateWith { x })
+                val nove = nejvic(k, DOROVNANI_MAX) { vejde(sestav(it)) }
+                // Kdo brzdí? Každý rostoucí text (skupina) se zkusí zvětšit
+                // SÁM o kousek. 🚨 Nestačí se podívat, co se rozbilo: rozbije
+                // se často jiný text, než který roste — „↑18° ↓1°" zúží
+                // sloupec a zlomí se teplota, která už neroste.
+                val brzdi = if (nove >= DOROVNANI_MAX) emptyList()
+                else kandidati.map { skupina(it) }.distinct().filter { sk ->
+                    val zkus = Meritko(s, zmrazene + kandidati.associateWith { if (it in sk) nove * 1.04f else nove })
+                    !vejde(zkus)
+                }.flatten().filter { it in kandidati }
+                if (brzdi.isEmpty()) {
+                    // Až na strop, nebo brzdí už zastavený text: konec pro všechny.
+                    kandidati.forEach { zmrazene[it] = nove }
+                    break
+                }
+                brzdi.forEach { zmrazene[it] = nove; kandidati.remove(it) }
+                k = nove
+            }
+            val narust = zmrazene.mapValues { (_, f) -> max(1f, f * 0.98f) }
+
+            // 🚨 POŘADÍ VELIKOSTÍ Z NÁVRHU ZŮSTÁVÁ. Co bylo v XML menší, nesmí
+            // přerůst to větší — jinak na čtverci vyrostla věta o dešti nad
+            // popis počasí a hierarchie se obrátila (25. 9. 2026). Proto se
+            // výsledné velikosti srovnají shora: nikdo není větší než text,
+            // který byl v návrhu větší nebo stejný.
+            val zakladPx = zaklad(ctx, va.layout).filterKeys { it in va.ids } +
+                (if (R.id.w_hodiny in va.ids) zaklad(ctx, R.layout.widget_pocasi_hodina) else emptyMap())
+            // Stejně velké texty (popis a „↑18° ↓1°", obojí 13 sp) se navzájem
+            // neomezují — strop dávají jen texty v návrhu VĚTŠÍ.
+            var strop = Float.MAX_VALUE
+            val dorovnani = HashMap<Int, Float>()
+            for ((_, stejne) in zakladPx.entries.groupBy { it.value }.toSortedMap(compareByDescending { it })) {
+                var nejmensi = Float.MAX_VALUE
+                for ((id, px) in stejne) {
+                    val smi = min(px * s * (narust[id] ?: 1f), strop)
+                    nejmensi = min(nejmensi, smi)
+                    val f = smi / (px * s)
+                    if (f > 1f) dorovnani[id] = f
+                }
+                strop = nejmensi
+            }
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("MeteoTraceWidget", "meritko ${ctx.resources.getResourceEntryName(va.layout)} " +
+                    "${v.width}x${v.height}dp ($mereni měření, ${(System.nanoTime() - zacatek) / 1_000_000} ms) → s=${"%.2f".format(s)} " +
+                    dorovnani.entries.joinToString { "${ctx.resources.getResourceEntryName(it.key)}×${"%.2f".format(it.value)}" })
+            }
+            return Meritko(s, dorovnani)
         }
 
         /* ── kreslení ─────────────────────────────────────────────────── */
@@ -172,14 +481,25 @@ class PocasiWidget : AppWidgetProvider() {
                     it.setOnClickPendingIntent(android.R.id.background, otevri(ctx))
                 }
             } else {
-                val v = velikost(mgr, id)
-                val pozadi = pozadi(ctx, v, stav.data.optJSONObject("pozadi"))
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    // Android 12+: launcher si variantu vybere sám podle skutečné
-                    // velikosti — i při změně velikosti bez dalšího volání appky.
-                    RemoteViews(VARIANTY.associate { it.od to naplnVariantu(ctx, it, stav, pozadi) })
+                val obloha = stav.data.optJSONObject("pozadi")
+                val presne = velikosti(mgr, id)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && presne.isNotEmpty()) {
+                    // Android 12+: pro KAŽDOU velikost, ve které launcher widget
+                    // ukazuje (na výšku, na šířku), vlastní rozvržení se změřeným
+                    // písmem a vlastním pozadím. Launcher si pak vybere sám.
+                    RemoteViews(presne.associateWith { sz ->
+                        val va = vyber(sz.width, sz.height)
+                        naplnVariantu(ctx, va, stav, pozadi(ctx, sz, obloha), meritko(ctx, va, stav, sz))
+                    })
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // Launcher velikosti (zatím) nehlásí: varianty podle nejmenší
+                    // velikosti a základní písmo. Přijde `onAppWidgetOptionsChanged`.
+                    val pozadi = pozadi(ctx, velikost(mgr, id), obloha)
+                    RemoteViews(VARIANTY.associate { it.od to naplnVariantu(ctx, it, stav, pozadi, ZAKLADNI) })
                 } else {
-                    naplnVariantu(ctx, vyber(v.width, v.height), stav, pozadi)
+                    val v = velikost(mgr, id)
+                    val va = vyber(v.width, v.height)
+                    naplnVariantu(ctx, va, stav, pozadi(ctx, v, obloha), meritko(ctx, va, stav, v))
                 }
             }
             try {
@@ -190,7 +510,11 @@ class PocasiWidget : AppWidgetProvider() {
             }
         }
 
-        private fun naplnVariantu(ctx: Context, va: Varianta, st: Widget.Stav, pozadi: Bitmap): RemoteViews {
+        /**
+         * @param pozadi obloha; `null` jen při měření (bitmapa by nafoukla výšku)
+         * @param m      měřítko písma proti XML (viz `meritko`)
+         */
+        private fun naplnVariantu(ctx: Context, va: Varianta, st: Widget.Stav, pozadi: Bitmap?, m: Meritko): RemoteViews {
             val d = st.data
             val v = RemoteViews(ctx.packageName, va.layout)
             fun text(id: Int, co: String) {
@@ -199,7 +523,12 @@ class PocasiWidget : AppWidgetProvider() {
                 v.setViewVisibility(id, if (co.isEmpty()) View.GONE else View.VISIBLE)
             }
 
-            v.setImageViewBitmap(R.id.w_pozadi, pozadi)
+            if (pozadi != null) v.setImageViewBitmap(R.id.w_pozadi, pozadi)
+            // ⚠️ V px, ne v sp: měřítko se našlo měřením v px, takže už v sobě
+            // má i systémové zvětšení písma. V sp by se započítalo dvakrát.
+            for ((id, px) in zaklad(ctx, va.layout)) {
+                if (id in va.ids) v.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_PX, px * m.pro(id))
+            }
             text(R.id.w_misto, st.misto)
             text(R.id.w_ikona, d.optString("ikona"))
             text(R.id.w_teplota, d.optString("teplota"))
@@ -247,6 +576,9 @@ class PocasiWidget : AppWidgetProvider() {
                     bunka.setTextViewText(R.id.w_h_cas, h.optString("cas"))
                     bunka.setTextViewText(R.id.w_h_ikona, h.optString("ikona"))
                     bunka.setTextViewText(R.id.w_h_teplota, h.optString("teplota"))
+                    for ((idH, px) in zaklad(ctx, R.layout.widget_pocasi_hodina)) {
+                        bunka.setTextViewTextSize(idH, TypedValue.COMPLEX_UNIT_PX, px * m.pro(idH))
+                    }
                     v.addView(R.id.w_hodiny, bunka)
                     pridano++
                 }
@@ -274,8 +606,9 @@ class PocasiWidget : AppWidgetProvider() {
             nacteno: Long, sirkaDp: Float, vyskaDp: Float,
         ): RemoteViews {
             val st = Widget.Stav(data, misto, nacteno)
-            val pozadi = pozadi(ctx, SizeF(sirkaDp, vyskaDp), data.optJSONObject("pozadi"))
-            return naplnVariantu(ctx, VARIANTY[varianta], st, pozadi)
+            val sz = SizeF(sirkaDp, vyskaDp)
+            val va = VARIANTY[varianta]
+            return naplnVariantu(ctx, va, st, pozadi(ctx, sz, data.optJSONObject("pozadi")), meritko(ctx, va, st, sz))
         }
 
         private fun otevri(ctx: Context): PendingIntent = PendingIntent.getActivity(
@@ -430,10 +763,35 @@ object Widget {
     private fun ids(ctx: Context): IntArray =
         AppWidgetManager.getInstance(ctx).getAppWidgetIds(ComponentName(ctx, PocasiWidget::class.java))
 
-    fun prekresli(ctx: Context) {
-        val mgr = AppWidgetManager.getInstance(ctx)
-        for (id in ids(ctx)) PocasiWidget.vykresli(ctx, mgr, id)
+    /**
+     * Překreslí widgety — 🚨 NA POZADÍ, na jednom vlastním vlákně.
+     *
+     * Kreslení si měří písmo nafukováním pohledů (`PocasiWidget.meritko`),
+     * a to trvá stovky milisekund až vteřiny. Volá se i z mostu do webu,
+     * když je appka otevřená — na hlavním vlákně by appka zamrzla.
+     * Nafouknout pohled mimo hlavní vlákno jde (tak funguje i
+     * `AsyncLayoutInflater`), jen se nesmí nikam připojit — a my ho jen měříme.
+     * ⚠️ Jedno vlákno, ne víc: dvě kreslení téhož widgetu naráz by se
+     * předbíhala a vyhrálo by to pomalejší, tedy klidně to se starými daty.
+     *
+     * @param jen   jen tyto widgety (změna velikosti), jinak všechny
+     * @param hotovo zavolá se po dokreslení (`goAsync` v obsluze widgetu)
+     */
+    fun prekresli(ctx: Context, jen: IntArray? = null, hotovo: (() -> Unit)? = null) {
+        val app = ctx.applicationContext
+        KRESLENI.execute {
+            try {
+                val mgr = AppWidgetManager.getInstance(app)
+                for (id in jen ?: ids(app)) PocasiWidget.vykresli(app, mgr, id)
+            } catch (e: Exception) {
+                // Widget zůstane ve starém stavu; spadnout kvůli tomu nesmí.
+            } finally {
+                hotovo?.invoke()
+            }
+        }
     }
+
+    private val KRESLENI = Executors.newSingleThreadExecutor()
 
     private fun sit() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 

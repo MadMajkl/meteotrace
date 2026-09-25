@@ -80,7 +80,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
-            android:maxLines="2"
+            android:maxLines="3"
             android:textSize="13sp" />
 
         <TextView
@@ -93,7 +93,7 @@
             android:alpha="0.9"
             android:ellipsize="end"
             android:gravity="bottom"
-            android:maxLines="2"
+            android:maxLines="3"
             android:textSize="12sp" />
 
         <TextView
