@@ -262,12 +262,25 @@ test('🚨 nejistota jedné kopie nezpochybní druhou, přesnou', () => {
    a mlčící zdroj vypadají úplně stejně; liší se jen časem vydání.
    ============================================================ */
 
-test('🚨 zastaralý zdroj se NESMÍ tvářit jako klid', () => {
+/* ♻️ 25. 9. 2026 Michal pravidlo obrátil: zastaralá zpráva se NEUKAZUJE
+   vůbec — žádné výstrahy, žádná věta, celá karta pryč. *„Prostě ukazovat se
+   musí jen aktuální výstrahy."* Mrtvý zdroj se pořád nesmí tvářit jako klid
+   (stav není 'zadne'), jen se o něm nemluví. */
+
+test('🚨 zastaralý zdroj se NESMÍ tvářit jako klid — a nic se neukáže', () => {
   const tridny = new Date(TEĎ - 3 * 24 * 3600_000).toISOString();
   const v = pohled({ warnings: [], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
   assert.equal(v.stav, 'zastaralé');
   assert.notEqual(v.stav, 'zadne', 'tři dny staré ticho není klid');
-  assert.match(v.zprava, /3 dny/, v.zprava);
+  assert.equal(v.zprava, '', 'žádná věta — karta se schová celá');
+  assert.deepEqual(v.polozky, []);
+});
+
+test('🚨 hranice je 12 hodin: 11 h se ukáže, 13 h už ne', () => {
+  const w = [vystraha({ event: 'Bouřky' })];
+  const za = (h) => new Date(TEĎ - h * 3600_000).toISOString();
+  assert.equal(pohled({ warnings: w, misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: za(11) }).stav, 'vystrahy');
+  assert.equal(pohled({ warnings: w, misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: za(13) }).stav, 'zastaralé');
 });
 
 test('čerstvý zdroj, který mlčí, klid ANO', () => {
@@ -281,9 +294,27 @@ test('🚨 chybějící čas vydání se bere jako nevíme, ne jako klid', () =>
   assert.equal(v.stav, 'zastaralé');
 });
 
-test('zastaralost nepřebije platné výstrahy', () => {
-  // Když nějaké výstrahy přišly, jsou důležitější než poznámka o stáří.
+test('🚨 zastaralost PŘEBIJE i výstrahy, které ve zprávě jsou (25. 9. 2026)', () => {
+  // ♻️ Do 25. 9. platil opak („zastaralost nepřebije platné výstrahy").
+  // Zpráva stará tři dny neříká nic o tom, co platí dnes.
   const tridny = new Date(TEĎ - 3 * 24 * 3600_000).toISOString();
   const v = pohled({ warnings: [vystraha({ event: 'Bouřky' })], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
-  assert.equal(v.stav, 'vystrahy');
+  assert.equal(v.stav, 'zastaralé');
+  assert.deepEqual(v.polozky, []);
+});
+
+test('🚨 u každé výstrahy je VŽDYCKY napsané, jak je stará', () => {
+  const pred3h = new Date(TEĎ - (3 * 60 + 50) * 60_000).toISOString();
+  const v = pohled({ warnings: [vystraha({ event: 'Bouřky' }), vystraha({ event: 'Vítr', severity: 'Minor' })],
+    misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: pred3h });
+  assert.equal(v.polozky.length, 2);
+  for (const p of v.polozky) {
+    // Zaokrouhluje se DOLŮ: 3 h 50 min je „před 3 hodinami", ne „před 4".
+    assert.match(p.vydano, /^Vydáno před 3 hodinami \(\d{1,2}:\d{2}\)$/, p.vydano);
+  }
+  const pred20min = new Date(TEĎ - 20 * 60_000).toISOString();
+  const m = pohled({ warnings: [vystraha({ event: 'Bouřky' })], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: pred20min });
+  assert.match(m.polozky[0].vydano, /^Vydáno před 20 minutami/, m.polozky[0].vydano);
+  const en = buildWarningsView({ payload: { warnings: [vystraha({ event: 'Storm' })], pokryto: true, filtrovano: true, sent: pred3h }, lang: 'en', nowMs: TEĎ });
+  assert.match(en.polozky[0].vydano, /^Issued 3 hours ago/, en.polozky[0].vydano);
 });

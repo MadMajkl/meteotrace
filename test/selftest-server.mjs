@@ -324,6 +324,7 @@ test('🚨 obsluha: vyčerpaná kvóta NENÍ výpadek cizí služby', async () =
 
 test('obsluha: výstrahy se ořežou už na serveru', async () => {
   const feed = {
+    sent: new Date().toISOString(),
     warnings: [
       { alert: { info: [{ language: 'cs', event: 'Bouřky', severity: 'Severe', area: [] }] } },
       { alert: { info: [{ language: 'cs', event: 'Žádná výstraha před požáry', severity: 'Minor', area: [] }] } },
@@ -341,7 +342,7 @@ test('obsluha: výstrahy se ořežou už na serveru', async () => {
 test('obsluha: do cache se ukládá už ořezané', async () => {
   // Kdyby se ukládal syrový feed, ořezávalo by se při každém zásahu znovu
   // a v paměti by ležel megabajt místo pár kilobajtů.
-  const feed = { warnings: [{ alert: { info: [{ language: 'cs', event: 'Vítr', severity: 'Moderate', area: [] }] } }] };
+  const feed = { sent: new Date().toISOString(), warnings: [{ alert: { info: [{ language: 'cs', event: 'Vítr', severity: 'Moderate', area: [] }] } }] };
   const f = fakeFetch({ body: feed });
   const cache = createCache();
   await serveProxy({ pathname: '/api/warnings' }, { cache, fetchImpl: f, builders: STAVITELE });
@@ -376,7 +377,15 @@ test('obsluha: hlásí zahozené parametry do logu', async () => {
    KDY: až za cache. V cache leží odpověď společná všem.
    ============================================================ */
 
+/**
+ * 🚨 Čas vydání musí být čerstvý: zprávu starší než 12 hodin proxy ven
+ * NEPOUŠTÍ (jen aktuální výstrahy, 25. 9. 2026). Vzorek bez `sent` by se
+ * choval jako zastaralý a všechny testy výřezu by tiše měřily prázdno.
+ */
+const TED_VYDANO = new Date().toISOString();
+
 const FEED = {
+  sent: TED_VYDANO,
   warnings: [
     { alert: { info: [{
       language: 'cs', event: 'Bouřky', severity: 'Moderate',
@@ -473,7 +482,7 @@ test('🚨 výstrahy: prošlé se ven neposílají', async () => {
   // Ve skutečné odpovědi z 22. 8. byla víc než polovina záznamů dávno po
   // platnosti — je to zbytečný objem na mobilních datech.
   const nowMs = Date.parse('2026-08-22T12:00:00+02:00');
-  const feed = { warnings: [
+  const feed = { sent: '2026-08-22T10:00:00+02:00', warnings: [
     { alert: { info: [{ language: 'cs', event: 'Stará bouřka', severity: 'Moderate',
       expires: '2026-08-17T18:00:00+02:00',
       area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
@@ -493,7 +502,7 @@ test('🚨 výstrahy: prošlé se vyhodí i v přehledu bez souřadnic', async (
   // vyhození prošlých se přeskočit nesmí — jinak celostátní přehled ukazuje
   // bouřky z minulého týdne.
   const nowMs = Date.parse('2026-08-22T12:00:00+02:00');
-  const feed = { warnings: [
+  const feed = { sent: '2026-08-22T10:00:00+02:00', warnings: [
     { alert: { info: [{ language: 'cs', event: 'Stará', severity: 'Minor',
       expires: '2026-08-17T18:00:00+02:00', area: [{ areaDesc: 'Ústecký kraj', geocode: [] }] }] } },
     { alert: { info: [{ language: 'cs', event: 'Platná', severity: 'Minor',
@@ -505,6 +514,29 @@ test('🚨 výstrahy: prošlé se vyhodí i v přehledu bez souřadnic', async (
   );
   assert.deepEqual(res.body.warnings.map((w) => w.event), ['Platná']);
   assert.equal(res.body.misto, undefined, 'bez souřadnic se místo pořád neřeší');
+});
+
+test('🚨 výstrahy: zpráva starší než 12 hodin nepustí ven ANI JEDNU (25. 9. 2026)', async () => {
+  // Jinak by ji obal ohlásil upozorněním a widget ukázal, i když appka kartu
+  // schová. Michal: „prostě ukazovat se musí jen aktuální výstrahy."
+  const nowMs = Date.parse('2026-09-25T13:00:00+02:00');
+  const stara = { ...FEED, sent: '2026-09-24T10:38:17+02:00' };   // 26 h
+  const cerstva = { ...FEED, sent: '2026-09-25T07:00:00+02:00' }; // 6 h
+  const dotaz = (feed) => serveProxy(
+    { pathname: '/api/warnings', params: LITOMERICE, env: ENV },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => nowMs, builders: STAVITELE },
+  );
+  const s = await dotaz(stara);
+  assert.deepEqual(s.res?.body?.warnings ?? s.body.warnings, []);
+  assert.equal((s.res?.body ?? s.body).sent, '2026-09-24T10:38:17+02:00', 'čas vydání jde ven dál — klient pozná proč');
+  const c = await dotaz(cerstva);
+  assert.deepEqual((c.res?.body ?? c.body).warnings.map((v) => v.event), ['Bouřky']);
+  // I s prahem pro upozornění (tak se ptá obal).
+  const obal = await serveProxy(
+    { pathname: '/api/warnings', params: { ...LITOMERICE, minSeverity: 'Minor' }, env: ENV },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: stara }), areas: AREAS, now: () => nowMs, builders: STAVITELE },
+  );
+  assert.deepEqual(obal.body.warnings, [], 'obal nesmí zvonit na zastaralou výstrahu');
 });
 
 test('výstrahy: hranice území se přiloží jen na vyžádání', async () => {

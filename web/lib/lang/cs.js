@@ -542,13 +542,11 @@ export default {
     outside: 'Výstrahy pro tuhle oblast neumíme — sledujeme evropský systém.',
     unsure: 'Nevím, kterých míst se týkají, tak ukazuju všechny.',
     unavailable: 'Výstrahy se nepodařilo načíst.',
-    /* 🚨 MRTVÝ ZDROJ NENÍ KLID. Prázdný seznam výstrah znamená buď „nic
-       nehrozí", nebo „zdroj mlčí" — a to jsou dvě úplně jiné zprávy.
-       Věta musí říct, co dělat: nespoléhat se na to. */
-    stale: 'Výstrahy jsou staré {age} — novější od ČHMÚ nemáme. Na tuhle kartu se teď nespoléhej.',
-    ageUnknown: 'neznámo jak',
-    ageHours: { one: 'hodinu', few: '{count} hodiny', many: '{count} hodiny', other: '{count} hodin' },
-    ageDays: { one: 'den', few: '{count} dny', many: '{count} dne', other: '{count} dnů' },
+    /* 🚨 Jak je zpráva stará, stojí u výstrah VŽDYCKY (Michal 25. 9. 2026).
+       Starší než 12 hodin se neukazuje vůbec, takže víc než hodiny tu není. */
+    issuedJustNow: 'Vydáno právě teď ({time})',
+    issuedMinutes: { one: 'Vydáno před minutou ({time})', few: 'Vydáno před {count} minutami ({time})', many: 'Vydáno před {count} minutami ({time})', other: 'Vydáno před {count} minutami ({time})' },
+    issuedHours: { one: 'Vydáno před hodinou ({time})', few: 'Vydáno před {count} hodinami ({time})', many: 'Vydáno před {count} hodinami ({time})', other: 'Vydáno před {count} hodinami ({time})' },
     unnamed: 'Výstraha',
     // ⚠️ Konec nebezpečí je zpráva, na kterou se čeká. Řekne se JEDNOU
     // a pak karta zmizí — opakovat dobrou zprávu znamená ji znehodnotit.

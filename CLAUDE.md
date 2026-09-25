@@ -95,7 +95,7 @@ tohle je jen shrnutí.**
 | Svět pod mapou (R32) | `web/data/svet-z8.pmtiles` (555 MB, celá planeta z0–8), vyrábí `npm run tiles -- --svet`. Ve stylu DVA zdroje: svět dole, Česko nad ním od z9. 🚨 Ne jeden slepený archiv — MapLibre zvětšuje jen nad maxzoom zdroje, chybějící dlaždici ne |
 | **Hosting mapy** | Cloudflare R2, bucket `meteotrace-maps`, nahrává `npm run tiles:upload`; adresa je konfigurace (`meta[name=meteotrace:tiles]`) |
 | Výstrahy: zdroj (R20) | **ČHMÚ NAPŘÍMO** (`opendata.chmi.cz/…/alerts/cap/`), MeteoAlarm jako záloha. Čtení CAP je `web/lib/cap.js` (čisté), stahování `server/chmi-warnings.js`. 🚨 Nejnovější soubor se pozná podle ČASU ÚPRAVY — jména se po měsíci přepisují. Ořez řídí `normalize: 'warnings'` v katalogu, ne jméno služby |
-| Stáří zdroje výstrah (R20) | `sent` z CAP jde až ke klientovi. Starší než 12 h → karta se NESCHOVÁ a řekne to. 🚨 Chybějící `sent` = „nevíme", ne „čerstvé". Zastaralost nepřebije platné výstrahy |
+| Stáří výstrah (R33, ♻️ R20) | 🚨 **JEN AKTUÁLNÍ VÝSTRAHY.** Zpráva (`sent` z CAP) starší než 12 h → server nepustí ven ANI JEDNU (karta, obal, upozornění) a karta se schová CELÁ, bez věty. Do 12 h je u KAŽDÉ výstrahy „Vydáno před 3 hodinami (10:38)". Chybějící `sent` = zastaralé. Zastaralost PŘEBÍJÍ i výstrahy ve zprávě. (Do 25. 9. 2026 bylo obráceně — nezapsané rozhodnutí z chatu.) |
 | Výstrahy na meteostanici | `web/lib/warnings-view.js` + výřez podle polohy v proxy, ověřené naživo |
 | Obrys výstrahy v mapě | `showWarningArea()` v `map.js`, hranice se posílá jen na `geo=1` |
 | Výběr místa klepnutím do mapy | `web/lib/map-pick.js`, jméno z vlastních dlaždic |

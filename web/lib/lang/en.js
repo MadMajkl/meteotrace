@@ -466,12 +466,11 @@ export default {
     outside: 'We do not cover warnings for this area — we follow the European system.',
     unsure: 'We could not tell which places these apply to, so all warnings are shown.',
     unavailable: 'Warnings could not be loaded.',
-    /* 🚨 A dead source is not calm. An empty list means either „nothing is
-       coming" or „the source has gone quiet" — two very different messages. */
-    stale: 'These warnings are {age} old — we have nothing newer from ČHMÚ. Do not rely on this card right now.',
-    ageUnknown: 'we cannot tell how',
-    ageHours: { one: 'an hour', other: '{count} hours' },
-    ageDays: { one: 'a day', other: '{count} days' },
+    /* 🚨 How old the message is ALWAYS stands next to the warnings. Anything
+       older than 12 hours is not shown at all, so hours are the most we need. */
+    issuedJustNow: 'Issued just now ({time})',
+    issuedMinutes: { one: 'Issued a minute ago ({time})', other: 'Issued {count} minutes ago ({time})' },
+    issuedHours: { one: 'Issued an hour ago ({time})', other: 'Issued {count} hours ago ({time})' },
     unnamed: 'Warning',
     // ⚠️ Konec nebezpečí je zpráva, na kterou se čeká. Řekne se JEDNOU
     // a pak karta zmizí — opakovat dobrou zprávu znamená ji znehodnotit.

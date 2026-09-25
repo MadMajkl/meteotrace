@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.21.3';
+const VERZE = '0.21.4';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2185,7 +2185,9 @@ function renderWarnings(payload) {
   // nepravda v tom nejhorším okamžiku. Viz `vystrahySkoncily()`.
   const konec = vystrahySkoncily({ stav: view.stav, jizOznameno: state.oznameno });
   const klid = view.stav === 'zadne' && !konec;
-  $('warnings-card').hidden = klid;
+  // 🚨 Zpráva starší než 12 hodin = celá karta pryč, bez výstrah i bez věty
+  // (Michal 25. 9. 2026: *„prostě ukazovat se musí jen aktuální výstrahy"*).
+  $('warnings-card').hidden = klid || view.stav === 'zastaralé';
 
   const note = $('warnings-note');
   note.textContent = konec
@@ -2232,6 +2234,13 @@ function renderWarnings(payload) {
       kde.className = p.nejiste ? 'warn-where warn-uncertain' : 'warn-where';
       kde.textContent = p.popis;
       li.append(kde);
+    }
+    // Jak je zpráva stará, stojí u každé výstrahy — vždycky.
+    if (p.vydano) {
+      const kdy = document.createElement('span');
+      kdy.className = 'warn-where warn-vydano';
+      kdy.textContent = p.vydano;
+      li.append(kdy);
     }
     list.append(li);
   }

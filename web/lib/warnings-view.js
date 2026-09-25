@@ -98,6 +98,23 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
   }
 
   const misto = payload.misto?.nazev || null;
+  const ted = nowMs || Date.now();
+
+  /* 🚨 UKAZUJÍ SE JEN AKTUÁLNÍ VÝSTRAHY (Michal 25. 9. 2026).
+     Zpráva starší než 12 hodin = žádné výstrahy a CELÁ KARTA PRYČ:
+     *„když jsou starší 12 hodin, tak se nesmí ukazovat… vůbec žádné výstrahy
+     tam pak nemají být… prostě ukazovat se musí jen aktuální výstrahy."*
+     ♻️ Do 25. 9. to bylo obráceně (R20): karta zůstala a psala „výstrahy jsou
+     staré 26 hodin, nespoléhej se". Tím se ukazovalo přesně to, co vidět
+     nemá. Rozhoduje se tady NA ZAČÁTKU, dřív než se sestaví jediná položka —
+     zastaralost přebíjí i výstrahy, které ve zprávě jsou.
+     ⚠️ Chybějící čas vydání se bere jako zastaralý: nevíme, jak je stará. */
+  if (!zpravaJeCerstva(payload.sent, ted)) {
+    return { stav: 'zastaralé', misto, zprava: '', polozky: [] };
+  }
+
+  // A jak je zpráva stará, je u výstrah napsané VŽDYCKY.
+  const vydano = vydanoSlovy(payload.sent, ted, lang);
 
   // Prošlé zahazuje i server (kvůli objemu), ale poslední slovo má výpis:
   // odpověď se drží v cache celé minuty a může se servírovat i prošlá při
@@ -128,6 +145,7 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
     popis: w.presne === false
       ? t('warnings.areaUncertain', lang)
       : (w.mista?.length ? tf('warnings.appliesTo', { place: w.mista.join(', ') }, lang) : ''),
+    vydano,
   }));
 
   // Nevíme, koho se týkají — ukazují se všechny a musí se to říct nahlas.
@@ -142,21 +160,6 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
     return { stav: 'mimo', misto: null, zprava: t('warnings.outside', lang), polozky: [] };
   }
 
-  /* 🚨 MRTVÝ ZDROJ NENÍ KLID.
-     Michal 31. 8. 2026: nad hlavou bouřka, v appce nic. Výstraha opravdu
-     žádná nebyla — ale zároveň se ukázalo, že **MeteoAlarm stál tři dny**
-     a appka to celou dobu vykreslovala jako „nic nehrozí". Prázdný seznam
-     a mlčící zdroj vypadají úplně stejně; rozdíl je jen v čase vydání.
-     Když je zpráva zastaralá, NESMÍ se z jejího mlčení číst klid. */
-  if (!zpravaJeCerstva(payload.sent, nowMs || Date.now())) {
-    return {
-      stav: 'zastaralé',
-      misto,
-      zprava: tf('warnings.stale', { age: stariSlovy(payload.sent, nowMs || Date.now(), lang) }, lang),
-      polozky: [],
-    };
-  }
-
   return {
     stav: 'zadne',
     misto,
@@ -168,15 +171,17 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
 }
 
 /**
- * Stáří zprávy lidsky — „23 hodin", „3 dny".
+ * Kdy byla zpráva vydaná — „Vydáno před 3 hodinami (10:38)".
  *
- * ⚠️ Když čas vydání chybí úplně, nevrací se „0", ale slovo o tom, že se to
- * neví. Nula by tvrdila, že zpráva právě přišla — tedy pravý opak pravdy.
+ * Volá se jen pro čerstvou zprávu (do 12 hodin), takže čas vydání známe
+ * a dny tu nejsou potřeba. Hodiny se zaokrouhlují DOLŮ: „před 3 hodinami"
+ * u zprávy staré 3 h 50 min je pravda, „před 4" by nebyla.
  */
-export function stariSlovy(sent, nowMs, lang) {
-  const s = stariZpravyS(sent, nowMs);
-  if (s === null) return t('warnings.ageUnknown', lang);
-  const hodin = Math.round(s / 3600);
-  if (hodin < 48) return tp('warnings.ageHours', hodin, {}, lang);
-  return tp('warnings.ageDays', Math.round(hodin / 24), {}, lang);
+export function vydanoSlovy(sent, nowMs, lang) {
+  const s = stariZpravyS(sent, nowMs) ?? 0;
+  const time = cas(sent, lang) || '';
+  const minut = Math.floor(s / 60);
+  if (minut < 1) return tf('warnings.issuedJustNow', { time }, lang);
+  if (minut < 60) return tp('warnings.issuedMinutes', minut, { time }, lang);
+  return tp('warnings.issuedHours', Math.floor(minut / 60), { time }, lang);
 }

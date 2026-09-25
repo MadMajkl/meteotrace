@@ -18,6 +18,7 @@ import {
 } from './upstreams.js';
 import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 import { staciNa } from './severity.js';
+import { zpravaJeCerstva } from './cap.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -200,8 +201,13 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // byla víc než polovina. Ven se posílat nemají: je to zbytečný objem na
   // mobilních datech. Přesné odfiltrování dělá až klient při výpisu, protože
   // tahle odpověď se drží v cache minuty a mezitím může něco vypršet.
-  const vsechny = (body && body.warnings) || [];
   const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : 0;
+  // 🚨 JEN AKTUÁLNÍ VÝSTRAHY (Michal 25. 9. 2026). Zpráva starší než 12 hodin
+  // nepošle ven ani jednu — jinak by ji obal ohlásil upozorněním a widget
+  // ukázal, i když appka kartu schová. `sent` jde ven dál, aby klient poznal,
+  // proč je prázdno (viz `buildWarningsView`).
+  const aktualni = !nowMs || zpravaJeCerstva(body?.sent ?? null, nowMs);
+  const vsechny = (aktualni && body && body.warnings) || [];
   const vystrahy = nowMs
     ? vsechny.filter((w) => {
       if (!w.expires) return true;
