@@ -595,33 +595,10 @@
   <section class="now card" aria-labelledby="place-name">
     <div class="place-row">
       <h1 class="place" id="place-name"></h1>
-      <!-- Pravý sloupec: hvězdička a pod ní „Tady" (R31). Obojí mluví
-           o místě v nadpisu — jedno ho uloží, druhé ho vymění za to, kde
-           právě jsem. -->
-      <div class="place-akce">
-        <button id="btn-save" class="star" type="button" aria-pressed="false">
-          <span class="star-icon" aria-hidden="true">☆</span>
-          <span class="star-text"></span>
-        </button>
-        <!-- ⚠️ Terč, ne ⌖. Znak z pole hledání je tady moc drobný a Michal
-             chtěl „znak mojí polohy, ale větší" — kroužek s tečkou a ryskami,
-             jak ho zná z map. Kreslí se barvou značky, sedí v obou motivech. -->
-        <button id="btn-here" class="star tady" type="button"
-                data-i18n-attr="title:places.hereAction|aria-label:places.hereAction">
-          <svg class="tady-ikona" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
-            <!-- Střed je zelený a dýchá, kolem něj se rozbíhá slabá vlna —
-                 jako „tady jsem" na mapě. Barvu dává CSS (`--tady-stred`). -->
-            <circle class="tady-vlna" cx="12" cy="12" r="3"/>
-            <circle class="tady-stred" cx="12" cy="12" r="3"/>
-            <path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <!-- Karusel „Jak · je · tady" (Michal 24. 9. 2026). Slova plní
-               `vyplnKarusel()` z překladu; čtečka ho neslyší, tu obsluhuje
-               `aria-label` na tlačítku. -->
-          <span class="tady-karusel" aria-hidden="true"><span class="tady-pas" id="here-pas"></span></span>
-        </button>
-      </div>
+      <button id="btn-save" class="star" type="button" aria-pressed="false">
+        <span class="star-icon" aria-hidden="true">☆</span>
+        <span class="star-text"></span>
+      </button>
     </div>
     <!-- Vysvětlí rozsvícenou hvězdičku u místa, které uživatel neukládal —
          viz `savedAs()`. Jindy je prázdný. -->
@@ -644,6 +621,27 @@
         <div class="now-cond" id="now-cond"></div>
         <div class="now-feels"><span data-i18n="now.feelsLike"></span> <b id="now-feels"></b></div>
       </div>
+      <!-- 🚨 „Tady" (R31) sedí VPRAVO VEDLE TEPLOTY, v místě, které bylo
+           prázdné — ne pod hvězdičkou. Tam do 25. 9. 2026 přidával řádek
+           a odsouval ikonu s teplotou dolů. Michal: „to měla být nezávislá
+           pole, naopak měl efektivněji vyplnit to prázdno!"
+           ⚠️ Terč, ne ⌖: kroužek s tečkou a ryskami, jak ho člověk zná
+           z map. Kreslí se barvou značky, sedí v obou motivech. -->
+      <button id="btn-here" class="tady" type="button"
+              data-i18n-attr="title:places.hereAction|aria-label:places.hereAction">
+        <svg class="tady-ikona" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+          <!-- Střed je zelený a dýchá, kolem něj se rozbíhá slabá vlna —
+               jako „tady jsem" na mapě. Barvu dává CSS (`--tady-stred`). -->
+          <circle class="tady-vlna" cx="12" cy="12" r="3"/>
+          <circle class="tady-stred" cx="12" cy="12" r="3"/>
+          <path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <!-- Karusel „Jak · je · tady" (Michal 24. 9. 2026). Slova plní
+             `vyplnKarusel()` z překladu; čtečka ho neslyší, tu obsluhuje
+             `aria-label` na tlačítku. -->
+        <span class="tady-karusel" aria-hidden="true"><span class="tady-pas" id="here-pas"></span></span>
+      </button>
     </div>
 
     <!-- Piktogramy jsou v rohu buňky a jsou JEN DOPLNĚK: popis i hodnota

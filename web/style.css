@@ -464,17 +464,20 @@ body {
 .star[aria-pressed="true"] { color: var(--accent); }
 .star[disabled] { color: var(--text-soft); cursor: default; }
 
-/* Hvězdička a pod ní „Tady" (R31). Sloupec zarovnaný doprava, aby obě
-   tlačítka začínala u téhož okraje karty. */
-.place-akce {
-  flex: none;
-  display: flex; flex-direction: column; align-items: flex-end;
-  margin: -8px -8px 0 0;
+/* „Tady" (R31) — vpravo v řádku s ikonou a teplotou, kde bylo prázdno.
+   🚨 NESMÍ přidat řádek: řádek s teplotou je stejně vysoký jako ikona
+   počasí, takže terč s karuselem pod sebou se do něj vejde a nic neodsune
+   (do 25. 9. 2026 seděl pod hvězdičkou a všechno pod ním sjelo dolů).
+   `margin-left: auto` ho přitlačí k pravému okraji karty. */
+.tady {
+  flex: none; margin-left: auto; align-self: center;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 44px; padding: 4px 0;           /* trefitelné prstem */
+  font: inherit; font-size: 13px; color: var(--accent);
+  background: none; border: 0; cursor: pointer;
 }
-.place-akce .star { margin: 0; }
-.place-akce .tady { margin-top: -6px; }
-/* Terč je o kus větší než hvězdička — ⌖ z pole hledání by tu zanikl. */
-.tady-ikona { width: 24px; height: 24px; flex: none; }
+/* Terč je velký schválně: plní prázdné místo a je to hlavní akce karty. */
+.tady-ikona { width: 40px; height: 40px; flex: none; }
 
 /* Terčík jemně pulzuje: zelený střed se nadechne a z něj se rozejde slabá
    vlna k prstenci. Rytmus 2,6 s jako mince v hlavičce, ať spolu nepulzují
@@ -569,6 +572,16 @@ main {
 .now-temp { font-size: 46px; font-weight: 300; letter-spacing: -.03em; }
 .now-cond { font-size: 17px; }
 .now-feels { margin-top: 2px; font-size: 14px; color: var(--text-soft); }
+
+/* 🚨 Teplota se NESMÍ zlomit. Na 320 px s „−12 °C" a terčem „Tady" vedle
+   se rozpadla na „−12" a „°C" pod sebou a karta narostla o dva řádky.
+   Pod 360 px se proto uberou mezery a písmo teploty — terč zůstane.
+   ⚠️ Musí stát AŽ ZA `.now-temp` výš, jinak ho to přebije. */
+.now-temp, .now-feels { white-space: nowrap; }
+@media (max-width: 359px) {
+  .now-main { gap: 10px; }
+  .now-temp { font-size: 38px; }
+}
 
 .details {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
