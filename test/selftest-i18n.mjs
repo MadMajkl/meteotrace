@@ -407,7 +407,7 @@ test('🚨 odhad jazyka bere i jednotné `navigator.language`', () => {
 });
 
 test('🚨 karusel u terče „Tady" má v každém jazyce právě tři neprázdná slova', () => {
-  // Keyframes `tady-karusel` ve style.css počítají se třemi zastávkami.
+  // Keyframes `tady-slovo-1…3` ve style.css počítají se třemi slovy.
   // Čtvrté slovo by se nikdy neukázalo, s dvěma by karusel stál na prázdnu.
   for (const lang of Object.keys(LANGS)) {
     const slova = t('places.hereCarousel', lang).split('|');

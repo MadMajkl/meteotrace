@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.21.1';
+const VERZE = '0.21.2';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -1608,12 +1608,12 @@ function commitRename(place, input) {
    ============================================================ */
 
 /**
- * Karusel u terče „Tady": tři slova a za nimi znovu to první, aby smyčka
- * v CSS navázala bez skoku. ⚠️ Keyframes počítají s TŘEMI slovy.
+ * Karusel u terče „Tady": tři slova, každé má v CSS vlastní dráhu zprava
+ * doleva (`tady-slovo-1…3`). ⚠️ Keyframes počítají s TŘEMI slovy.
  */
 function vyplnKarusel() {
   const slova = t('places.hereCarousel', state.lang).split('|');
-  $('here-pas').replaceChildren(...[...slova, slova[0]].map((s) => el('span', '', s)));
+  $('here-pas').replaceChildren(...slova.map((s) => el('span', '', s)));
 }
 
 function applyI18n() {

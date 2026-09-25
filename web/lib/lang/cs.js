@@ -114,7 +114,7 @@ export default {
     hereHome: 'Tady (kde právě jsem)',
     hereAction: 'Počasí tam, kde právě jsem',
     // Karusel u terče v kartě Místa — slova oddělená svislítkem, VŽDY tři.
-    hereCarousel: 'Jak|je|tady',
+    hereCarousel: 'Jak|je|tady?',
     save: 'Uložit tohle místo',
     // ⚠️ Sloveso s předmětem, ne holé „Uložit" — symetricky s trasou.
     // Z pouhého slovesa nepoznáš, co se vlastně uloží.

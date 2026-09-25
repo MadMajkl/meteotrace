@@ -505,25 +505,46 @@ body {
   .tady-stred, .tady-vlna { animation: none; }
 }
 
-/* Karusel „Jak · je · tady". Okénko je vysoké na jeden řádek a široké jako
-   NEJDELŠÍ slovo (sloupec flexu bere šířku nejširší položky), takže se
-   terč při střídání slov necuká. Na „tady" se stojí nejdéle — to je
-   odpověď; první slovo je v pásu dvakrát, aby smyčka navázala bez skoku. */
+/* Karusel „Jak · je · tady?" — slova jedou ZPRAVA DOLEVA (Michal 25. 9.).
+   Všechna tři leží v jedné buňce mřížky, takže okénko je široké jako
+   NEJDELŠÍ z nich a terč se při střídání necuká. Každé slovo má vlastní
+   dráhu: přijede zprava, postojí, odjede doleva. Na „tady?" se stojí
+   nejdéle — to je odpověď.
+   🚨 Okénko ořezává JEN do stran. Do 25. 9. jezdila slova svisle v okénku
+   vysokém na řádek a nad „tady" vykukoval spodek „j" z předchozího slova. */
 .tady-karusel {
-  display: inline-block; height: 1.25em; line-height: 1.25em;
-  overflow: hidden; vertical-align: middle;
+  display: grid; overflow: hidden; line-height: 1.4;
 }
-.tady-pas { display: flex; flex-direction: column; animation: tady-karusel 6s infinite; }
-.tady-pas > span { height: 1.25em; }
-@keyframes tady-karusel {
-  0%, 13%  { transform: translateY(0); }
-  17%, 30% { transform: translateY(-1.25em); }
-  34%, 85% { transform: translateY(-2.5em); }
-  89%, 100% { transform: translateY(-3.75em); }
+.tady-karusel > span {
+  grid-area: 1 / 1; text-align: center; white-space: nowrap;
+  transform: translateX(110%);
+  animation: 6s infinite;
+}
+.tady-karusel > span:nth-child(1) { animation-name: tady-slovo-1; }
+.tady-karusel > span:nth-child(2) { animation-name: tady-slovo-2; }
+.tady-karusel > span:nth-child(3) { animation-name: tady-slovo-3; }
+@keyframes tady-slovo-1 {
+  0%, 13%   { transform: translateX(0); }
+  17%, 85%  { transform: translateX(-110%); }
+  85.01%    { transform: translateX(110%); }
+  89%, 100% { transform: translateX(0); }
+}
+@keyframes tady-slovo-2 {
+  0%, 13%   { transform: translateX(110%); }
+  17%, 30%  { transform: translateX(0); }
+  34%, 100% { transform: translateX(-110%); }
+}
+@keyframes tady-slovo-3 {
+  0%, 30%   { transform: translateX(110%); }
+  34%, 85%  { transform: translateX(0); }
+  89%, 100% { transform: translateX(-110%); }
 }
 /* Bez pohybu stojí rovnou na posledním slově. */
 @media (prefers-reduced-motion: reduce) {
-  .tady-pas { animation: none; transform: translateY(-2.5em); }
+  /* ⚠️ `:nth-child(n)` kvůli specifičnosti — jména animací výš jsou
+     v pravidlech s `:nth-child()` a obyčejné `span` by je nepřebilo. */
+  .tady-karusel > span:nth-child(n) { animation: none; visibility: hidden; }
+  .tady-karusel > span:nth-child(3) { transform: none; visibility: visible; }
 }
 
 /* ---------- upozornění ---------- */
