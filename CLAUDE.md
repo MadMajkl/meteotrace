@@ -93,6 +93,8 @@ tohle je jen shrnutí.**
 | Hranice ORP pro výstrahy | `web/lib/orp.js` + `web/data/orp-boundaries.js` (generuje `npm run orp`), viz R11 |
 | Vlastní mapa (R3) | `web/data/cz.pmtiles` (2,2 GB, mimo git) + `map-style.js` + `web/fonts/`, vyrábí `npm run tiles` |
 | Svět pod mapou (R32) | `web/data/svet-z8.pmtiles` (555 MB, celá planeta z0–8), vyrábí `npm run tiles -- --svet`. Ve stylu DVA zdroje: svět dole, Česko nad ním od z9. 🚨 Ne jeden slepený archiv — MapLibre zvětšuje jen nad maxzoom zdroje, chybějící dlaždici ne |
+| Podrobné oblasti (R34) | vedle Česka **Sahara** do z14 (`sahara.pmtiles`, 889 MB). Seznam adres ve značce `meta[name=meteotrace:tiles-more]`, výřezy v `tools/tiles-oblasti.mjs`, vyrábí `npm run tiles -- --oblast=sahara`. Ve stylu vlastní zdroj s předponou ze jména souboru, **vždy od z9**. Popisky pro klepnutí se čtou ze stylu (`labelLayerIds`) |
+| Písma mapy | 🚨 `web/fonts/` má **všech 256 rozsahů** u obou řezů. Chybějící rozsah = MapLibre zahodí CELOU dlaždici (do 26. 9. 2026 byla prázdná Káhira i půl světa). Hlídá `selftest-map-style.mjs` |
 | **Hosting mapy** | Cloudflare R2, bucket `meteotrace-maps`, nahrává `npm run tiles:upload`; adresa je konfigurace (`meta[name=meteotrace:tiles]`) |
 | Výstrahy: zdroj (R20) | **ČHMÚ NAPŘÍMO** (`opendata.chmi.cz/…/alerts/cap/`), MeteoAlarm jako záloha. Čtení CAP je `web/lib/cap.js` (čisté), stahování `server/chmi-warnings.js`. 🚨 Nejnovější soubor se pozná podle ČASU ÚPRAVY — jména se po měsíci přepisují. Ořez řídí `normalize: 'warnings'` v katalogu, ne jméno služby |
 | Stáří výstrah (R33, ♻️ R20) | 🚨 **JEN AKTUÁLNÍ VÝSTRAHY.** Zpráva (`sent` z CAP) starší než 12 h → server nepustí ven ANI JEDNU (karta, obal, upozornění) a karta se schová CELÁ, bez věty. Do 12 h je u KAŽDÉ výstrahy „Vydáno před 3 hodinami (10:38)". Chybějící `sent` = zastaralé. Zastaralost PŘEBÍJÍ i výstrahy ve zprávě. (Do 25. 9. 2026 bylo obráceně — nezapsané rozhodnutí z chatu.) |
@@ -330,6 +332,13 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **🚨 Vrstva přidaná do mapy navrch přebije všechno pod sebou** — a radar se zakládá
   znovu při KAŽDÉM snímku animace. Cokoli, co má být nad radarem, se mu musí předat
   jako `beforeId`, jinak to po vteřině zmizí samo.
+- **🚨 CHYBĚJÍCÍ GLYFY NESCHOVAJÍ POPISEK, ALE CELOU DLAŽDICI.** Měli jsme
+  jen latinku a poznámku, že arabská jména se „jen nevykreslí". Ve skutečnosti
+  MapLibre na 404 u rozsahu `1536-1791.pbf` zahodí dlaždici i s pevninou —
+  Káhira na z8 byla jednolitá plocha, **bez jediné chyby v konzoli ani
+  v `map.on('error')`**, a `areTilesLoaded()` hlásilo `true`. Poznalo se to
+  až podle prázdných `buckets` v načtené dlaždici a podle samostatné mapy,
+  ve které tatáž dlaždice šla. Ověřuj mapu i mimo Česko.
 - **⚠️ Podklad mapy je vlastní `.pmtiles` a čte se po kouskách** — server MUSÍ umět
   `Range`. Pozor: `bytes=-500` znamená POSLEDNÍCH 500 bajtů, a rejstřík archivu je
   právě na konci.

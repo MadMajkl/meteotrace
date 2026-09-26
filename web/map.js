@@ -25,8 +25,8 @@ import {
   radarSource, TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
-import { buildStyle, fontsUrlFrom, VRSTVY_POPISKU } from './lib/map-style.js';
-import { tilesUrl, worldTilesUrl } from './lib/tiles-config.js';
+import { buildStyle, fontsUrlFrom, labelLayerIds } from './lib/map-style.js';
+import { tilesUrl, moreTilesUrls, worldTilesUrl } from './lib/tiles-config.js';
 import { placeFromMap } from './lib/map-pick.js';
 import { spojOsu, jeVeVyrezu, rohy as vyrezRohy } from './lib/nowcast.js';
 
@@ -169,6 +169,8 @@ function jeTma() {
 
 const styleFor = () => buildStyle({
   tilesUrl: tilesUrl(),
+  // Další podrobné oblasti vedle Česka, třeba Sahara (`R34`).
+  dalsiUrls: moreTilesUrls(),
   // Pod podrobnou mapou celý svět do z8 (`R32`) — jinak mimo střední
   // Evropu nebylo vidět vůbec nic.
   svetUrl: worldTilesUrl(),
@@ -265,7 +267,7 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       try {
         // ⚠️ Jen vrstvy, které ve stylu opravdu jsou — dotaz na chybějící
         // vrstvu MapLibre neodpustí.
-        const vrstvy = VRSTVY_POPISKU.filter((id) => map.getLayer(id));
+        const vrstvy = labelLayerIds(map.getStyle()).filter((id) => map.getLayer(id));
         popisky = map.queryRenderedFeatures(ramecek, { layers: vrstvy })
           .map((f) => ({
             name: typeof f.properties?.name === 'string' ? f.properties.name : '',

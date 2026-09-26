@@ -1,7 +1,8 @@
 /**
  * Nahraje podkladovou mapu do objektového úložiště (`R3`).
  *
- *     npm run tiles:upload
+ *     npm run tiles:upload                      # Česko
+ *     npm run tiles:upload -- --oblast=sahara   # jiná oblast (tiles-oblasti.mjs)
  *
  * ⚠️ NESPOUŠTÍ SE ZA BĚHU. Ruční krok, stejně jako `npm run tiles` — mapa se
  * obnovuje řádově jednou za pár měsíců.
@@ -26,12 +27,16 @@ import { existsSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { oblastZArgumentu } from './tiles-oblasti.mjs';
 
 const zde = dirname(fileURLToPath(import.meta.url));
 const KOREN = join(zde, '..');
-/** `--svet`: hrubý archiv celého světa do z8 (`R32`) místo českého. */
-const SVET = process.argv.includes('--svet');
-const JMENO = SVET ? 'svet-z8.pmtiles' : 'cz.pmtiles';
+/**
+ * Která oblast se nahrává: bez parametru Česko, `--svet` celý svět do z8
+ * (`R32`), `--oblast=sahara` další podrobná oblast (`R34`). Jména souborů
+ * jsou v `tiles-oblasti.mjs`, společně s výrobou.
+ */
+const JMENO = oblastZArgumentu().soubor;
 const ARCHIV = join(KOREN, 'web', 'data', JMENO);
 const RCLONE = join(KOREN, 'tools', 'bin', process.platform === 'win32' ? 'rclone.exe' : 'rclone');
 
@@ -83,12 +88,13 @@ async function main() {
     p.on('close', (kod) => (kod === 0 ? res() : rej(new Error(`rclone skončil s kódem ${kod}`))));
   });
 
-  const verejna = `https://<veřejná-adresa-bucketu>/${CIL}`;
-  console.log(`\nHotovo. Zbývají dvě věci, bez kterých mapa v prohlížeči NEPOJEDE:`);
-  console.log('  1. zapnout veřejné čtení bucketu (R2 → bucket → Settings → Public access)');
-  console.log('  2. povolit CORS pro naši doménu (tamtéž, CORS policy)');
-  console.log(`\nPak vlož adresu do web/index.html:`);
-  console.log(`  <meta name="meteotrace:tiles" content="${verejna}">`);
+  // Veřejné čtení i CORS má bucket nastavené jednou provždy
+  // (`DLAZDICE-vlastni-domena.md`), takže nový soubor jede hned.
+  const verejna = `https://dlazdice.meteotrace.eu/${CIL}`;
+  console.log(`\nHotovo. Ověř hosting a pak adresu zapiš do web/index.html:`);
+  console.log(`  npm run tiles:check ${verejna}`);
+  console.log('  Česko → meta meteotrace:tiles, svět → meteotrace:tiles-world,');
+  console.log('  další podrobné oblasti → meteotrace:tiles-more (seznam oddělený mezerou).');
 }
 
 main().catch((e) => {

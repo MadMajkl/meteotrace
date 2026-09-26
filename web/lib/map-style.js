@@ -125,14 +125,45 @@ const ZDROJ_SVET = 'svet';
  */
 export const DETAIL_OD_ZOOMU = 9;
 
-/** Popisky, ze kterých si klepnutí do mapy bere jméno místa (`map-pick.js`). */
-export const VRSTVY_POPISKU = ['mesta', 'ctvrti', 'svet-mesta', 'svet-ctvrti'];
+/** Vrstvy popisků (bez předpony), ze kterých si klepnutí do mapy bere jméno místa. */
+const POPISKY = ['mesta', 'ctvrti'];
+
+/**
+ * Popisky, ze kterých si klepnutí do mapy bere jméno místa (`map-pick.js`),
+ * ve všech archivech daného stylu — v Česku, ve světě i v každé další
+ * podrobné oblasti (`R34`). Seznam se proto čte ze stylu, ne z konstanty:
+ * s pevným seznamem by v Sahaře klepnutí na město jméno nenašlo.
+ *
+ * @param {{layers?: {id: string}[]}} style
+ * @returns {string[]}
+ */
+export function labelLayerIds(style) {
+  const konec = new RegExp(`(^|-)(${POPISKY.join('|')})$`);
+  return styleLayerIds(style).filter((id) => konec.test(id));
+}
+
+/**
+ * Jméno zdroje (a předpona vrstev) pro další podrobnou oblast, odvozené ze
+ * jména souboru: `…/sahara.pmtiles` → `sahara`. Čitelné jméno se hodí při
+ * ladění; kdyby se srazilo s obsazeným, dostane pořadové číslo.
+ */
+function jmenoOblasti(url, obsazena) {
+  const soubor = String(url).split(/[?#]/)[0].split('/').pop() || '';
+  const zaklad = soubor.replace(/\.pmtiles$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'oblast';
+  let jmeno = zaklad;
+  for (let i = 2; obsazena.has(jmeno); i++) jmeno = `${zaklad}-${i}`;
+  obsazena.add(jmeno);
+  return jmeno;
+}
 
 /**
  * Sestaví styl mapy.
  *
  * @param {object} a
  * @param {string} a.tilesUrl  adresa archivu `.pmtiles` (naše doména)
+ * @param {string[]} [a.dalsiUrls] další podrobné oblasti (`R34`, třeba Sahara);
+ *                              kreslí se stejně jako Česko, od `DETAIL_OD_ZOOMU`
  * @param {string} [a.svetUrl] adresa hrubého archivu celého světa (`R32`);
  *                              bez ní mapa končí na okraji `tilesUrl`
  * @param {string} [a.fontsUrl] adresa složky s písmy (viz `PISMA_VYCHOZI`)
@@ -140,7 +171,9 @@ export const VRSTVY_POPISKU = ['mesta', 'ctvrti', 'svet-mesta', 'svet-ctvrti'];
  * @param {string} [a.lang]
  * @returns {object} styl pro MapLibre
  */
-export function buildStyle({ tilesUrl, svetUrl = '', fontsUrl = PISMA_VYCHOZI, dark = false, lang = 'en' }) {
+export function buildStyle({
+  tilesUrl, dalsiUrls = [], svetUrl = '', fontsUrl = PISMA_VYCHOZI, dark = false, lang = 'en',
+}) {
   const c = dark ? PALETA.dark : PALETA.light;
   const jmeno = popisek(lang);
   const zdroj = (url) => ({
@@ -152,10 +185,20 @@ export function buildStyle({ tilesUrl, svetUrl = '', fontsUrl = PISMA_VYCHOZI, d
   // 🚨 Pořadí je podstatné: celý svět DOLŮ, detail NAD něj. Plochy detailu
   // (země, voda) jsou neprůhledné, takže tam, kde detail je, svět zakryjí
   // i s jeho silnicemi a popisky; kde detail není, prosvítá svět.
-  const vrstvy = svetUrl
-    ? [...vrstvyPodkladu(ZDROJ_SVET, 'svet-', 0, c, jmeno),
-       ...vrstvyPodkladu(ZDROJ, '', DETAIL_OD_ZOOMU, c, jmeno)]
-    : vrstvyPodkladu(ZDROJ, '', 0, c, jmeno);
+  //
+  // Další podrobné oblasti (`R34`) jdou nad Česko, každá celá za sebou.
+  // Vzájemně se nepřekrývají, takže na jejich pořadí nezáleží. 🚨 Kreslí se
+  // VŽDY až od `DETAIL_OD_ZOOMU`, i bez světa: vyříznutý archiv má na nízkých
+  // přiblíženích dlaždice přes půl kontinentu (dlaždice z0 je celá planeta),
+  // takže od nuly by Sahara zakryla Česko a zdvojila popisky.
+  const obsazena = new Set([ZDROJ, ZDROJ_SVET]);
+  const dalsi = dalsiUrls.filter(Boolean).map((url) => ({ url, jmeno: jmenoOblasti(url, obsazena) }));
+
+  const vrstvy = [
+    ...(svetUrl ? vrstvyPodkladu(ZDROJ_SVET, 'svet-', 0, c, jmeno) : []),
+    ...vrstvyPodkladu(ZDROJ, '', svetUrl ? DETAIL_OD_ZOOMU : 0, c, jmeno),
+    ...dalsi.flatMap((o) => vrstvyPodkladu(o.jmeno, `${o.jmeno}-`, DETAIL_OD_ZOOMU, c, jmeno)),
+  ];
 
   return {
     version: 8,
@@ -163,9 +206,11 @@ export function buildStyle({ tilesUrl, svetUrl = '', fontsUrl = PISMA_VYCHOZI, d
     // ⚠️ Všechny adresy míří na NÁS. Styl je jediné místo, kde by se dala do
     // mapy propašovat cizí doména, takže se to hlídá testem (R2, R12).
     glyphs: `${fontsUrl}{fontstack}/{range}.pbf`,
-    sources: svetUrl
-      ? { [ZDROJ_SVET]: zdroj(svetUrl), [ZDROJ]: zdroj(tilesUrl) }
-      : { [ZDROJ]: zdroj(tilesUrl) },
+    sources: {
+      ...(svetUrl ? { [ZDROJ_SVET]: zdroj(svetUrl) } : {}),
+      [ZDROJ]: zdroj(tilesUrl),
+      ...Object.fromEntries(dalsi.map((o) => [o.jmeno, zdroj(o.url)])),
+    },
     layers: [
       { id: 'pozadi', type: 'background', paint: { 'background-color': c.zeme } },
       ...vrstvy,

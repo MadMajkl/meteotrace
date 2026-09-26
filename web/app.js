@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.21.4';
+const VERZE = '0.22.0';
 
 const STORE_KEY = 'meteotrace.v1';
 

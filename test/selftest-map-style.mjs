@@ -9,10 +9,12 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 
-import { buildStyle, styleLayerIds, DETAIL_OD_ZOOMU, VRSTVY_POPISKU } from '../web/lib/map-style.js';
+import { buildStyle, styleLayerIds, labelLayerIds, DETAIL_OD_ZOOMU } from '../web/lib/map-style.js';
 import {
   tilesSource, tilesUrl, VYCHOZI_DLAZDICE, worldTilesSource, worldTilesUrl, VYCHOZI_SVET,
+  moreTilesSources, moreTilesUrls,
 } from '../web/lib/tiles-config.js';
 
 const TILES = 'http://localhost:8099/data/cz.pmtiles';
@@ -38,6 +40,25 @@ test('🚨 styl si nikam jinam nesahá — dlaždice ani písma', () => {
   // selftest-obal.mjs. Pro tenhle test je podstatné, že to není cizí doména.
   assert.ok(s.glyphs.startsWith('fonts/'), s.glyphs);
   assert.equal(s.sprite, undefined, 'ikony nemáme, a cizí sadu si tahat nebudeme');
+});
+
+test('🚨 každé písmo ze stylu má VŠECH 256 rozsahů znaků', () => {
+  // Chybějící rozsah NENÍ jen chybějící popisek. MapLibre na 404 u glyfů
+  // zahodí CELOU dlaždici i s pevninou a silnicemi — Káhira, střed Sahary
+  // i půl světa byly do 26. 9. 2026 prázdné, protože jsme měli jen latinku
+  // (0–511) a popisky tam jsou arabsky. Prázdné rozsahy jsou platné soubory
+  // po pár bajtech; chybět nesmí žádný.
+  const pisma = new Set(styl({ svetUrl: 'x' }).layers
+    .flatMap((l) => l.layout?.['text-font'] ?? []));
+  assert.ok(pisma.size > 0);
+  for (const pismo of pisma) {
+    const chybi = [];
+    for (let od = 0; od < 65536; od += 256) {
+      const soubor = new URL(`../web/fonts/${pismo}/${od}-${od + 255}.pbf`, import.meta.url);
+      if (!existsSync(soubor)) chybi.push(`${od}-${od + 255}`);
+    }
+    assert.deepEqual(chybi, [], `${pismo}: chybí rozsahy`);
+  }
 });
 
 test('🚨 v celém stylu není žádná adresa mimo nás', () => {
@@ -211,9 +232,80 @@ test('bez světa zůstává styl, jaký byl — jeden zdroj, detail od nuly', ()
   assert.equal(s.layers.find((l) => l.id === 'zeme').minzoom, undefined);
 });
 
-test('🚨 popisky pro klepnutí do mapy existují ve stylu se světem', () => {
-  const ids = styleLayerIds(styl({ svetUrl: SVET }));
-  for (const id of VRSTVY_POPISKU) assert.ok(ids.includes(id), id);
+test('🚨 popisky pro klepnutí do mapy: z každého archivu, a nic jiného', () => {
+  assert.deepEqual(labelLayerIds(styl({ svetUrl: SVET })),
+    ['svet-mesta', 'svet-ctvrti', 'mesta', 'ctvrti']);
+  assert.deepEqual(labelLayerIds(styl()), ['mesta', 'ctvrti']);
+  // S pevným seznamem by v Sahaře klepnutí na město jméno nenašlo.
+  assert.deepEqual(labelLayerIds(styl({ svetUrl: SVET, dalsiUrls: [SAHARA] })),
+    ['svet-mesta', 'svet-ctvrti', 'mesta', 'ctvrti', 'sahara-mesta', 'sahara-ctvrti']);
+});
+
+/* ============================================================
+   DALŠÍ PODROBNÉ OBLASTI (R34)
+   ============================================================ */
+
+const SAHARA = 'https://dlazdice.meteotrace.eu/sahara.pmtiles';
+
+test('🚨 další oblast: vlastní zdroj na naší adrese, jméno ze souboru', () => {
+  const s = styl({ svetUrl: SVET, dalsiUrls: [SAHARA] });
+  assert.deepEqual(Object.keys(s.sources), ['svet', 'meteotrace', 'sahara']);
+  assert.equal(s.sources.sahara.url, `pmtiles://${SAHARA}`);
+  assert.ok(s.sources.sahara.attribution.includes('OpenStreetMap'));
+});
+
+test('🚨 další oblast: svět dole, pak Česko, pak oblast — a každá celá za sebou', () => {
+  const s = styl({ svetUrl: SVET, dalsiUrls: [SAHARA] });
+  const zdroje = s.layers.filter((l) => l.source).map((l) => l.source);
+  const bloky = zdroje.filter((z, i) => z !== zdroje[i - 1]);
+  assert.deepEqual(bloky, ['svet', 'meteotrace', 'sahara']);
+});
+
+test('🚨 další oblast kreslí až od z9 — i BEZ světa', () => {
+  // Vyříznutý archiv má na nízkých přiblíženích dlaždice přes půl
+  // kontinentu; od nuly by Sahara zakryla Česko a zdvojila popisky.
+  for (const s of [styl({ dalsiUrls: [SAHARA] }), styl({ svetUrl: SVET, dalsiUrls: [SAHARA] })]) {
+    for (const l of s.layers.filter((v) => v.source === 'sahara')) {
+      assert.ok(l.minzoom >= DETAIL_OD_ZOOMU, l.id);
+    }
+  }
+  // Česko bez světa zůstává od nuly, jako dřív.
+  assert.equal(styl({ dalsiUrls: [SAHARA] }).layers.find((l) => l.id === 'zeme').minzoom, undefined);
+  assert.equal(styl({ dalsiUrls: [SAHARA] }).layers.find((l) => l.id === 'sahara-budovy').minzoom, 14);
+});
+
+test('další oblast: každá vrstva Česka má dvojče v oblasti', () => {
+  const s = styl({ svetUrl: SVET, dalsiUrls: [SAHARA] });
+  const detail = s.layers.filter((l) => l.source === 'meteotrace').map((l) => l.id);
+  const sahara = s.layers.filter((l) => l.source === 'sahara').map((l) => l.id);
+  assert.deepEqual(sahara, detail.map((id) => 'sahara-' + id));
+});
+
+test('další oblasti: jména se nesrazí, ani s vlastními zdroji', () => {
+  const s = styl({
+    svetUrl: SVET,
+    dalsiUrls: ['https://x/svet.pmtiles', 'https://x/a/andy.pmtiles', 'https://y/andy.pmtiles?v=2', ''],
+  });
+  assert.deepEqual(Object.keys(s.sources), ['svet', 'meteotrace', 'svet-2', 'andy', 'andy-2']);
+  const ids = styleLayerIds(s);
+  assert.equal(new Set(ids).size, ids.length, 'id vrstev musí být jedinečná');
+});
+
+test('bez dalších oblastí je styl beze změny', () => {
+  assert.deepEqual(styl({ svetUrl: SVET, dalsiUrls: [] }), styl({ svetUrl: SVET }));
+});
+
+test('adresy dalších oblastí: ze značky, oddělené mezerou; bez značky žádné', () => {
+  const hlavicka = (hodnota) => ({
+    querySelector: (sel) => (sel.includes('meteotrace:tiles-more') && hodnota !== null
+      ? { getAttribute: () => hodnota } : null),
+  });
+  assert.deepEqual(moreTilesSources(hlavicka(null)), []);
+  assert.deepEqual(moreTilesSources(hlavicka('   ')), []);
+  assert.deepEqual(moreTilesSources(hlavicka(` ${SAHARA}\n  data/andy.pmtiles `)),
+    [SAHARA, 'data/andy.pmtiles']);
+  assert.deepEqual(moreTilesUrls('http://localhost:8099/index.html', hlavicka(`${SAHARA} data/andy.pmtiles`)),
+    [SAHARA, 'http://localhost:8099/data/andy.pmtiles']);
 });
 
 test('adresa světa: ze značky, jinak soubor vedle appky', () => {

@@ -77,6 +77,28 @@ export function worldTilesUrl(base = globalThis.location?.href, doc) {
   return uplna(worldTilesSource(doc), base);
 }
 
+/**
+ * Další podrobné oblasti (`R34`) ze značky `meteotrace:tiles-more` —
+ * adresy oddělené mezerou nebo novým řádkem:
+ *
+ *     <meta name="meteotrace:tiles-more" content="https://…/sahara.pmtiles">
+ *
+ * Další oblast je tak nový archiv a jedna adresa navíc, kód se nemění.
+ * Bez značky žádné — na rozdíl od Česka a světa tu není co brát „vedle appky".
+ *
+ * @param {Document|{querySelector: Function}} [doc]
+ * @returns {string[]}
+ */
+export function moreTilesSources(doc = globalThis.document) {
+  const znacka = doc?.querySelector?.('meta[name="meteotrace:tiles-more"]');
+  return (znacka?.getAttribute('content') || '').split(/\s+/).filter(Boolean);
+}
+
+/** Úplné adresy dalších oblastí — viz `tilesUrl`. */
+export function moreTilesUrls(base = globalThis.location?.href, doc) {
+  return moreTilesSources(doc).map((zdroj) => uplna(zdroj, base));
+}
+
 function uplna(zdroj, base) {
   if (/^https?:\/\//i.test(zdroj)) return zdroj;
   if (!base) return zdroj;
