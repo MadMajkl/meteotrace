@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.22.0';
+const VERZE = '0.22.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -2123,6 +2123,27 @@ function vitrNejblize(view, nalez) {
   return { odkud: nej?.windDeg ?? null, kmh: nej?.windKmh ?? null };
 }
 
+/** Pro jaké místo jsou na obrazovce data (výstrahy a pyly patří k němu). */
+let vykreslenoPro = null;
+
+/**
+ * Načte a vykreslí meteostanici.
+ *
+ * 🚨 KRESLÍ SE V POŘADÍ, V JAKÉM TO ČLOVĚK VIDÍ, ne až dorazí všechno.
+ * Michal 27. 9. 2026: *„čeká to, až se načte první něco pod úrovní main
+ * view, co není vidět… pořadí by mělo být podle toho, co uživatel vidí:
+ * horní dlaždice, pak mapa, pak výstrahy, pak předpověď 48 h a pak pyly."*
+ * Do té doby čekaly všechny tři dotazy v jednom `Promise.all`, takže horní
+ * dlaždice se ukázala až s tím NEJPOMALEJŠÍM z nich.
+ *
+ * Teď vyrazí všechny naráz (s předností na síti podle pořadí), ale každý
+ * se kreslí, jakmile dorazí: předpověď → horní dlaždice, hned za ní se
+ * začne zakládat mapa, 48 h (táž odpověď) → výstrahy → pyly.
+ *
+ * 🚨 Zrušený dotaz NESMÍ nic dokreslit. Pyly a výstrahy mají `catch`, aby
+ * neshodily počasí — a do 27. 9. 2026 ten `catch` polykal i zrušení, takže
+ * dotaz pro PŘEDCHOZÍ místo po přepnutí klidně doběhl a nakreslil se.
+ */
 async function loadStation() {
   const place = state.place;
   if (!place) return;
@@ -2130,27 +2151,55 @@ async function loadStation() {
   notice(null);
   $('place-name').textContent = place.name;
 
+  // Jiné místo než to, co je na obrazovce: výstrahy a pyly toho starého se
+  // schovají hned. Ukazovat je pod jménem nového místa by byla nepravda —
+  // a u výstrah ta nejdražší. (Obnovení téhož místa je nechá stát, ať nic
+  // neblikne.)
+  const jineMisto = !vykreslenoPro
+    || vykreslenoPro.lat !== place.lat || vykreslenoPro.lon !== place.lon;
+  if (jineMisto) {
+    $('warnings-card').hidden = true;
+    $('pollen-card').hidden = true;
+  }
+
   try {
-    const [fc, air, warn] = await requests.run('station', async (signal) => {
+    await requests.run('station', async (signal) => {
       const common = { latitude: place.lat, longitude: place.lon };
-      // Pyl je doplněk — když se nepovede, počasí se kvůli němu neshodí.
-      // Pyl ani výstrahy nesmí shodit počasí — proto `catch`. U výstrah se
-      // ale neúspěch NEZAMLČÍ: `null` se propíše do stavu „nepodařilo se
-      // načíst", což je něco jiného než „nic nehrozí".
-      return Promise.all([
-        apiGet('forecast', { ...common, ...FORECAST_PARAMS }, { signal }),
-        apiGet('air', { ...common, ...AIR_PARAMS }, { signal }).catch(() => null),
-        apiGet('warnings', { lat: place.lat, lon: place.lon, lang: state.lang, geo: 1 }, { signal })
-          .catch(() => null),
-      ]);
+      // Pyl ani výstrahy nesmí shodit počasí — proto `null` místo chyby.
+      // U výstrah se ale neúspěch NEZAMLČÍ: `null` se propíše do stavu
+      // „nepodařilo se načíst", což je něco jiného než „nic nehrozí".
+      // ⚠️ Zrušení se ale propustit MUSÍ, viz výš.
+      const doplnek = (p) => p.catch((e) => {
+        if (requests.isAbort(e)) throw e;
+        return null;
+      });
+      const predpoved = apiGet('forecast', { ...common, ...FORECAST_PARAMS }, { signal, priority: 'high' });
+      const vystrahy = doplnek(apiGet('warnings',
+        { lat: place.lat, lon: place.lon, lang: state.lang, geo: 1 }, { signal }));
+      const pyly = doplnek(apiGet('air', { ...common, ...AIR_PARAMS }, { signal, priority: 'low' }));
+      // Když spadne předpověď, zbylé dva se dál nečtou — ať jejich zrušení
+      // neskončí v konzoli jako neošetřená chyba.
+      vystrahy.catch(() => {});
+      pyly.catch(() => {});
+
+      const fc = await predpoved;
+      if (signal.aborted) return;
+      if (!render(fc.data)) return;
+      vykreslenoPro = { lat: place.lat, lon: place.lon };
+      if (fc.stale) {
+        notice(tf('error.stale', { age: humanAge(fc.ageS) }, state.lang));
+      }
+
+      const warn = await vystrahy;
+      if (signal.aborted) return;
+      renderWarnings(warn ? warn.data : null);
+
+      const air = await pyly;
+      if (signal.aborted) return;
+      renderPollen(buildStationView({
+        forecast: fc.data, air: air?.data, lang: state.lang, units: state.units, nowMs: Date.now(),
+      }));
     });
-
-    render(fc.data, air?.data);
-    renderWarnings(warn ? warn.data : null);
-
-    if (fc.stale) {
-      notice(tf('error.stale', { age: humanAge(fc.ageS) }, state.lang));
-    }
   } catch (e) {
     if (requests.isAbort(e)) return;          // zrušený dotaz není chyba
     notice(textChyby(e, 'error.failed'));
@@ -2246,11 +2295,17 @@ function renderWarnings(payload) {
   }
 }
 
-function render(forecast, air) {
+/**
+ * Horní dlaždice, mapa a předpověď po hodinách a dnech — všechno z jedné
+ * odpovědi. Pyly se kreslí zvlášť, až dorazí (`loadStation`).
+ *
+ * @returns {boolean} jestli bylo co nakreslit
+ */
+function render(forecast) {
   const view = buildStationView({
-    forecast, air, lang: state.lang, units: state.units, nowMs: Date.now(),
+    forecast, lang: state.lang, units: state.units, nowMs: Date.now(),
   });
-  if (!view) { notice(t('error.failed', state.lang)); return; }
+  if (!view) { notice(t('error.failed', state.lang)); return false; }
 
   // 🚨 Odkrýt meteostanici smí jen tehdy, když na ní uživatel opravdu je.
   // Data se načítají i na pozadí (návrat do appky, přepnutí místa), a bez
@@ -2376,6 +2431,11 @@ function render(forecast, air) {
   zertMista.textContent = hlaskaMista;
   srovnejDlazdiciHlasek('now-quips');
 
+  // 🚨 Mapa hned po horní dlaždici, ne až na konci: je hned pod ní a její
+  // knihovna se stahuje až teď (viz `nactiKnihovny` v map.js). Čím dřív se
+  // začne, tím míň je vidět prázdná plocha.
+  showRadar(view.timeZone);
+
   // Dovětek o okolí se dotahuje zvlášť a nikoho nezdržuje.
   if (state.place) ukazOkoli(state.place, c, view);
 
@@ -2403,9 +2463,7 @@ function render(forecast, air) {
     el('span', 'r', [document.createTextNode(d.hi + ' '), el('span', 'lo', d.lo)]),
   ]));
 
-  showRadar(view.timeZone);
-
-  renderPollen(view);
+  return true;
 }
 
 /**

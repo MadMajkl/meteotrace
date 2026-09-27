@@ -74,6 +74,19 @@ test('dovětek cesty se přilepí za jméno služby', () => {
   });
 });
 
+test('přednost na síti se předá fetchi; bez ní se nepřidá nic', async () => {
+  // Pořadí načítání podle toho, co je vidět (Michal 27. 9. 2026): předpověď
+  // pro horní dlaždici `high`, pyly až dole `low`.
+  const init = [];
+  const f = async (url, i) => { init.push(i); return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) }; };
+  await sFetchem(f, async () => {
+    await apiGet('forecast', {}, { priority: 'high' });
+    await apiGet('air');
+  });
+  assert.equal(init[0].priority, 'high');
+  assert.ok(!('priority' in init[1]), 'bez volby žádný klíč — ať se nepřebíjí výchozí chování prohlížeče');
+});
+
 test('bez parametrů se nelepí prázdný otazník', () => {
   const f = fakeFetch({ telo: {} });
   return sFetchem(f, async () => {

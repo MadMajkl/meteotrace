@@ -19,6 +19,9 @@
  * @param {object} [opts]
  * @param {AbortSignal} [opts.signal]
  * @param {string} [opts.subPath]
+ * @param {'high'|'low'|'auto'} [opts.priority]  přednost na síti (Fetch
+ *   Priority). Když jde víc dotazů naráz, má dostat linku první to, co je
+ *   na obrazovce nahoře. Prohlížeč, který to nezná, volbu tiše přeskočí.
  * @returns {Promise<{data: any, stale: boolean, ageS: number}>}
  */
 export async function apiGet(service, params = {}, opts = {}) {
@@ -27,7 +30,10 @@ export async function apiGet(service, params = {}, opts = {}) {
   ).toString();
 
   const path = `/api/${service}${opts.subPath ? '/' + opts.subPath : ''}`;
-  const res = await fetch(qs ? `${path}?${qs}` : path, { signal: opts.signal });
+  const res = await fetch(qs ? `${path}?${qs}` : path, {
+    signal: opts.signal,
+    ...(opts.priority ? { priority: opts.priority } : {}),
+  });
 
   let data = null;
   try { data = await res.json(); } catch { /* prázdné nebo poškozené tělo */ }

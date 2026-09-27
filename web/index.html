@@ -78,7 +78,6 @@
 }
 </script>
 
-<link rel="stylesheet" href="vendor/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -947,8 +946,9 @@
   <p id="splash-text"></p>
 </div>
 
-<script src="vendor/maplibre-gl.js"></script>
-<script src="vendor/pmtiles.js"></script>
+<!-- 🚨 Knihovny mapy (MapLibre 939 kB, PMTiles) tu NEJSOU schválně. Obyčejný
+     <script> blokuje: app.js by čekal na knihovnu mapy, která je až pod
+     horní dlaždicí s počasím. Stahuje je map.js, až když se mapa zakládá. -->
 <script type="module" src="app.js"></script>
 </body>
 </html>

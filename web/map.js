@@ -134,6 +134,22 @@ let vystrahaGeo = null;
 let vystrahaTrida = 'unknown';
 /** Doběhl styl mapy? Bez něj se do mapy nesmí sáhnout — vrstvy by házely chybu. */
 let styleReady = false;
+/**
+ * Zakládá se mapa právě teď? (stahování knihovny + čekání na styl, na
+ * telefonu i několik sekund)
+ */
+let zakladam = false;
+/**
+ * Kam se má mapa dívat — POSLEDNÍ požadavek, ne ten, se kterým se začalo.
+ *
+ * 🚨 Michal 27. 9. 2026: *„když klepnu v místě na Tady, tak se to místo
+ * jakoby nastaví, ale data vidím pořád pro to původní, dokud neodpalcuji
+ * refresh."* Mapa se zakládala s místem, které bylo vybrané při startu,
+ * a každé další volání během zakládání skončilo na `!styleReady` dřív, než
+ * cokoli udělalo. Zakládání pak doběhlo — na PŮVODNÍM místě, se špendlíkem
+ * i radarem. Horní dlaždice přitom ukazovala už nové místo.
+ */
+let kamMapa = null;
 let frames = [];
 /** Bod, pro který jsou snímky stažené — potřebuje ho obnova při potažení dolů. */
 let posledniBod = null;
@@ -192,6 +208,41 @@ export function refreshTheme() {
 }
 
 /**
+ * Knihovny mapy (MapLibre, PMTiles a styl ovládacích prvků).
+ *
+ * 🚨 STAHUJÍ SE AŽ TEĎ, NE SE STRÁNKOU. Do 27. 9. 2026 byly v `index.html`
+ * jako obyčejné `<script>` — a ty BLOKUJÍ: `app.js` se spustil až poté, co
+ * se stáhl a zpracoval celý MapLibre (939 kB). Na telefonu tak horní dlaždice
+ * s počasím čekala na knihovnu mapy, která je pod ní. Michal: *„čeká to, až
+ * se načte něco pod úrovní main view, co není vidět."*
+ *
+ * ⚠️ Cesty jsou RELATIVNÍ — v obalu pro Android appka nesedí v kořeni domény
+ * (`selftest-obal.mjs`).
+ */
+let knihovny = null;
+
+function nactiKnihovny() {
+  const pripoj = (tag, attrs) => new Promise((res, rej) => {
+    const e = document.createElement(tag);
+    Object.assign(e, attrs);
+    e.onload = res;
+    e.onerror = () => rej(new Error(`nenačetlo se: ${attrs.src || attrs.href}`));
+    document.head.append(e);
+  });
+  knihovny ??= Promise.all([
+    // `async = false`: pořadí provedení podle připojení, ne podle toho, co
+    // dorazí dřív. PMTiles na MapLibre nezávisí, ale ať to nestojí na náhodě.
+    pripoj('script', { src: 'vendor/maplibre-gl.js', async: false }),
+    pripoj('script', { src: 'vendor/pmtiles.js', async: false }),
+    pripoj('link', { rel: 'stylesheet', href: 'vendor/maplibre-gl.css' }),
+  ]).catch((e) => {
+    knihovny = null;                   // příští pokus (návrat signálu) zkusí znovu
+    throw e;
+  });
+  return knihovny;
+}
+
+/**
  * Založí mapu. Volá se až při prvním zobrazení — MapLibre je skoro megabajt
  * a stránka, která radar neotevře, ho nemá proč platit.
  */
@@ -199,16 +250,32 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
   lang = language;
   timeZone = tz || 'UTC';
   if (onPick) priVyberu = onPick;
+  kamMapa = { lat, lon, keepView };
+
+  // Mapa se právě zakládá: to zakládání si na konci vezme `kamMapa` samo.
+  // Druhé zakládání by znamenalo dvě mapy přes sebe, každou s vlastním WebGL.
+  if (zakladam) return;
 
   if (!map) {
+    zakladam = true;
+    try {
+      await nactiKnihovny();
+    } catch {
+      zakladam = false;
+      zpravaVMape(t('radar.mapFailed', lang));
+      return;
+    }
     // 🚨 PRÁZDNÝ ČERNÝ OBDÉLNÍK JE NEJHORŠÍ MOŽNÁ ODPOVĚĎ. Když se mapa
     // nemá jak vykreslit, uživatel nemá jak poznat, jestli se načítá, jestli
     // je vadná appka, nebo jeho prohlížeč. Musí to být napsané v tom místě,
     // kam se dívá — Michal 25. 8. 2026: „mapa tam není žádná."
     if (typeof maplibregl === 'undefined' || maplibregl.supported?.() === false) {
+      zakladam = false;
       zpravaVMape(t('radar.noWebgl', lang));
       return;
     }
+    // Během stahování knihovny mohlo přijít jiné místo.
+    ({ lat, lon } = kamMapa);
 
     // Protokol `pmtiles://` se musí zaregistrovat DŘÍV, než mapa vznikne —
     // jinak si o dlaždice řekne a nikdo jí neodpoví.
@@ -308,6 +375,7 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       new Promise((res) => map.on('load', res)),
       new Promise((res) => setTimeout(res, MAP_LOAD_TIMEOUT_MS)),
     ]);
+    zakladam = false;
 
     // ⚠️ Instance se NENULUJE, i když se styl nepovedl. Mapa je pořád na
     // obrazovce a další pokus by v témže místě založil druhou — dvě mapy přes
@@ -318,6 +386,13 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
       return;
     }
     zpravaVMape(null);
+
+    // 🚨 Během zakládání mohlo přijít jiné místo („Tady", výběr z hledání).
+    // Mapa, špendlík i radar patří k POSLEDNÍMU — viz `kamMapa`.
+    if (kamMapa.lat !== lat || kamMapa.lon !== lon) {
+      ({ lat, lon } = kamMapa);
+      map.jumpTo({ center: [lon, lat], zoom: PRIBLIZENI_MISTA });
+    }
 
     znacka = new maplibregl.Marker({ color: '#1a7fd4' }).setLngLat([lon, lat]).addTo(map);
     $('radar-play').addEventListener('click', togglePlay);

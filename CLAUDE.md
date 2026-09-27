@@ -332,6 +332,17 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **🚨 Vrstva přidaná do mapy navrch přebije všechno pod sebou** — a radar se zakládá
   znovu při KAŽDÉM snímku animace. Cokoli, co má být nad radarem, se mu musí předat
   jako `beforeId`, jinak to po vteřině zmizí samo.
+- **🚨 OBYČEJNÝ `<script>` V `index.html` BLOKUJE CELOU APPKU.** MapLibre
+  (939 kB) tam byl do 27. 9. 2026 a `app.js` čekal, až se stáhne knihovna
+  mapy, která je pod horní dlaždicí. Knihovny mapy stahuje `map.js`
+  (`nactiKnihovny`) až při zakládání. Nic těžkého do `index.html` nevracet.
+- **🚨 `.catch(() => null)` POLYKÁ I ZRUŠENÍ DOTAZU.** Doplňkový dotaz (pyly,
+  výstrahy) tak po přepnutí místa doběhl a nakreslil data PŘEDCHOZÍHO místa.
+  Zrušení propouštět (`requests.isAbort(e)` → `throw`) a před kreslením
+  kontrolovat `signal.aborted`. Viz `loadStation`.
+- **🚨 CO PŘIJDE, ZATÍMCO SE MAPA ZAKLÁDÁ, SE NESMÍ ZTRATIT.** „Tady" během
+  zakládání mapy skončilo na `!styleReady` a mapa doběhla na původním místě.
+  `showMap` si drží poslední požadavek (`kamMapa`) a aplikuje ho po založení.
 - **🚨 CHYBĚJÍCÍ GLYFY NESCHOVAJÍ POPISEK, ALE CELOU DLAŽDICI.** Měli jsme
   jen latinku a poznámku, že arabská jména se „jen nevykreslí". Ve skutečnosti
   MapLibre na 404 u rozsahu `1536-1791.pbf` zahodí dlaždici i s pevninou —
