@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.22.1';
+const VERZE = '0.23.0';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -965,6 +965,8 @@ function openSettings() {
     { value: 'dark', text: t('settings.themeDark', state.lang) },
     { value: 'pink', text: t('settings.themePink', state.lang) },
     { value: 'pink-dark', text: t('settings.themePinkDark', state.lang) },
+    // Maskáče jako v Gulpce, s českou vlajkou na nášivce (27. 9. 2026).
+    { value: 'camo', text: t('settings.themeCamo', state.lang) },
   ], state.theme || '');
 
   for (const [osa, hodnoty] of Object.entries(JEDNOTKY)) {
@@ -2540,7 +2542,7 @@ function renderPollen(view) {
  * by se zapomnělo. Pak by nový motiv šel vybrat, ale po zavření appky by
  * se ztratil.
  */
-const MOTIVY = ['light', 'dark', 'pink', 'pink-dark'];
+const MOTIVY = ['light', 'dark', 'pink', 'pink-dark', 'camo'];
 
 /**
  * Je motiv tmavý?

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Procedurální maskáč ve stylu AČR vzor 95 „les". Každá barevná vrstva je
+       plný obdélník oříznutý prahovaným fraktálním šumem (feTurbulence → discrete
+       alfa) → organické nepravidelné skvrny. stitchTiles="stitch" = bezešvé dlaždice.
+       Tóny ZÁMĚRNĚ tlumené; v CSS se navíc překrývá světlým závojem kvůli čitelnosti.
+       Úprava vzhledu: barvy v <rect fill>, hustota skvrn = tableValues, velikost =
+       baseFrequency, jiný tvar = seed. -->
+  <defs>
+    <filter id="c1" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="4" seed="41" stitchTiles="stitch" result="t"/>
+      <feComponentTransfer in="t" result="t2"><feFuncA type="discrete" tableValues="0 0 1 1 1 0"/></feComponentTransfer>
+      <feComposite in="SourceGraphic" in2="t2" operator="in"/>
+    </filter>
+    <filter id="c2" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="4" seed="5" stitchTiles="stitch" result="t"/>
+      <feComponentTransfer in="t" result="t2"><feFuncA type="discrete" tableValues="0 0 0 1 1 1"/></feComponentTransfer>
+      <feComposite in="SourceGraphic" in2="t2" operator="in"/>
+    </filter>
+    <filter id="c3" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="4" seed="17" stitchTiles="stitch" result="t"/>
+      <feComponentTransfer in="t" result="t2"><feFuncA type="discrete" tableValues="0 0 0 1 1 0"/></feComponentTransfer>
+      <feComposite in="SourceGraphic" in2="t2" operator="in"/>
+    </filter>
+    <filter id="c4" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="4" seed="29" stitchTiles="stitch" result="t"/>
+      <feComponentTransfer in="t" result="t2"><feFuncA type="discrete" tableValues="0 0 0 0 1 1"/></feComponentTransfer>
+      <feComposite in="SourceGraphic" in2="t2" operator="in"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="#b3ae7c"/>
+  <rect width="256" height="256" fill="#8f9159" filter="url(#c1)"/>
+  <rect width="256" height="256" fill="#5d6336" filter="url(#c2)"/>
+  <rect width="256" height="256" fill="#7c6541" filter="url(#c3)"/>
+  <rect width="256" height="256" fill="#3f4525" filter="url(#c4)"/>
+</svg>

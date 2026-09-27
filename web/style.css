@@ -30,8 +30,13 @@
   --shadow: 0 1px 2px rgba(16, 32, 48, .05), 0 6px 20px rgba(16, 32, 48, .06);
 }
 
+/* 🚨 Tmavý SYSTÉM platí jen bez zvoleného motivu (`:not([data-theme])`).
+   Do 27. 9. 2026 tu bylo `:not([data-theme="light"])` — a to platilo i pro
+   ZVOLENÝ růžový nebo maskáčový motiv, jakmile měl telefon tmavý režim:
+   do khaki karet lezly tmavé odznaky pylů a výstrah. Tmavé motivy mají
+   vlastní pravidla (`[data-theme="dark"]`, `[data-theme="pink-dark"]`). */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     --bg: #0f151c;
     --bg-grad: linear-gradient(180deg, #16212e 0%, #0f151c 42%);
     --surface: #17202b;
@@ -115,6 +120,55 @@
   /* Na tmavém pozadí musí být podbarvení sytější, aby vůbec bylo vidět —
      tatáž úvaha jako u tmavého motivu. */
   --ton-sila: 0.16;
+}
+
+/* ── Maskáče ────────────────────────────────────────────────────────────
+   Michal 27. 9. 2026: *„maskáčový skin, podobně jako má gulpka."*
+   Opsáno z Gulpky (`napij_se/style.css`, `body.theme-camo`): vzor 95 „les"
+   z `camo.svg` (procedurální, bezešvá dlaždice 256×256, soubor je 1:1 týž)
+   pod lehkým závojem, povrchy KHAKI plátno místo bílé, tmavě olivový text.
+   Hodnoty jsou Gulpčiny; mapují se jen na naše jména proměnných.
+
+   ⚠️ Semaforové tóny a výstrahy se NEPŘEBARVUJÍ — stejně jako u růžové. */
+:root[data-theme="camo"] {
+  --bg: #aaa572;
+  --camo-zavoj: linear-gradient(rgba(208, 204, 170, .30), rgba(208, 204, 170, .30));
+  --bg-grad: var(--camo-zavoj);
+  --surface: #d2cda4;
+  --surface-2: #c7c195;
+  --line: #a7a47c;
+  --text: #33371d;
+  --text-soft: #565a38;
+  --accent: #5b6630;
+  --accent-soft: #c2bd8f;
+  --warn-bg: #e6dcb4;
+  --warn-line: #9a7a2e;
+  --warn-text: #5a3f0c;
+  --tady-stred: #3f6a24;
+  --shadow: 0 1px 2px rgba(40, 44, 20, .12), 0 6px 20px rgba(40, 44, 20, .16);
+}
+
+/* Česká vlajka jako NÁŠIVKA na rukávu uniformy (Michal: *„a s českou
+   vlajkou, jenže nevím, kde ji ukázat"*). Sedí v hlavičce MÍSTO ◈, ne vedle:
+   řádek hlavičky je změřený na pixely (viz `.brand-name` níž) a každý
+   pixel navíc by vzal místo kontextu „Místo · Praha".
+   ⚠️ Výška 12 px < řádek 15 px — hlavička kvůli ní NESMÍ narůst. */
+.nasivka { display: none; }
+:root[data-theme="camo"] .brand-toggle .brand-mark { display: none; }
+:root[data-theme="camo"] .nasivka {
+  display: inline-flex; flex: none;
+  /* Obšití nášivky: tmavě olivový okraj a jemný stín, jako by byla přišitá. */
+  outline: 1px solid #353a1b; outline-offset: 0;
+  border-radius: 1px;
+  box-shadow: 0 1px 1px rgba(40, 44, 20, .35);
+}
+.nasivka svg { display: block; }
+
+/* 🚨 Vzor se musí OPAKOVAT. Obecné pravidlo pro `body` dává přechodu
+   `no-repeat` — a protože se za `--bg-grad` dosadí text, dostala by ho
+   i dlaždice maskáče a zbyl by jeden čtverec 256×256 vlevo nahoře. */
+:root[data-theme="camo"] body {
+  background: var(--camo-zavoj), url("camo.svg") repeat, var(--bg);
 }
 
 
@@ -655,7 +709,7 @@ main {
   --ton-sila: 0.10;                 /* jak sytě se podbarvuje */
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --ton-sila: 0.16; }
+  :root:not([data-theme]) { --ton-sila: 0.16; }
 }
 :root[data-theme="dark"] { --ton-sila: 0.16; }
 
@@ -808,17 +862,17 @@ main {
 .pollen li:has(.lvl[data-level="none"]) { opacity: .65; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
-  :root:not([data-theme="light"]) .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
-  :root:not([data-theme="light"]) .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
-  :root:not([data-theme="light"]) .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
+  :root:not([data-theme]) .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
+  :root:not([data-theme]) .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
+  :root:not([data-theme]) .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
+  :root:not([data-theme]) .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root[data-theme="dark"] .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
-:root[data-theme="dark"] .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
-:root[data-theme="dark"] .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
-:root[data-theme="dark"] .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen .lvl[data-level="low"] { background: #16281a; color: #a9d6b0; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen .lvl[data-level="moderate"] { background: #3a2f14; color: #f0d9a8; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen .lvl[data-level="high"] { background: #40291a; color: #f5c4a4; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen .lvl[data-level="veryHigh"] { background: #42201f; color: #f5b0b0; }
 
 
 /* ---------- úvodní obrazovka ---------- */
@@ -979,15 +1033,15 @@ main {
 .warn-unknown { --warn-line: #6b7a8c; --warn-bg: #eef2f6; --warn-text: #37424f; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
-  :root:not([data-theme="light"]) .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
-  :root:not([data-theme="light"]) .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
+  :root:not([data-theme]) .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
+  :root:not([data-theme]) .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
+  :root:not([data-theme]) .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root[data-theme="dark"] .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
-:root[data-theme="dark"] .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
-:root[data-theme="dark"] .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .warn-extreme { --warn-line: #a3352c; --warn-bg: #351916; --warn-text: #f6c8c2; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .warn-severe  { --warn-line: #96591f; --warn-bg: #32210f; --warn-text: #f3d4ac; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .warn-unknown { --warn-line: #4a5867; --warn-bg: #1c242e; --warn-text: #ccd6e0; }
 
 
 /* Nízká závažnost se ztlumí — vedle střední byla k nerozeznání a čtyři stejně
@@ -995,11 +1049,11 @@ main {
 .warn-minor { --warn-line: #b0b8c2; --warn-bg: #f6f8fa; --warn-text: #4a5561; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
+  :root:not([data-theme]) .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root[data-theme="dark"] .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .warn-minor { --warn-line: #3c4653; --warn-bg: #1a212a; --warn-text: #b6c1cd; }
 
 
 /* ── Správa uložených míst ─────────────────────────────────────────────── */
@@ -1106,11 +1160,11 @@ main {
   font-weight: 600;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+  :root:not([data-theme]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root[data-theme="dark"] .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
 
 
 /* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
@@ -1127,17 +1181,17 @@ main {
 .pollen li[data-level="none"] .pollen-icon { color: var(--text-soft); }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
-  :root:not([data-theme="light"]) .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
-  :root:not([data-theme="light"]) .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
-  :root:not([data-theme="light"]) .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
+  :root:not([data-theme]) .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
+  :root:not([data-theme]) .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
+  :root:not([data-theme]) .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
+  :root:not([data-theme]) .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root[data-theme="dark"] .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
-:root[data-theme="dark"] .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
-:root[data-theme="dark"] .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
-:root[data-theme="dark"] .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen li[data-level="low"] .pollen-icon { color: #8fc79a; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen li[data-level="moderate"] .pollen-icon { color: #e0b464; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen li[data-level="high"] .pollen-icon { color: #e59468; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .pollen li[data-level="veryHigh"] .pollen-icon { color: #e0736a; }
 
 
 
@@ -1401,9 +1455,9 @@ main {
    A řídí se MOTIVEM APPKY, ne systému: kdo si appku přepnul na světlou,
    nechce tmavý kalendář. Proto tytéž dva selektory jako u proměnných nahoře. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .dep-at { color-scheme: dark; }
+  :root:not([data-theme]) .dep-at { color-scheme: dark; }
 }
-:root[data-theme="dark"] .dep-at { color-scheme: dark; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .dep-at { color-scheme: dark; }
 
 /* Nabídka v polích trasy. Tlačítko na celou šířku, jméno nad obcí —
    ⚠️ tatáž ulice je v desítce měst, takže OBEC je to jediné, co je rozliší.

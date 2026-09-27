@@ -246,6 +246,47 @@ test('hledač bloků si nesplete komentář s pravidlem', () => {
 });
 
 /* ============================================================
+   MOTIVY — seznam v app.js, barvy v CSS, jméno v překladu
+
+   🚨 Tmavý SYSTÉM smí sahat jen na appku BEZ zvoleného motivu. Do 27. 9.
+   2026 stálo v CSS `:not([data-theme="light"])`, takže při tmavém telefonu
+   dostal zvolený růžový (a nově maskáčový) motiv tmavé odznaky pylů
+   a výstrah. Ve světlém prohlížeči to nebylo vidět vůbec.
+   ============================================================ */
+
+test('🚨 tmavý systém platí jen bez zvoleného motivu', () => {
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(css, /:not\(\[data-theme="light"\]\)/);
+  const tmavySystem = [...css.matchAll(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*?)\n\}/g)]
+    .map((m) => m[1]).join('\n');
+  assert.ok(tmavySystem.length, 'chybí blok pro tmavý systém — test by nic nekontroloval');
+  for (const sel of tmavySystem.match(/^\s*[^\s{][^{]*\{/gm) || []) {
+    assert.match(sel, /:root:not\(\[data-theme\]\)/, `pravidlo tmavého systému bez :not([data-theme]): ${sel.trim()}`);
+  }
+});
+
+test('každý motiv z MOTIVY má barvy v CSS a jméno v obou jazycích', async () => {
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  const motivy = JSON.parse(app.match(/const MOTIVY = (\[[^\]]*\]);/)[1].replace(/'/g, '"'));
+  assert.ok(motivy.includes('camo'));
+  const { default: cs } = await import('../web/lib/lang/cs.js');
+  const { default: en } = await import('../web/lib/lang/en.js');
+  for (const m of motivy) {
+    if (m !== 'light') assert.ok(css.includes(`:root[data-theme="${m}"] {`), `motiv ${m} nemá barvy v CSS`);
+    const klic = 'theme' + m.split('-').map((c) => c[0].toUpperCase() + c.slice(1)).join('');
+    assert.ok(cs.settings?.[klic] && en.settings?.[klic], `motiv ${m}: chybí settings.${klic}`);
+    assert.ok(app.includes(`t('settings.${klic}'`), `motiv ${m} není v nabídce vzhledu`);
+  }
+});
+
+test('maskáč: vzor se opakuje a leží vedle appky', () => {
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  assert.match(css, /:root\[data-theme="camo"\] body\s*\{[^}]*url\("camo\.svg"\) repeat/);
+  assert.ok(readFileSync(join(WEB, 'camo.svg'), 'utf8').includes('stitchTiles="stitch"'));
+});
+
+/* ============================================================
    ANIMACE A VYPNUTÝ POHYB
 
    ⚠️ Kdo si v systému vypne animace, má k tomu důvod — nevolnost z pohybu,
