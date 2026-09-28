@@ -11,6 +11,75 @@
 
 'use strict';
 
+/** Adresa dotazu na proxy. Prázdné parametry se do ní nedostanou. */
+function adresa(service, params = {}, opts = {}) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v != null && v !== ''),
+  ).toString();
+  const path = `/api/${service}${opts.subPath ? '/' + opts.subPath : ''}`;
+  return qs ? `${path}?${qs}` : path;
+}
+
+/* ── Předstih ────────────────────────────────────────────────────────────
+   Dotaz, který odešel dřív, než o něj appka požádala (`start.js` — počasí
+   pro uložené místo vyrazí souběžně se stahováním appky). `apiGet` si ho
+   převezme, když se ptá na PŘESNĚ tutéž adresu.
+
+   ⚠️ Převzít jde jen JEDNOU: tělo odpovědi se dá přečíst jen jednou, a druhý
+   tazatel by dostal prázdno. Po převzetí se záznam maže.
+   ⚠️ A jen ČERSTVÝ: kdyby appka o dotaz požádala až po minutě (dlouhé
+   uvítání, karta na pozadí), zeptá se znovu — předpověď se nesmí
+   podstrčit starší, než by přišla sama. */
+
+/** Jak dlouho smí předem stažená odpověď čekat na převzetí. */
+export const PREDSTIH_PLATNOST_MS = 30_000;
+
+/** @type {Map<string, {promise: Promise<Response>, kdy: number}>} */
+const predem = new Map();
+
+/**
+ * Pošle dotaz dřív, než o něj appka požádá. Chyby se tu nehlásí — když
+ * předstih selže, `apiGet` dostane tutéž chybu, jako by se ptal sám.
+ *
+ * @param {string} service
+ * @param {object} [params]
+ * @param {{subPath?: string, priority?: string}} [opts]
+ * @param {number} [nowMs]  kvůli testu
+ */
+export function prefetchApi(service, params = {}, opts = {}, nowMs = Date.now()) {
+  const url = adresa(service, params, opts);
+  if (predem.has(url)) return;
+  const promise = fetch(url, opts.priority ? { priority: opts.priority } : {});
+  // Nikdo převzatý nemusí být — ať nepřevzaté selhání nekončí v konzoli.
+  promise.catch(() => {});
+  predem.set(url, { promise, kdy: nowMs });
+}
+
+function prevezmi(url, nowMs = Date.now()) {
+  const z = predem.get(url);
+  if (!z) return null;
+  predem.delete(url);
+  return nowMs - z.kdy <= PREDSTIH_PLATNOST_MS ? z.promise : null;
+}
+
+/**
+ * Předem odeslaný dotaz nemá `signal` appky. Když appka dotaz mezitím
+ * zruší (přepnutí místa), musí to pro ni skončit `AbortError` stejně jako
+ * u vlastního `fetch` — jinak by se dokreslilo předchozí místo.
+ */
+function sPrerusenim(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new DOMException('Zrušeno', 'AbortError'));
+  return new Promise((res, rej) => {
+    const zrus = () => rej(new DOMException('Zrušeno', 'AbortError'));
+    signal.addEventListener('abort', zrus, { once: true });
+    promise.then(
+      (v) => { signal.removeEventListener('abort', zrus); res(v); },
+      (e) => { signal.removeEventListener('abort', zrus); rej(e); },
+    );
+  });
+}
+
 /**
  * Jeden dotaz na proxy.
  *
@@ -25,15 +94,14 @@
  * @returns {Promise<{data: any, stale: boolean, ageS: number}>}
  */
 export async function apiGet(service, params = {}, opts = {}) {
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v != null && v !== ''),
-  ).toString();
-
-  const path = `/api/${service}${opts.subPath ? '/' + opts.subPath : ''}`;
-  const res = await fetch(qs ? `${path}?${qs}` : path, {
-    signal: opts.signal,
-    ...(opts.priority ? { priority: opts.priority } : {}),
-  });
+  const url = adresa(service, params, opts);
+  const predem = prevezmi(url);
+  const res = await (predem
+    ? sPrerusenim(predem, opts.signal)
+    : fetch(url, {
+      signal: opts.signal,
+      ...(opts.priority ? { priority: opts.priority } : {}),
+    }));
 
   let data = null;
   try { data = await res.json(); } catch { /* prázdné nebo poškozené tělo */ }

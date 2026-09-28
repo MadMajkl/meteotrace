@@ -13,7 +13,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { apiGet, createRequestGroup } from '../web/lib/api.js';
+import { apiGet, createRequestGroup, prefetchApi, PREDSTIH_PLATNOST_MS } from '../web/lib/api.js';
+import { forecastQuery, startPlace, FORECAST_PARAMS } from '../web/lib/forecast-query.js';
+import { FORECAST_PARAMS as STATION_FORECAST_PARAMS } from '../web/lib/station.js';
 
 /** Podvržený `fetch` — vrátí, co se mu řekne, a zapíše, na co se šlo. */
 function fakeFetch(odpoved) {
@@ -93,6 +95,75 @@ test('bez parametrů se nelepí prázdný otazník', () => {
     await apiGet('radar');
     assert.equal(f.volani[0], '/api/radar');
   });
+});
+
+/* ============================================================
+   PŘEDSTIH (start.js) — dotaz poslaný dřív, než o něj appka požádá
+   ============================================================ */
+
+test('🚨 předem poslaný dotaz se převezme — na síť se nejde podruhé', async () => {
+  const f = fakeFetch({ telo: { t: 21 } });
+  await sFetchem(f, async () => {
+    prefetchApi('forecast', { latitude: 50, longitude: 14 }, { priority: 'high' });
+    const r = await apiGet('forecast', { latitude: 50, longitude: 14 }, { priority: 'high' });
+    assert.equal(r.data.t, 21);
+  });
+  assert.equal(f.volani.length, 1, 'appka se zeptala znovu — předstih nebyl k ničemu');
+});
+
+test('převzít jde jen JEDNOU a jen přesně tutéž adresu', async () => {
+  const f = fakeFetch({ telo: {} });
+  await sFetchem(f, async () => {
+    prefetchApi('forecast', { latitude: 50, longitude: 14 });
+    await apiGet('forecast', { latitude: 49, longitude: 14 });   // jiné místo → vlastní dotaz
+    await apiGet('forecast', { latitude: 50, longitude: 14 });   // převezme
+    await apiGet('forecast', { latitude: 50, longitude: 14 });   // tělo už je přečtené → znovu
+  });
+  assert.equal(f.volani.length, 3);
+});
+
+test('🚨 stará předem stažená odpověď se nepodstrčí', async () => {
+  // Appka, která o počasí požádá až po minutě (uvítání, karta na pozadí),
+  // musí dostat čerstvé — ne to, co se stáhlo při startu.
+  const f = fakeFetch({ telo: {} });
+  await sFetchem(f, async () => {
+    prefetchApi('forecast', { latitude: 51, longitude: 14 }, {}, Date.now() - PREDSTIH_PLATNOST_MS - 1000);
+    await apiGet('forecast', { latitude: 51, longitude: 14 });
+  });
+  assert.equal(f.volani.length, 2);
+});
+
+test('🚨 zrušení platí i pro převzatý dotaz — jinak by se dokreslilo staré místo', async () => {
+  let pust;
+  const f = async () => { await new Promise((r) => { pust = r; }); return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) }; };
+  await sFetchem(f, async () => {
+    prefetchApi('forecast', { latitude: 52, longitude: 14 });
+    const ac = new AbortController();
+    const dotaz = apiGet('forecast', { latitude: 52, longitude: 14 }, { signal: ac.signal });
+    ac.abort();
+    await assert.rejects(dotaz, (e) => e.name === 'AbortError');
+    pust();
+  });
+});
+
+test('místo pro předstih: z adresy, jinak uložené, nesmysl nikdy', () => {
+  const ulozeno = JSON.stringify({ place: { name: 'Praha', lat: 50.08, lon: 14.42 } });
+  assert.deepEqual(startPlace('', ulozeno), { name: 'Praha', lat: 50.08, lon: 14.42 });
+  // Adresa přebíjí uložené — v tomhle pořadí to dělá i `init()` v app.js.
+  assert.equal(startPlace('?lat=22.785&lon=5.5228', ulozeno).lat, 22.785);
+  assert.equal(startPlace('', null), null);
+  assert.equal(startPlace('', '{rozbité'), null);
+  assert.equal(startPlace('', JSON.stringify({ place: { lat: 0, lon: 0 } })), null);
+  assert.equal(startPlace('?lat=0&lon=0', null), null);
+});
+
+test('dotaz na předpověď se skládá z jednoho zdroje', () => {
+  const q = forecastQuery({ lat: 50, lon: 14 });
+  assert.equal(q.latitude, 50);
+  assert.equal(q.longitude, 14);
+  assert.equal(q.forecast_days, FORECAST_PARAMS.forecast_days);
+  // `station.js` parametry jen přeposílá — nesmí mít vlastní kopii.
+  assert.equal(STATION_FORECAST_PARAMS, FORECAST_PARAMS);
 });
 
 /* ============================================================

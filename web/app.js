@@ -24,7 +24,8 @@ import {
 } from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
-import { buildStationView, FORECAST_PARAMS, AIR_PARAMS } from './lib/station.js';
+import { buildStationView, AIR_PARAMS } from './lib/station.js';
+import { forecastQuery, placeFromSearch, STORE_KEY } from './lib/forecast-query.js';
 import { momentParts, clock, dayShift } from './lib/when.js';
 import {
   resolveDeparture, clampPlanned, departureOffsets, forecastDaysFor, defaultPlanned,
@@ -67,9 +68,9 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.23.1';
+const VERZE = '0.23.2';
 
-const STORE_KEY = 'meteotrace.v1';
+// Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
 /**
  * Uložená místa mají VLASTNÍ klíč, oddělený od nastavení.
@@ -2177,7 +2178,7 @@ async function loadStation() {
         if (requests.isAbort(e)) throw e;
         return null;
       });
-      const predpoved = apiGet('forecast', { ...common, ...FORECAST_PARAMS }, { signal, priority: 'high' });
+      const predpoved = apiGet('forecast', forecastQuery(place), { signal, priority: 'high' });
       const vystrahy = doplnek(apiGet('warnings',
         { lat: place.lat, lon: place.lon, lang: state.lang, geo: 1 }, { signal }));
       const pyly = doplnek(apiGet('air', { ...common, ...AIR_PARAMS }, { signal, priority: 'low' }));
@@ -4269,12 +4270,10 @@ function humanAge(seconds) {
  * Jazyk a jednotky jdou přebít stejně (`?lang=cs&units=imperial`).
  */
 function placeFromUrl() {
-  const q = new URLSearchParams(location.search);
-  const lat = Number(q.get('lat'));
-  const lon = Number(q.get('lon'));
   // Nesmysl se neukládá — mimo rozsah i nulový ostrov, viz `isUsablePoint()`.
-  if (!isUsablePoint({ lat, lon })) return null;
-  return { name: q.get('name') || `${lat.toFixed(2)}, ${lon.toFixed(2)}`, lat, lon };
+  // ⚠️ Čte se sdílenou funkcí: předstih při startu (`start.js`) se musí
+  // ptát na totéž místo, jinak by jeho odpověď appka nepřevzala.
+  return placeFromSearch(location.search);
 }
 
 function init() {

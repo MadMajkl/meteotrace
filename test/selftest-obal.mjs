@@ -246,6 +246,36 @@ test('hledač bloků si nesplete komentář s pravidlem', () => {
 });
 
 /* ============================================================
+   RYCHLÝ START (28. 9. 2026) — moduly naráz, počasí s předstihem
+   ============================================================ */
+
+test('🚨 modulepreload v index.html sedí přesně na graf importů appky', async () => {
+  // Nový modul bez řádku by přišel až v další vlně — appka by jela dál,
+  // jen pomaleji, a nikdo by si toho nevšiml. Zbytečný řádek by stahoval
+  // něco, co appka nepotřebuje.
+  const { moduleGraph } = await import('../tools/module-graph.mjs');
+  const graf = moduleGraph(['start.js', 'app.js']).filter((m) => m !== 'app.js' && m !== 'start.js');
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const vHtml = [...html.matchAll(/<link rel="modulepreload" href="([^"]+)">/g)].map((m) => m[1]);
+  assert.ok(graf.length > 20, 'graf je podezřele malý — hledač importů nejspíš nic nenašel');
+  assert.deepEqual([...vHtml].sort(), [...graf].sort(),
+    'seznam modulepreload neodpovídá importům — obnov ho: node tools/module-graph.mjs');
+  // ⚠️ Relativně, ne od kořene: v obalu pro Android appka v kořeni nesedí.
+  for (const h of vHtml) assert.ok(!h.startsWith('/'), h);
+});
+
+test('🚨 předstih se načítá async z hlavičky a těžké moduly za sebou netáhne', async () => {
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const hlavicka = html.slice(0, html.indexOf('</head>'));
+  assert.match(hlavicka, /<script type="module" async src="start\.js"><\/script>/);
+  // Knihovny mapy zpátky do stránky nesmí (27. 9. 2026: blokovaly start).
+  assert.doesNotMatch(html, /<script[^>]+src="vendor\/maplibre-gl\.js"/);
+  const { moduleGraph } = await import('../tools/module-graph.mjs');
+  assert.deepEqual(moduleGraph(['start.js']).sort(),
+    ['lib/api.js', 'lib/forecast-query.js', 'lib/geo-query.js', 'start.js']);
+});
+
+/* ============================================================
    MOTIVY — seznam v app.js, barvy v CSS, jméno v překladu
 
    🚨 Tmavý SYSTÉM smí sahat jen na appku BEZ zvoleného motivu. Do 27. 9.

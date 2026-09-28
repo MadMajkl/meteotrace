@@ -79,6 +79,48 @@
 </script>
 
 <link rel="stylesheet" href="style.css">
+<!-- 🚨 PŘEDSTIH (28. 9. 2026, Michal: „aby to bylo svižnější"): počasí pro
+     uložené místo vyrazí HNED, souběžně se stahováním appky — viz start.js
+     a lib/forecast-query.js. „async": nečeká na nic, ani na zbytek stránky. -->
+<script type="module" async src="start.js"></script>
+<!-- Všechny moduly appky NARÁZ. Bez tohohle je prohlížeč objevoval ve vlnách
+     (app.js → jeho importy → jejich importy) a každá vlna čekala na tu
+     předchozí. Seznam vyrábí „node tools/module-graph.mjs" a hlídá
+     selftest-obal.mjs — nový modul bez řádku tady test nepustí. -->
+<link rel="modulepreload" href="lib/api.js">
+<link rel="modulepreload" href="lib/forecast-query.js">
+<link rel="modulepreload" href="lib/i18n.js">
+<link rel="modulepreload" href="lib/units.js">
+<link rel="modulepreload" href="lib/probes.js">
+<link rel="modulepreload" href="lib/warnings-view.js">
+<link rel="modulepreload" href="lib/pollen-icons.js">
+<link rel="modulepreload" href="icon-draw.js">
+<link rel="modulepreload" href="lib/sky-icons.js">
+<link rel="modulepreload" href="lib/geo-query.js">
+<link rel="modulepreload" href="lib/station.js">
+<link rel="modulepreload" href="lib/when.js">
+<link rel="modulepreload" href="lib/departure.js">
+<link rel="modulepreload" href="lib/eta.js">
+<link rel="modulepreload" href="lib/route-adapter.js">
+<link rel="modulepreload" href="lib/route-view.js">
+<link rel="modulepreload" href="lib/great-circle.js">
+<link rel="modulepreload" href="lib/fit-row.js">
+<link rel="modulepreload" href="lib/pull-refresh.js">
+<link rel="modulepreload" href="lib/warn-notify.js">
+<link rel="modulepreload" href="lib/drift.js">
+<link rel="modulepreload" href="lib/tile-tone.js">
+<link rel="modulepreload" href="lib/onboarding.js">
+<link rel="modulepreload" href="lib/map-pick.js">
+<link rel="modulepreload" href="lib/quips.js">
+<link rel="modulepreload" href="lib/weather-code.js">
+<link rel="modulepreload" href="lib/donate.js">
+<link rel="modulepreload" href="lib/qr.js">
+<link rel="modulepreload" href="lib/places.js">
+<link rel="modulepreload" href="lib/lang/en.js">
+<link rel="modulepreload" href="lib/lang/cs.js">
+<link rel="modulepreload" href="lib/cap.js">
+<link rel="modulepreload" href="lib/moon.js">
+<link rel="modulepreload" href="lib/severity.js">
 </head>
 <body>
 
