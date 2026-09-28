@@ -428,7 +428,7 @@ export default {
     themeDark: 'Tmavý',
     themePink: 'Růžový',
     themePinkDark: 'Tmavě růžový',
-    themeCamo: 'Maskáče',
+    themeCamo: 'Expedice CZ',
     units: 'Jednotky',
     unitsNote: 'Metrické nebo imperiální.',
     temperature: 'Teplota',

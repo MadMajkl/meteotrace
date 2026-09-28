@@ -122,8 +122,9 @@
   --ton-sila: 0.16;
 }
 
-/* ── Maskáče ────────────────────────────────────────────────────────────
+/* ── Expedice CZ (maskáče, `camo`) ──────────────────────────────────────
    Michal 27. 9. 2026: *„maskáčový skin, podobně jako má gulpka."*
+   V nabídce se od 28. 9. jmenuje „Expedice CZ"; hodnota zůstává `camo`.
    Opsáno z Gulpky (`napij_se/style.css`, `body.theme-camo`): vzor 95 „les"
    z `camo.svg` (procedurální, bezešvá dlaždice 256×256, soubor je 1:1 týž)
    pod lehkým závojem, povrchy KHAKI plátno místo bílé, tmavě olivový text.

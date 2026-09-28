@@ -364,7 +364,7 @@ export default {
     themeDark: 'Dark',
     themePink: 'Pink',
     themePinkDark: 'Pink, dark',
-    themeCamo: 'Camo',
+    themeCamo: 'Expedition CZ',
     units: 'Units',
     unitsNote: 'Metric or imperial.',
     temperature: 'Temperature',

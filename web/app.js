@@ -67,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.23.0';
+const VERZE = '0.23.1';
 
 const STORE_KEY = 'meteotrace.v1';
 
@@ -965,7 +965,9 @@ function openSettings() {
     { value: 'dark', text: t('settings.themeDark', state.lang) },
     { value: 'pink', text: t('settings.themePink', state.lang) },
     { value: 'pink-dark', text: t('settings.themePinkDark', state.lang) },
-    // Maskáče jako v Gulpce, s českou vlajkou na nášivce (27. 9. 2026).
+    // „Expedice CZ": maskáče jako v Gulpce, s českou vlajkou na nášivce
+    // (27. 9. 2026, přejmenováno 28. 9.). ⚠️ Hodnota zůstává `camo` — je
+    // uložená v telefonech a po přejmenování by si ji appka nepoznala.
     { value: 'camo', text: t('settings.themeCamo', state.lang) },
   ], state.theme || '');
 
