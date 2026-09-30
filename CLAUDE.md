@@ -334,6 +334,12 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
 - **🚨 Vrstva přidaná do mapy navrch přebije všechno pod sebou** — a radar se zakládá
   znovu při KAŽDÉM snímku animace. Cokoli, co má být nad radarem, se mu musí předat
   jako `beforeId`, jinak to po vteřině zmizí samo.
+- **🚨 OSAMOCENÁ `}` V CSS TIŠE ZAHODÍ DALŠÍ PRAVIDLO.** Od konce srpna do
+  30. 9. 2026 takhle nežilo `.brand-kontext`: sbalený řádek hlavičky měl
+  16 px místo 13, nebyl vpravo a lámal se na dva řádky (lišta 43 px místo 34).
+  Žádná chyba v konzoli, nic nepřetékalo — a kontrola useknutého kontextu
+  v layoutovém testu kvůli tomu měsíc **neměřila nic** (bez `overflow: hidden`
+  není co useknout). Hlídá `selftest-obal.mjs`: závorky v `style.css` musí sedět.
 - **🚨 OBYČEJNÝ `<script>` V `index.html` BLOKUJE CELOU APPKU.** MapLibre
   (939 kB) tam byl do 27. 9. 2026 a `app.js` čekal, až se stáhne knihovna
   mapy, která je pod horní dlaždicí. Knihovny mapy stahuje `map.js`

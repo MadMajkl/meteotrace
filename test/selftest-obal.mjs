@@ -293,6 +293,51 @@ test('🚨 obrazovka statistik se načítá LÍNĚ, ne se startem appky (R35)', 
 });
 
 /* ============================================================
+   ZÁVORKY V CSS
+
+   🚨 Osamocená `}` je TICHÁ vada: prohlížeč kvůli ní zahodí celé následující
+   pravidlo a neřekne nic. Od konce srpna do 30. 9. 2026 takhle nežilo
+   `.brand-kontext` — sbalený řádek hlavičky měl jiné písmo, nebyl vpravo
+   a lámal se na dva řádky. Rozvržení přitom „sedělo" (nic nepřetékalo),
+   takže si toho měsíc nikdo nevšiml.
+   ============================================================ */
+
+/** Kde v CSS nesedí závorky (čísla řádků), bez komentářů a řetězců. */
+function nevyvazeneZavorky(css) {
+  // Komentáře a řetězce se nahradí mezerami se zachováním konců řádků,
+  // ať číslo řádku ve zprávě odpovídá souboru.
+  const bez = css
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/"[^"\n]*"|'[^'\n]*'/g, (m) => ' '.repeat(m.length));
+  const vady = [];
+  let hloubka = 0;
+  let radek = 1;
+  for (const ch of bez) {
+    if (ch === '\n') radek += 1;
+    else if (ch === '{') hloubka += 1;
+    else if (ch === '}') {
+      hloubka -= 1;
+      if (hloubka < 0) { vady.push(`řádek ${radek}: } navíc`); hloubka = 0; }
+    }
+  }
+  if (hloubka > 0) vady.push(`na konci chybí ${hloubka}× }`);
+  return vady;
+}
+
+test('🚨 závorky v style.css sedí — osamocená } tiše zahodí další pravidlo', () => {
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  assert.deepEqual(nevyvazeneZavorky(css), []);
+  // A pravidlo, které kvůli tomu měsíc nežilo, v souboru opravdu je.
+  assert.match(css.replace(/\/\*[\s\S]*?\*\//g, ''), /\n\.brand-kontext \{[^}]*white-space: nowrap/);
+});
+
+test('hledač závorek najde navíc i chybějící a nesplete si komentář', () => {
+  assert.deepEqual(nevyvazeneZavorky('.a { x: 1; }\n}\n.b { y: 2; }'), ['řádek 2: } navíc']);
+  assert.deepEqual(nevyvazeneZavorky('@media x {\n.a { x: 1; }\n'), ['na konci chybí 1× }']);
+  assert.deepEqual(nevyvazeneZavorky('/* } */ .a { content: "}"; }'), []);
+});
+
+/* ============================================================
    MOTIVY — seznam v app.js, barvy v CSS, jméno v překladu
 
    🚨 Tmavý SYSTÉM smí sahat jen na appku BEZ zvoleného motivu. Do 27. 9.

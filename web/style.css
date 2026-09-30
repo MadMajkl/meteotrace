@@ -245,6 +245,14 @@ body {
 @media (max-width: 380px) {
   .brand-name { display: none; }
 }
+/* ♻️ 30. 9. 2026: „vejde se všechno" platilo pro „Místo · Praha". Delší
+   kontext („Místo · Horšovský Týn", „Trasa · Praha → Brno", cokoli se
+   Statistikami) se na 390–430 px usekl, protože mu jméno appky nechalo jen
+   118 px. Ve SBALENÉM stavu proto jméno ustoupí až do 480 px — tytéž
+   důvody jako výš. Rozbalená nabídka kontext neukazuje, tam jméno zůstává. */
+@media (max-width: 480px) {
+  .brand-toggle[aria-expanded="false"] .brand-name { display: none; }
+}
 
 /* ── Značka jako tlačítko nabídky ──────────────────────────────────────── */
 /* Celý řádek se značkou je tlačítko: na telefonu je to ta největší plocha,
@@ -336,16 +344,25 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .brand-toggle[aria-expanded="false"] .brand-sipka { animation: none; }
 }
-}
 
 /* Co je vidět dole, když je nabídka sbalená. Bez toho by zmizely záložky
    a nebylo by poznat, jestli se člověk dívá na místo, nebo na trasu —
-   a zmizelé nastavení se nedá odlišit od ztraceného. */
+   a zmizelé nastavení se nedá odlišit od ztraceného.
+
+   🚨 Tohle pravidlo bylo od konce srpna do 30. 9. 2026 MRTVÉ: před ním
+   zůstala osamocená `}` a prohlížeč kvůli ní zahodil celé následující
+   pravidlo — bez chyby, bez varování. Řádek měl 16 px místo 13, nebyl
+   vpravo a dlouhý text se lámal na dva řádky, takže hlavička rostla.
+   Hlídá to `selftest-obal.mjs` (závorky v CSS musí sedět). */
 .brand-kontext {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   text-align: right;
   font-size: 13px; font-weight: 500; color: var(--text-soft);
+  /* ⚠️ `.brand` má `line-height: 1` a tenhle řádek `overflow: hidden` —
+     dohromady to uřízne spodky písmen (ý, y, p). 1,3 × 13 px = 17 px je
+     pořád míň než značka ◈, takže lišta kvůli tomu neroste. */
+  line-height: 1.3;
 }
 .brand-toggle[aria-expanded="true"] .brand-kontext { display: none; }
 
