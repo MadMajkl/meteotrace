@@ -7,12 +7,13 @@
  * s kódem. Tichá vada: appka by jela dál, jen by ten modul přišel až
  * v další vlně a start by se o kousek zpomalil, aniž by si toho kdo všiml.
  *
- *     node tools/module-graph.mjs          # vypíše značky do index.html
+ *     node tools/module-graph.mjs          # vypíše značky
+ *     node tools/module-graph.mjs --write  # přepíše je v index.html
  */
 
 'use strict';
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -48,6 +49,20 @@ export function moduleGraph(vstupy) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const graf = moduleGraph(['start.js', 'app.js']).filter((m) => m !== 'app.js' && m !== 'start.js');
-  for (const m of graf) console.log(`<link rel="modulepreload" href="${m}">`);
-  console.error(`\n${graf.length} modulů`);
+  const znacky = graf.map((m) => `<link rel="modulepreload" href="${m}">`);
+
+  if (process.argv.includes('--write')) {
+    // Přepíše blok značek v index.html. Konce řádků se berou ze souboru
+    // (má CRLF) — smíchané by git hlásil jako změnu na každém řádku.
+    const cesta = join(WEB, 'index.html');
+    const html = readFileSync(cesta, 'utf8');
+    const nl = html.includes('\r\n') ? '\r\n' : '\n';
+    const blok = /(?:<link rel="modulepreload" href="[^"]+">\r?\n)+/;
+    if (!blok.test(html)) throw new Error('V index.html není žádná značka modulepreload, není co přepsat.');
+    writeFileSync(cesta, html.replace(blok, znacky.join(nl) + nl));
+    console.error(`index.html: ${graf.length} modulů`);
+  } else {
+    for (const z of znacky) console.log(z);
+    console.error(`\n${graf.length} modulů`);
+  }
 }

@@ -26,6 +26,7 @@ import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-quer
 import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, AIR_PARAMS } from './lib/station.js';
 import { forecastQuery, placeFromSearch, STORE_KEY } from './lib/forecast-query.js';
+import { recordVisit, cleanVisits, localToday } from './lib/stats.js';
 import { momentParts, clock, dayShift } from './lib/when.js';
 import {
   resolveDeparture, clampPlanned, departureOffsets, forecastDaysFor, defaultPlanned,
@@ -63,12 +64,17 @@ import {
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
 let mapModule = null;
+/**
+ * Obrazovka Statistiky (`R35`) — načítá se, až když ji člověk poprvé otevře.
+ * Do startu appky nepatří, stejně jako mapa.
+ */
+let statsModule = null;
 
 const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.23.2';
+const VERZE = '0.24.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -103,6 +109,10 @@ const state = {
   place: null,          // {name, country, lat, lon}
   fix: null,            // poloha ze zařízení; řazení nabídky (odkudSeDivam) a zprávy (R25)
   fixNazev: '',         // jméno té polohy, aby zpráva řekla, PRO KTERÉ místo je
+  // Kde jsem byl (`R35`): den + místo pokaždé, když se zjistí poloha.
+  // 🚨 Zůstává jen v telefonu — na server jde vždycky jen místo, na které
+  // se člověk zrovna dívá. Viz `recordVisit()` v lib/stats.js.
+  visits: [],
   // Ranní a večerní zpráva (R25). Posílá je obal, web jen říká kdy a kam.
   zpravy: { zapnuto: false, rano: '06:30', vecer: '20:00' },
   places: emptyStore(), // uložená místa a trasy
@@ -162,6 +172,7 @@ function load() {
     // znovu nesáhl na ⌖ — a nic by mu to neřeklo.
     if (isUsablePoint(saved.fix)) state.fix = { lat: saved.fix.lat, lon: saved.fix.lon };
     if (typeof saved.fixNazev === 'string') state.fixNazev = saved.fixNazev;
+    state.visits = cleanVisits(saved.visits);
     if (saved.zpravy && typeof saved.zpravy === 'object') {
       state.zpravy = {
         zapnuto: saved.zpravy.zapnuto === true,
@@ -207,6 +218,7 @@ function save() {
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
       notify: state.notify, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
+      visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
       // 🚨 Rozepsaná trasa PŘEŽIJE OBNOVENÍ STRÁNKY. Do 31. 8. 2026 se
       // neukládala vůbec, takže refresh vyhodil zadaný start i cíl — a appka
@@ -1232,6 +1244,9 @@ function sadaJednotek() {
 function zapamatujPolohu(bod) {
   if (!isUsablePoint(bod)) return;
   state.fix = { lat: bod.lat, lon: bod.lon };
+  // Kde jsem byl (`R35`): den a místo do deníku. Jméno se doplní níž.
+  const den = localToday(Date.now());
+  state.visits = recordVisit(state.visits, state.fix, den);
   save();
   zapisZpravy();
   zapisWidget();
@@ -1240,6 +1255,7 @@ function zapamatujPolohu(bod) {
   jmenoBodu(state.fix, 'fix-jmeno').then((nazev) => {
     if (!nazev || !isUsablePoint(state.fix)) return;
     state.fixNazev = nazev;
+    state.visits = recordVisit(state.visits, state.fix, den, nazev);
     save();
     zapisZpravy();
     zapisWidget();
@@ -1482,6 +1498,8 @@ function prekresliVse() {
   vypisStavZprav();
   if (state.place) loadStation();
   if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
+  // Statistika nese jednotky i jazyk v každém čísle — přepíše se celá.
+  statsModule?.relabelStats();
 }
 
 
@@ -1808,6 +1826,44 @@ function selectPlace(place, textDoPole = '') {
   // má patřit tomu, co si člověk vyžádal.
   nabidka(false);
   loadStation();
+  // Statistika se dívá na totéž místo jako zbytek appky (`R35`).
+  if (state.screen === 'stats') ukazStatistiky();
+}
+
+/* ============================================================
+   STATISTIKY (R35)
+   ============================================================ */
+
+/**
+ * Ukáže statistiky pro právě vybrané místo nebo trasu.
+ *
+ * ⚠️ Modul se stahuje až teď. Appka, která statistiky nikdy neotevře,
+ * je nemá proč platit při startu.
+ *
+ * @param {string} [odkud]  obrazovka, ze které se přišlo (`'route'` → režim trasy)
+ */
+async function ukazStatistiky(odkud) {
+  try {
+    const prvne = !statsModule;
+    statsModule ??= await import('./stats-screen.js');
+    statsModule.initStats({
+      getState: () => ({
+        lang: state.lang, units: state.units, place: state.place,
+        route: state.route, visits: state.visits,
+      }),
+      // Stejná cesta jako výsledek hledání — o místo se postará i zbytek appky.
+      selectPlace: (misto) => selectPlace(misto),
+      onChange: vypisKontext,
+    });
+    if (prvne || odkud === 'route' || odkud === 'station') {
+      await statsModule.setStatsMode(odkud === 'route' ? 'route' : 'place');
+    } else {
+      await statsModule.refreshStats();
+    }
+  } catch (e) {
+    console.warn('[MeteoTrace] statistiky se nenačetly:', e.message);
+    notice(t('stats.failed', state.lang));
+  }
 }
 
 /* ============================================================
@@ -2930,6 +2986,7 @@ function coObnovit() {
     if (state.route.from && state.route.to) return () => loadRoute();
     return null;
   }
+  if (state.screen === 'stats') return () => statsModule?.refreshStats();
   return state.place ? () => loadStation() : null;
 }
 
@@ -3352,7 +3409,7 @@ const JE_OBRAZOVKA = ['route', 'station', 'here'];
 function obrazovkaZeSezeni() {
   try {
     const ulozena = sessionStorage.getItem(KLIC_OBRAZOVKY);
-    return ulozena === 'route' || ulozena === 'station' ? ulozena : null;
+    return ulozena === 'route' || ulozena === 'station' || ulozena === 'stats' ? ulozena : null;
   } catch (e) {
     return null; /* bez úložiště se prostě začne domovskou obrazovkou */
   }
@@ -3363,17 +3420,22 @@ function obrazovkaPoObnoveni() {
 }
 
 function prepniObrazovku(kam) {
+  // Odkud se přišlo: statistika se otevře na tom, na co se člověk díval
+  // (z trasy na trase, odjinud na místě).
+  const odkud = state.screen;
   state.screen = kam;
   try {
     sessionStorage.setItem(KLIC_OBRAZOVKY, kam);
   } catch (e) { /* viz `obrazovkaPoObnoveni()` */ }
   $('station').hidden = kam !== 'station' || !state.place;
   $('route').hidden = kam !== 'route';
+  $('stats').hidden = kam !== 'stats';
   $('splash').hidden = kam !== 'station' || !!state.place;
-  for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route']]) {
+  for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route'], ['tab-stats', 'stats']]) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
   presunMapu();
+  if (kam === 'stats') ukazStatistiky(odkud);
 
   // 🚨 Legenda sedí UVNITŘ mapy, a ta se mezi obrazovkami PŘESOUVÁ — takže by
   // si na meteostanici odnesla vysvětlivky k trase, která tam vůbec není.
@@ -3449,9 +3511,12 @@ function nabidkaOtevrena() {
  * na jedno místo, nebo na cestu, která tam vede — a záložky jsou schované.
  */
 function kontextNabidky() {
-  const zalozka = t(state.screen === 'route' ? 'nav.route' : 'nav.station', state.lang);
+  const zalozka = t({ route: 'nav.route', stats: 'nav.stats' }[state.screen] || 'nav.station', state.lang);
   let co = '';
-  if (state.screen === 'route') {
+  // Statistika mluví o místě, nebo o trase — podle toho, co je v ní zvolené.
+  const oTrase = state.screen === 'route'
+    || (state.screen === 'stats' && statsModule?.statsMode?.() === 'route');
+  if (oTrase) {
     const { from, to } = state.route;
     if (from && to) co = `${placeLabel(from, state.lang)} → ${placeLabel(to, state.lang)}`;
   } else if (state.place) {
@@ -3475,7 +3540,8 @@ function vypisKontext() {
 function sbalNabidkuKObsahu() {
   const jeCo = state.screen === 'route'
     ? !$('route-summary-card')?.hidden       // spočítaná trasa
-    : !!state.place;
+    // Statistika má co říct vždycky — i když jen to, co je potřeba vybrat.
+    : state.screen === 'stats' || !!state.place;
   if (jeCo) nabidka(false);
   else { nabidka(true); }
 }
@@ -4394,6 +4460,7 @@ function init() {
   }
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
+  $('tab-stats').addEventListener('click', () => prepniObrazovku('stats'));
 
   // Značka rozbaluje a sbaluje nabídku.
   $('btn-menu').addEventListener('click', () => {

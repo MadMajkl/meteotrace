@@ -189,7 +189,7 @@ function nasypPyl(doc) {
  */
 function prekryvy(doc) {
   const nalezy = [];
-  for (const pruh of doc.querySelectorAll('.route-controls, .route-departure, .tabs, .brand, .search, .route-field')) {
+  for (const pruh of doc.querySelectorAll('.route-controls, .route-departure, .tabs, .brand, .search, .route-field, .stats-mode, .stats-period, .stats-custom')) {
     const deti = [...pruh.querySelectorAll('button, input, select, a')]
       .filter((el) => el.getBoundingClientRect().width > 0);
     for (let i = 0; i < deti.length; i++) {
@@ -422,6 +422,26 @@ async function run() {
       for (const p of prekryvy(doc)) vady.push(`Trasa s plánem: překryv ${p}`);
       // ⚠️ Zpátky na „Teď", ať další měření (dialogy) vidí výchozí stav.
       doc.getElementById('route-dep-now').click();
+
+      // 2c) STATISTIKY (R35). Třetí záložka se na 320 px musí vejít vedle
+      //     prvních dvou, mřížka a graf nesmí vylézt z karty — a nejširší
+      //     je „Vlastní" období se dvěma poli data vedle sebe.
+      doc.getElementById('tab-stats').click();
+      // Modul obrazovky se stahuje až teď a pak se čeká na data.
+      await new Promise((r) => setTimeout(r, 3500));
+      rozbalNabidku(doc);
+      const o4 = overflow(doc);
+      if (o4) vady.push(`Statistiky: přetéká o ${o4.total - o4.limit} px (${o4.culprit} sahá na ${o4.right})`);
+      for (const p of prekryvy(doc)) vady.push(`Statistiky: překryv ${p}`);
+      const vKontextuStat = useknutyKontext(doc);
+      if (vKontextuStat) vady.push(`Statistiky: ${vKontextuStat}`);
+      if (doc.getElementById('stats').hidden) vady.push('Statistiky: obrazovka se po klepnutí na záložku neukázala');
+      const obdobi = doc.getElementById('stats-period');
+      obdobi.value = 'custom';
+      obdobi.dispatchEvent(new Event('change', { bubbles: true }));
+      const o5 = overflow(doc);
+      if (o5) vady.push(`Statistiky, vlastní období: přetéká o ${o5.total - o5.limit} px (${o5.culprit} sahá na ${o5.right})`);
+      for (const p of prekryvy(doc)) vady.push(`Statistiky, vlastní období: překryv ${p}`);
 
       // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
       //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek

@@ -275,6 +275,23 @@ test('🚨 předstih se načítá async z hlavičky a těžké moduly za sebou n
     ['lib/api.js', 'lib/forecast-query.js', 'lib/geo-query.js', 'start.js']);
 });
 
+test('🚨 obrazovka statistik se načítá LÍNĚ, ne se startem appky (R35)', async () => {
+  // Kreslení grafu a kartiček nepatří do startu: kdo statistiky neotevře,
+  // nemá je proč stahovat. Statický import by je přidal do každého spuštění.
+  const { moduleGraph } = await import('../tools/module-graph.mjs');
+  assert.ok(!moduleGraph(['start.js', 'app.js']).includes('stats-screen.js'));
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  assert.match(app, /await import\('\.\/stats-screen\.js'\)/);
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  assert.match(html, /<button id="tab-stats" class="tab"/);
+  assert.match(html, /<main id="stats" hidden>/);
+  // Obrazovka si sahá jen na prvky, které v HTML opravdu jsou.
+  const obrazovka = readFileSync(join(WEB, 'stats-screen.js'), 'utf8');
+  for (const [, id] of obrazovka.matchAll(/\$\('([a-z-]+)'\)/g)) {
+    assert.ok(html.includes(`id="${id}"`), `stats-screen.js sahá na #${id}, které v index.html není`);
+  }
+});
+
 /* ============================================================
    MOTIVY — seznam v app.js, barvy v CSS, jméno v překladu
 

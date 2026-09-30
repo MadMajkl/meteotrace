@@ -24,7 +24,8 @@
 
 'use strict';
 
-import { stripDiacritics } from './geo-query.js';
+import { stripDiacritics, isUsablePoint } from './geo-query.js';
+import { checkHistoryQuery, roundCoord, KROK_ROKY } from './stats.js';
 
 const MINUTE = 60;
 const HOUR = 3600;
@@ -389,6 +390,50 @@ export const UPSTREAMS = {
     params: ['lat', 'lon', 'lang', 'units'],
     builder: 'meteoWidget',
     ttl: 10 * MINUTE,
+  },
+
+  /**
+   * Historie: jaké počasí na místě DOOPRAVDY bylo, po dnech (`R35`).
+   *
+   * Archiv Open-Meteo, denní údaje od roku 1940 do včerejška. Klient posílá
+   * jen místo a období; KTERÉ veličiny se čtou, určuje server
+   * (`HISTORY_DAILY`) — jinak by si kdokoli mohl říct o všechno a vyčerpat
+   * příděl, který sdílí i předpověď.
+   *
+   * ⚠️ `mapParams` dotaz OVĚŘÍ a souřadnice ZAOKROUHLÍ dřív, než z něj vznikne
+   * klíč mezipaměti: vadné období skončí čistou chybou 400 (ne „zdroj
+   * neodpověděl") a dva lidé ve stejné ulici sdílejí jednu odpověď.
+   * Budoucnost se tu nehlídá (katalog nezná dnešek) — tu ořízne stavitel.
+   */
+  history: {
+    base: 'https://archive-api.open-meteo.com/v1/archive',
+    params: ['lat', 'lon', 'from', 'to'],
+    builder: 'meteoHistorie',
+    mapParams: (p) => {
+      const q = checkHistoryQuery(p, '9999-12-30');
+      return { lat: String(q.lat), lon: String(q.lon), from: q.from, to: q.to };
+    },
+    // Včerejšek v archivu přibývá jednou denně; tři hodiny stačí.
+    ttl: 3 * HOUR,
+  },
+
+  /**
+   * Roční přehled od roku 1940 — „Od začátku" (`R35`).
+   *
+   * 🚨 Těžký dotaz (31 000 dní). Proto jen dvě veličiny, sečtené na serveru,
+   * souřadnice na síť archivu (0,25°) a platnost TÝDEN: minulost se nemění
+   * a celé město je jedna položka. Viz `server/history.js`.
+   */
+  climate: {
+    base: 'https://archive-api.open-meteo.com/v1/archive',
+    params: ['lat', 'lon'],
+    builder: 'meteoKlima',
+    mapParams: (p) => {
+      const bod = { lat: Number(p.lat), lon: Number(p.lon) };
+      if (!isUsablePoint(bod)) throw new Error('Chybí platné souřadnice (lat, lon).');
+      return { lat: String(roundCoord(bod.lat, KROK_ROKY)), lon: String(roundCoord(bod.lon, KROK_ROKY)) };
+    },
+    ttl: 7 * 24 * HOUR,
   },
 };
 

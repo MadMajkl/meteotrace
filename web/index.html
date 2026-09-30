@@ -98,6 +98,7 @@
 <link rel="modulepreload" href="lib/sky-icons.js">
 <link rel="modulepreload" href="lib/geo-query.js">
 <link rel="modulepreload" href="lib/station.js">
+<link rel="modulepreload" href="lib/stats.js">
 <link rel="modulepreload" href="lib/when.js">
 <link rel="modulepreload" href="lib/departure.js">
 <link rel="modulepreload" href="lib/eta.js">
@@ -180,6 +181,9 @@
   <nav class="tabs" data-i18n-attr="aria-label:nav.sections">
     <button id="tab-station" class="tab" type="button" aria-selected="true" data-i18n="nav.station"></button>
     <button id="tab-route" class="tab" type="button" aria-selected="false" data-i18n="nav.route"></button>
+    <!-- Statistiky (R35): jaké počasí na místě nebo po trase BYLO. Vždycky
+         třetí — pořadí z nastavení prohazuje jen Místo a Trasu. -->
+    <button id="tab-stats" class="tab" type="button" aria-selected="false" data-i18n="nav.stats"></button>
   </nav>
 
   <!-- Uložená místa. Jedno klepnutí = přepnutí, proto jsou v hlavičce
@@ -983,6 +987,66 @@
     <h2 id="h-route-points" data-i18n="route.alongTheWay"></h2>
     <ol class="route-points" id="route-points"></ol>
   </section>
+
+</main>
+
+<!-- ══ STATISTIKY (R35) ═══════════════════════════════════════════════════
+     Jaké počasí DOOPRAVDY bylo — na vybraném místě, nebo na startu,
+     zastávkách a v cíli vybrané trasy. Místo i trasa jsou TYTÉŽ jako na
+     ostatních záložkách (hledání, uložená místa, „Tady"); vlastní výběr
+     tu schválně není. Kreslí to stats-screen.js, čísla počítá lib/stats.js. -->
+<main id="stats" hidden>
+
+  <section class="card stats-head" aria-labelledby="stats-title">
+    <div class="stats-mode" role="group" data-i18n-attr="aria-label:stats.modeAria">
+      <button id="stats-mode-place" class="dep-mode" type="button" aria-pressed="true" data-i18n="nav.station"></button>
+      <button id="stats-mode-route" class="dep-mode" type="button" aria-pressed="false" data-i18n="nav.route"></button>
+    </div>
+    <h1 class="place" id="stats-title"></h1>
+    <div class="stats-period">
+      <label for="stats-period" data-i18n="stats.period"></label>
+      <select id="stats-period"></select>
+    </div>
+    <!-- Vlastní období: dvě data jako v Gulpce. -->
+    <div class="stats-custom" id="stats-custom" hidden>
+      <input type="date" id="stats-from" class="dep-at" min="1940-01-01" data-i18n-attr="aria-label:stats.from">
+      <span class="stats-pomlcka" aria-hidden="true">–</span>
+      <input type="date" id="stats-to" class="dep-at" min="1940-01-01" data-i18n-attr="aria-label:stats.to">
+    </div>
+    <p class="stats-range" id="stats-range"></p>
+    <!-- Načítání, prázdno i chyba se říkají TADY, větou. Prázdná obrazovka
+         bez vysvětlení se nedá odlišit od rozbité. -->
+    <p class="stats-status" id="stats-status" role="status" hidden></p>
+  </section>
+
+  <!-- Kde jsem byl: místa, kde člověk klepl na „Tady". Jen v telefonu. -->
+  <section class="card" id="stats-visited-card" hidden aria-labelledby="h-stats-visited">
+    <h2 id="h-stats-visited" data-i18n="stats.visited"></h2>
+    <ul class="chips stats-visited" id="stats-visited"></ul>
+    <p class="hint stats-hint" data-i18n="stats.visitedHint"></p>
+  </section>
+
+  <section class="card" id="stats-summary-card" hidden aria-labelledby="stats-summary-title">
+    <h2 id="stats-summary-title"></h2>
+    <dl class="details stats-cells" id="stats-cells"></dl>
+    <p class="hint stats-hint" id="stats-summary-note" hidden></p>
+  </section>
+
+  <section class="card" id="stats-chart-card" hidden aria-labelledby="h-stats-chart">
+    <h2 id="h-stats-chart" data-i18n="stats.chart"></h2>
+    <div class="stats-chart" id="stats-chart"></div>
+    <p class="hint stats-hint" id="stats-chart-note"></p>
+  </section>
+
+  <section class="card" id="stats-route-card" hidden aria-labelledby="h-stats-route">
+    <h2 id="h-stats-route" data-i18n="stats.routeTitle"></h2>
+    <ol class="stats-route" id="stats-route-points"></ol>
+    <p class="hint stats-hint" data-i18n="stats.routeHint"></p>
+  </section>
+
+  <!-- 🚨 Údaje jsou z modelu, ne ze stanice. Číslo na desetinu stupně by
+       jinak slibovalo přesnost, kterou nemá. -->
+  <p class="stats-source" data-i18n="stats.source"></p>
 
 </main>
 

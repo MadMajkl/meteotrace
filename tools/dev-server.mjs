@@ -26,6 +26,7 @@ import { stavNowcast } from '../server/chmi-nowcast.js';
 import { stavVystrahy } from '../server/chmi-warnings.js';
 import { stavZpravu } from '../server/brief.js';
 import { stavWidget } from '../server/widget.js';
+import { stavHistorii, stavKlima } from '../server/history.js';
 import { createCache } from '../web/lib/ttl-cache.js';
 import { unpackAreas } from '../web/lib/orp.js';
 import { ORP_DATA } from '../web/data/orp-boundaries.js';
@@ -77,7 +78,7 @@ const server = createServer(async (req, res) => {
       cache,
       areas,
       // Služby, které si odpověď skládají samy (víc dotazů, archiv).
-      builders: { chmiNowcast: stavNowcast, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoWidget: stavWidget },
+      builders: { chmiNowcast: stavNowcast, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoWidget: stavWidget, meteoHistorie: stavHistorii, meteoKlima: stavKlima },
       log: (msg, detail) => console.log(`  [proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
     });
     res.writeHead(status, headers).end(JSON.stringify(body, null, 2));

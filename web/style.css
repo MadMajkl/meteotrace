@@ -2256,3 +2256,77 @@ main {
 .more-name { font-weight: 600; font-size: 15px; }
 .more-domain { grid-row: 1; grid-column: 2; align-self: center; font-size: 12px; color: var(--text-soft); }
 .more-what { grid-column: 1 / -1; font-size: 13px; color: var(--text-soft); }
+
+/* ══ STATISTIKY (R35) ════════════════════════════════════════════════════
+   Jaké počasí na místě nebo po trase BYLO. Stejné karty a stejná mřížka
+   jako meteostanice (`.details`), ať se člověk nemusí učit nový vzhled. */
+
+/* Třetí záložka je vždycky poslední — nastavení prohazuje jen Místo a Trasu. */
+#tab-stats { order: 3; }
+
+.stats-mode { display: flex; gap: 8px; margin-bottom: 14px; }
+.stats-head .place { margin-bottom: 10px; }
+
+.stats-period { display: flex; align-items: center; gap: 10px; }
+.stats-period label { font-size: 14px; color: var(--text-soft); }
+.stats-period select {
+  flex: 1; min-width: 0; min-height: 44px;
+  padding: 8px 10px;
+  font: inherit; font-size: 15px; color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+
+/* Vlastní období: dvě data vedle sebe, na úzkém displeji pod sebou. */
+.stats-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.stats-custom[hidden] { display: none; }
+.stats-custom .dep-at { flex: 1 1 130px; max-width: none; }
+.stats-pomlcka { color: var(--text-soft); }
+
+.stats-range { margin: 12px 0 0; font-size: 14px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.stats-range:empty { display: none; }
+.stats-status { margin: 12px 0 0; font-size: 15px; }
+.stats-status[hidden] { display: none; }
+
+/* 🚨 Mřížka statistik má PROMĚNLIVÝ počet buněk (nulové se neukazují).
+   U `.details` dělá linky pozadí mřížky — při lichém počtu by po poslední
+   buňce zbyl šedý obdélník. Tady proto linky kreslí obrys buněk: sousední
+   obrysy se v mezeře 1 px překryjí, prázdné místo zůstane v barvě karty. */
+.stats-cells { margin-top: 0; background: var(--surface); }
+.stats-cells > div { outline: 1px solid var(--line); }
+.stats-hint { margin: 12px 0 0; }
+.stats-hint[hidden] { display: none; }
+
+.stats-visited { flex-wrap: wrap; overflow: visible; }
+
+/* Graf. Kreslí se v pixelech podle šířky karty (stats-screen.js), takže
+   písmo má na telefonu i na stole stejnou velikost. */
+.stats-chart { width: 100%; line-height: 0; }
+.stats-chart svg { display: block; max-width: 100%; }
+.stats-mrizka { stroke: var(--line); stroke-width: 1; }
+.stats-popisek { fill: var(--text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+.stats-pas { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: none; }
+.stats-cara { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+/* ⚠️ Teplá a studená čára se liší i POLOHOU (horní/dolní), ne jen barvou —
+   a legenda pod grafem to říká slovy. Barva je jen zvýrazňovač. */
+.stats-cara-max { stroke: hsl(14 78% 52%); }
+.stats-cara-min { stroke: var(--accent); }
+.stats-bod { stroke: var(--surface); stroke-width: 1; }
+.stats-bod-max { fill: hsl(14 78% 52%); }
+.stats-bod-min { fill: var(--accent); }
+.stats-srazky { fill: color-mix(in srgb, var(--accent) 70%, transparent); }
+
+/* Body trasy: každý je tlačítko přes celou šířku (klepnutí = podrobnosti). */
+.stats-route { list-style: none; margin: 0; padding: 0; }
+.stats-route li + li { border-top: 1px solid var(--line); }
+.stats-bod-trasy {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px;
+  width: 100%; min-height: 56px; padding: 10px 2px;
+  font: inherit; text-align: left; color: var(--text);
+  background: none; border: 0; cursor: pointer;
+}
+.stats-bod-role { font-size: 12px; color: var(--text-soft); align-self: center; }
+.stats-bod-jmeno { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-bod-hodnoty { grid-column: 1 / -1; font-size: 14px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+
+.stats-source { margin: 4px 4px 0; font-size: 12px; line-height: 1.45; color: var(--text-soft); }
