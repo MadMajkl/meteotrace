@@ -27,6 +27,7 @@ import { searchQuery, stripDiacritics } from './lib/geo-query.js';
 import { buildStationView, AIR_PARAMS } from './lib/station.js';
 import { forecastQuery, placeFromSearch, STORE_KEY } from './lib/forecast-query.js';
 import { recordVisit, cleanVisits, localToday } from './lib/stats.js';
+import { locationView, normalizeAccess, isDeniedError } from './lib/location-access.js';
 import { momentParts, clock, dayShift } from './lib/when.js';
 import {
   resolveDeparture, clampPlanned, departureOffsets, forecastDaysFor, defaultPlanned,
@@ -74,7 +75,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.24.1';
+const VERZE = '0.25.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -1006,6 +1007,8 @@ function openSettings() {
   $('set-brief-morning').value = state.zpravy?.rano || '06:30';
   $('set-brief-evening').value = state.zpravy?.vecer || '20:00';
   vypisStavZprav();
+  // Poloha: stav a tlačítko podle toho, co teď platí (lib/location-access.js).
+  vypisStavPolohy();
 
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
   $('settings-dialog').showModal();
@@ -1500,6 +1503,7 @@ function prekresliVse() {
   if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
   // Statistika nese jednotky i jazyk v každém čísle — přepíše se celá.
   statsModule?.relabelStats();
+  vypisStavPolohy();
 }
 
 
@@ -1904,9 +1908,125 @@ function locate() {
         lat: pos.coords.latitude, lon: pos.coords.longitude,
       });
     },
-    () => notice(t('search.locationFailed', state.lang)),
+    // ⚠️ Zakázaná poloha není „nepodařilo se" — je to stav, který jde
+    // napravit jedním klepnutím v nastavení, a věta to musí říct.
+    async (err) => {
+      // 🚨 Podle SKUTEČNÉHO STAVU, ne jen podle kódu chyby. WebView po
+      // odebraném povolení hlásí „poloha nedostupná" nebo jen vyprší čas —
+      // zákaz v tom není poznat, přitom právě ten jde napravit.
+      const stav = await stavPolohy();
+      const klic = stav === 'off' ? 'location.offNotice'
+        : (isDeniedError(err) || stav === 'denied' || stav === 'prompt') ? 'location.deniedNotice'
+          : 'search.locationFailed';
+      notice(t(klic, state.lang));
+      vypisStavPolohy();
+    },
     { timeout: 10000, maximumAge: 300000 },
   );
+}
+
+/* ============================================================
+   POVOLENÍ POLOHY V NASTAVENÍ
+   ============================================================ */
+
+/** Most obalu, když umí říct stav polohy a vyřídit povolení. */
+function obalPoloha() {
+  const m = window.MeteoTraceObal;
+  return m && typeof m.umiPolohu === 'function' && m.umiPolohu() ? m : null;
+}
+
+/**
+ * Jak je na tom povolení polohy — viz `lib/location-access.js`.
+ *
+ * V obalu to ví Android, v prohlížeči Permissions API. Prohlížeč, který
+ * stav neprozradí, vrátí „nevíme" — a to se chová jako „zeptej se".
+ */
+async function stavPolohy() {
+  const most = obalPoloha();
+  if (most) return normalizeAccess(most.stavPolohy());
+  if (!navigator.geolocation) return 'unsupported';
+  try {
+    const p = await navigator.permissions?.query({ name: 'geolocation' });
+    return normalizeAccess(p?.state);
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** Přepíše řádek Poloha v nastavení podle skutečného stavu. */
+async function vypisStavPolohy() {
+  const stavEl = $('location-status');
+  if (!stavEl) return;
+  const v = locationView(await stavPolohy(), !!obalPoloha());
+
+  stavEl.textContent = t(v.status, state.lang);
+  const tlacitko = $('btn-location');
+  tlacitko.hidden = !v.button;
+  tlacitko.textContent = v.button ? t(v.button, state.lang) : '';
+  tlacitko.dataset.akce = v.action || '';
+
+  // U povolené polohy se říká, KDE ji appka naposledy viděla — widget
+  // a ranní zpráva jedou pro tohle místo, ne pro to, kde je telefon teď.
+  let napoveda = '';
+  if (v.hint === 'location.grantedHint') {
+    napoveda = state.fixNazev ? tf(v.hint, { place: state.fixNazev }, state.lang) : '';
+  } else if (v.hint) {
+    napoveda = t(v.hint, state.lang);
+  }
+  const p = $('location-note');
+  p.textContent = napoveda;
+  p.hidden = !napoveda;
+}
+
+/** Člověk právě klepl na tlačítko a čeká se na výsledek (dialog, návrat z nastavení). */
+let cekaSeNaPolohu = false;
+
+/**
+ * Zjistí polohu BEZ přepnutí místa — jen aby ji appka znala (řazení
+ * hledání, widget, ranní zpráva, deník „Kde jsem byl").
+ *
+ * ⚠️ Na rozdíl od „Tady" nemění, na co se člověk dívá: v nastavení
+ * povoloval polohu, ne vybíral místo.
+ */
+function zjistiPolohuTise() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      zapamatujPolohu({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+      vypisStavPolohy();
+    },
+    () => vypisStavPolohy(),
+    { timeout: 10000, maximumAge: 300000 },
+  );
+}
+
+/** Klepnutí na tlačítko v řádku Poloha. */
+function povolPolohuZNastaveni() {
+  cekaSeNaPolohu = true;
+  const most = obalPoloha();
+  // V obalu rozhodne Android podle stavu (dialog / nastavení appky /
+  // nastavení polohy) a výsledek přijde událostí `meteotrace:poloha`.
+  if (most) { most.povolPolohu(); return; }
+  // V prohlížeči se zeptá samotná žádost o polohu.
+  zjistiPolohuTise();
+}
+
+/**
+ * Obal hlásí, že se povolení mohlo změnit (výsledek dialogu, návrat
+ * z nastavení telefonu). Stav se PŘEČTE znovu — událost sama nic netvrdí.
+ */
+async function poZmenePovoleniPolohy() {
+  await vypisStavPolohy();
+  // ⚠️ A ještě jednou za chvilku. Android propíše vypínač polohy se
+  // zpožděním (změřeno na emulátoru 30. 9. 2026: návrat z nastavení do
+  // vteřiny po přepnutí ještě četl starý stav) — řádek by pak tvrdil
+  // „vypnutá" i po zapnutí, dokud by člověk nastavení neotevřel znovu.
+  setTimeout(vypisStavPolohy, 1500);
+  if ((await stavPolohy()) !== 'granted') return;
+  // Povolení přibylo: zjistit polohu hned, ať má widget a ranní zpráva
+  // pro co jet. Jindy se potichu nezjišťuje — návrat do appky není žádost.
+  if (cekaSeNaPolohu || !isUsablePoint(state.fix)) zjistiPolohuTise();
+  cekaSeNaPolohu = false;
 }
 
 /* ============================================================
@@ -4461,6 +4581,8 @@ function init() {
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
   $('tab-stats').addEventListener('click', () => prepniObrazovku('stats'));
+  $('btn-location').addEventListener('click', povolPolohuZNastaveni);
+  window.addEventListener('meteotrace:poloha', poZmenePovoleniPolohy);
 
   // Značka rozbaluje a sbaluje nabídku.
   $('btn-menu').addEventListener('click', () => {

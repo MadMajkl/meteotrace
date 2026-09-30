@@ -34,6 +34,13 @@ class MostDoWebu(
      * `MainActivity` v téhle funkci; sem se ta složitost netahá.
      */
     private val zadost: () -> Unit,
+    /**
+     * Jak je na tom povolení polohy: `granted`, `prompt`, `denied`, `off`.
+     * Zjišťuje to ACTIVITA (potřebuje ji `shouldShowRequestPermissionRationale`).
+     */
+    private val stavPolohyZActivity: () -> String,
+    /** Vyřídí povolení polohy podle stavu — dialog, nebo nastavení. Na UI vlákně. */
+    private val povolPolohuVActivite: () -> Unit,
 ) {
 
     /** Umí tenhle obal hlídat výstrahy? Web se ptá, aby věděl, co nabídnout. */
@@ -72,6 +79,37 @@ class MostDoWebu(
     @JavascriptInterface
     fun zadejOPovoleni() {
         zadost()
+    }
+
+    /* ── povolení polohy z nastavení appky ────────────────────────────── */
+
+    /** Umí tenhle obal říct stav polohy a vyřídit povolení? Starší obal ne. */
+    @JavascriptInterface
+    fun umiPolohu(): Boolean = true
+
+    /**
+     * Stav povolení polohy: `granted` · `prompt` · `denied` · `off`.
+     *
+     * 🚨 Web se MUSÍ mít jak zeptat. Do 30. 9. 2026 se o polohu žádalo jen
+     * při klepnutí na „Tady" — a kdo dialog odmítl dvakrát, tomu se už
+     * Android nezeptal a appka jen opakovala „polohu se nepodařilo zjistit".
+     * Michal: *„potřebujeme do nastavení dát, aby tam bylo na kliknutí
+     * povolení polohy!"* Význam stavů a co se k nim ukazuje je
+     * v `web/lib/location-access.js`.
+     */
+    @JavascriptInterface
+    fun stavPolohy(): String = stavPolohyZActivity()
+
+    /**
+     * Jedno klepnutí v nastavení appky. Podle stavu se buď zeptá systémovým
+     * dialogem, nebo otevře nastavení appky (když se Android už ptát nebude),
+     * nebo nastavení polohy (když je v telefonu vypnutá).
+     * Výsledek si web přečte ze `stavPolohy()` — obal mu dá vědět událostí
+     * `meteotrace:poloha`.
+     */
+    @JavascriptInterface
+    fun povolPolohu() {
+        povolPolohuVActivite()
     }
 
     /* ── ranní a večerní zpráva (R25) ─────────────────────────────────── */

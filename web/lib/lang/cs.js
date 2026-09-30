@@ -641,6 +641,26 @@ export default {
     source: 'Údaje jsou z meteorologického modelu v síti asi 10–25 km, ne z jedné stanice. V horách a údolích se můžou lišit. Zdroj: Open-Meteo.',
   },
 
+  /* Povolení polohy v nastavení (30. 9. 2026). Logika je v lib/location-access.js.
+     ⚠️ Každá nápověda musí říct, CO UDĚLAT — „zakázaná" bez návodu je slepá ulička. */
+  location: {
+    setting: 'Poloha',
+    granted: 'Povolená',
+    notYet: 'Zatím nepovolená',
+    denied: 'Zakázaná',
+    off: 'V telefonu vypnutá',
+    unsupported: 'Tohle zařízení polohu neumí.',
+    allow: 'Povolit polohu',
+    turnOn: 'Zapnout polohu',
+    askHint: 'Bez ní nejede „Tady“, widget ani ranní zpráva.',
+    grantedHint: 'Naposledy zjištěná: {place}.',
+    deniedHintApp: 'Když se Android sám nezeptá, otevře se nastavení telefonu — zapni tam v Oprávnění Polohu.',
+    deniedHintWeb: 'Prohlížeč má polohu pro tuhle stránku zakázanou. Povol ji u ikony zámku vedle adresy a načti stránku znovu.',
+    offHint: 'Appka povolení má, ale poloha je v telefonu vypnutá.',
+    deniedNotice: 'Poloha není povolená. Zapneš ji v nastavení (⚙) jedním klepnutím.',
+    offNotice: 'Poloha je v telefonu vypnutá. Zapneš ji z nastavení (⚙) jedním klepnutím.',
+  },
+
   time: {
     min: 'min',
     hour: 'h',

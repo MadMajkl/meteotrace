@@ -565,6 +565,26 @@ export default {
     source: 'Data come from a weather model on a grid of about 10–25 km, not from a single station. In mountains and valleys they may differ. Source: Open-Meteo.',
   },
 
+  /* Location permission in settings (30 Sep 2026). Logic lives in lib/location-access.js.
+     ⚠️ Every hint must say WHAT TO DO — "denied" without a way out is a dead end. */
+  location: {
+    setting: 'Location',
+    granted: 'Allowed',
+    notYet: 'Not allowed yet',
+    denied: 'Denied',
+    off: 'Turned off on the phone',
+    unsupported: 'This device cannot provide location.',
+    allow: 'Allow location',
+    turnOn: 'Turn on location',
+    askHint: 'Without it, “Here”, the widget and the morning briefing cannot work.',
+    grantedHint: 'Last known: {place}.',
+    deniedHintApp: 'If Android does not ask, the phone settings open — turn on Location under Permissions there.',
+    deniedHintWeb: 'The browser has blocked location for this page. Allow it at the lock icon next to the address and reload the page.',
+    offHint: 'The app has permission, but location is turned off on the phone.',
+    deniedNotice: 'Location is not allowed. Turn it on in settings (⚙) with one tap.',
+    offNotice: 'Location is turned off on the phone. Turn it on from settings (⚙) with one tap.',
+  },
+
   time: {
     min: 'min',
     hour: 'h',

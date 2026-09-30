@@ -99,6 +99,7 @@
 <link rel="modulepreload" href="lib/geo-query.js">
 <link rel="modulepreload" href="lib/station.js">
 <link rel="modulepreload" href="lib/stats.js">
+<link rel="modulepreload" href="lib/location-access.js">
 <link rel="modulepreload" href="lib/when.js">
 <link rel="modulepreload" href="lib/departure.js">
 <link rel="modulepreload" href="lib/eta.js">
@@ -374,6 +375,22 @@
     </label>
     <select id="set-primary"></select>
   </div>
+
+  <!-- 🚨 POVOLENÍ POLOHY NA JEDNO KLEPNUTÍ (Michal 30. 9. 2026). Do té doby
+       se appka ptala jen při „Tady" — a kdo dialog odmítl, neměl v appce
+       cestu zpátky. Tlačítko dělá podle stavu jednu ze tří věcí (zeptá se,
+       otevře nastavení appky, otevře nastavení polohy), nebo tu není vůbec
+       a je tu návod; viz lib/location-access.js.
+       ⚠️ Stav je vidět VŽDYCKY, i když je všechno v pořádku: „povolená"
+       a „nevíme" by bez textu vypadaly stejně. -->
+  <div class="setting setting-poloha">
+    <span class="setting-popis">
+      <span data-i18n="location.setting"></span>
+      <span class="setting-stav" id="location-status" role="status"></span>
+    </span>
+    <button id="btn-location" class="primary setting-akce" type="button" hidden></button>
+  </div>
+  <p class="hint" id="location-note" hidden></p>
 
   <div class="setting">
     <label for="set-theme" data-i18n="settings.theme"></label>

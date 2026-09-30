@@ -4,8 +4,12 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.webkit.GeolocationPermissions
 import android.webkit.WebChromeClient
@@ -18,7 +22,9 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import androidx.webkit.WebViewAssetLoader
 
 /**
@@ -50,7 +56,31 @@ class MainActivity : AppCompatActivity() {
         val povoleno = vysledky.values.any { it }
         cekaNaPolohu?.invoke(povoleno)
         cekaNaPolohu = null
+
+        // 🚨 Android se už ptát NEBUDE (dialog se neukázal) → když o povolení
+        // žádal člověk tlačítkem v nastavení appky, otevře se mu nastavení
+        // telefonu. Jinak by tlačítko nedělalo nic.
+        //
+        // ⚠️ Pozná se to podle `shouldShowRequestPermissionRationale`, NE
+        // podle času. První verze měřila, jestli odpověď přišla „okamžitě"
+        // (< 450 ms) — na emulátoru ale tichá odpověď trvala 808 ms a na
+        // pomalém telefonu by to dopadlo stejně. Po odmítnutí, po kterém se
+        // smí ptát znovu, vrací Android `true`; `false` = už se nezeptá.
+        val trvalo = SystemClock.elapsedRealtime() - zadostOd
+        val uzSeNezepta = POLOHA.none { ActivityCompat.shouldShowRequestPermissionRationale(this, it) }
+        Log.d("MeteoTrace", "žádost o polohu: povoleno=$povoleno, trvalo $trvalo ms, uzSeNezepta=$uzSeNezepta")
+        if (!povoleno && uzSeNezepta && priOdmitnutiOtevritNastaveni) otevriNastaveniAppky()
+        priOdmitnutiOtevritNastaveni = false
+
+        // Nastavení appky ukazuje stav povolení — ať se přepíše hned.
+        oznamPolohuWebu()
     }
+
+    /** Kdy se naposledy spustila žádost o polohu (viz výsledek žádosti výš). */
+    private var zadostOd = 0L
+
+    /** Žádost spustil člověk tlačítkem v nastavení — při tichém „ne" otevřít nastavení telefonu. */
+    private var priOdmitnutiOtevritNastaveni = false
 
     /**
      * Povolení k upozorněním.
@@ -70,6 +100,97 @@ class MainActivity : AppCompatActivity() {
 
     private fun maPolohu(): Boolean = POLOHA.any {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /** Je v telefonu zapnutá poloha jako taková? Bez ní povolení nestačí. */
+    private fun sluzbaPolohyZapnuta(): Boolean {
+        val lm = getSystemService(LOCATION_SERVICE) as? LocationManager ?: return true
+        return LocationManagerCompat.isLocationEnabled(lm)
+    }
+
+    private fun pametPolohy() = getSharedPreferences(PAMET_POLOHY, MODE_PRIVATE)
+
+    /**
+     * Stav povolení polohy pro web: `granted` · `off` · `denied` · `prompt`.
+     *
+     * 🚨 Android neumí říct „zakázáno natrvalo" přímo.
+     * `shouldShowRequestPermissionRationale` je `false` ve DVOU případech:
+     * když se ještě nikdo neptal, a když se už ptát nesmí (na Androidu 11+
+     * po druhém odmítnutí). Rozliší je jen to, jestli jsme se už někdy
+     * ptali — a to si pamatujeme sami (`KLIC_PTALI_SE`).
+     *
+     * ⚠️ TÁŽ TABULKA je v `androidAccess()` ve `web/lib/location-access.js`,
+     * kde má samotest. Kdo změní jednu, musí změnit obě —
+     * hlídá to `selftest-obal.mjs`.
+     */
+    private fun stavPolohy(): String {
+        if (maPolohu()) return if (sluzbaPolohyZapnuta()) "granted" else "off"
+        val ptaliSe = pametPolohy().getBoolean(KLIC_PTALI_SE, false)
+        val muzeSeZeptat = POLOHA.any { ActivityCompat.shouldShowRequestPermissionRationale(this, it) }
+        return if (ptaliSe && !muzeSeZeptat) "denied" else "prompt"
+    }
+
+    /** Systémový dialog o poloze. Zapamatuje si, že už jsme se ptali. */
+    private fun zeptejSeNaPolohu() {
+        pametPolohy().edit().putBoolean(KLIC_PTALI_SE, true).apply()
+        zadostOd = SystemClock.elapsedRealtime()
+        zadostOPolohu.launch(POLOHA)
+    }
+
+    /**
+     * Jedno klepnutí na „Povolit polohu" v nastavení appky.
+     *
+     * 🚨 Co udělá, ZÁVISÍ NA STAVU. Dialog, který se po trvalém zákazu už
+     * neukáže, by z tlačítka udělal mrtvé tlačítko — proto se v tom případě
+     * otevře nastavení appky v telefonu, kde jde povolení zapnout ručně.
+     */
+    private fun povolPolohu() {
+        when (stavPolohy()) {
+            "prompt" -> zeptejSeNaPolohu()
+            // ⚠️ „denied" je ODHAD (viz `stavPolohy`): kdo povolení vypnul
+            // ručně v nastavení telefonu, toho se Android zeptá znovu. Proto
+            // se nejdřív zkusí dialog a nastavení telefonu se otevře, jen
+            // když se dialog neukáže — viz výsledek žádosti.
+            "denied" -> {
+                priOdmitnutiOtevritNastaveni = true
+                zeptejSeNaPolohu()
+            }
+            "off" -> otevriNastaveni(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+        }
+    }
+
+    private fun otevriNastaveniAppky() {
+        otevriNastaveni(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
+        )
+    }
+
+    private fun otevriNastaveni(intent: Intent) {
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.w("MeteoTrace", "nastavení nejde otevřít: ${intent.action}", e)
+        }
+    }
+
+    /**
+     * Řekne webu, že se povolení polohy mohlo změnit.
+     *
+     * ⚠️ Web si stav PŘEČTE SÁM (`stavPolohy()`), tady se jen zvoní —
+     * výsledek se nepředává, ať neexistují dvě pravdy.
+     */
+    private fun oznamPolohuWebu() {
+        if (!::webView.isInitialized) return
+        webView.evaluateJavascript("window.dispatchEvent(new Event('meteotrace:poloha'))", null)
+    }
+
+    /**
+     * Návrat do appky — typicky z nastavení telefonu, kde člověk povolení
+     * právě zapnul. Bez tohohle by nastavení appky dál tvrdilo „zakázáno".
+     */
+    override fun onResume() {
+        super.onResume()
+        oznamPolohuWebu()
     }
 
     /**
@@ -146,8 +267,13 @@ class MainActivity : AppCompatActivity() {
          * ⚠️ Ptá se JEN naše stránka. `origin` se proto porovnává — kdyby
          * appka někdy načetla cizí obsah, nesmí se jím dát vydat za nás.
          *
-         * ⚠️ `retain = true` znamená „pamatuj si to pro tenhle původ", takže
-         * se člověk neptá znovu při každém klepnutí na tlačítko polohy.
+         * 🚨 `retain = false`: WebView si souhlas NEPAMATUJE, pokaždé se zeptá
+         * obalu — a ten ví, jak to doopravdy je (`maPolohu()`). Do 30. 9. 2026
+         * tu bylo `true` a WebView si pamatoval „ano" i poté, co člověk
+         * povolení v telefonu vypnul: obalu se už neptal, na polohu marně
+         * čekal a „Tady" končilo obecným „nepodařilo se" místo žádosti
+         * o povolení. Dialog se kvůli tomu neukazuje častěji — když povolení
+         * je, odpoví obal hned a bez ptaní.
          */
         webView.webChromeClient = object : WebChromeClient() {
             override fun onGeolocationPermissionsShowPrompt(
@@ -159,11 +285,11 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 if (maPolohu()) {
-                    callback.invoke(origin, true, true)
+                    callback.invoke(origin, true, false)
                     return
                 }
-                cekaNaPolohu = { povoleno -> callback.invoke(origin, povoleno, povoleno) }
-                zadostOPolohu.launch(POLOHA)
+                cekaNaPolohu = { povoleno -> callback.invoke(origin, povoleno, false) }
+                zeptejSeNaPolohu()
             }
         }
 
@@ -175,19 +301,29 @@ class MainActivity : AppCompatActivity() {
          * vlastní původ je proto zakázaná výš (`shouldOverrideUrlLoading`).
          */
         webView.addJavascriptInterface(
-            MostDoWebu(applicationContext) {
-                // ⚠️ Most volá WebView z vlastního vlákna; dialog o povolení
-                // patří na UI vlákno, jinak se neukáže vůbec.
-                runOnUiThread {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        zadostOUpozorneni.launch(Manifest.permission.POST_NOTIFICATIONS)
+            MostDoWebu(
+                applicationContext,
+                zadost = {
+                    // ⚠️ Most volá WebView z vlastního vlákna; dialog o povolení
+                    // patří na UI vlákno, jinak se neukáže vůbec.
+                    runOnUiThread {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            zadostOUpozorneni.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        // Na starším Androidu se o nic žádat nemusí — povolení
+                        // se dávalo instalací a `majiPovoleni()` už vrací pravdu.
                     }
-                    // Na starším Androidu se o nic žádat nemusí — povolení
-                    // se dávalo instalací a `majiPovoleni()` už vrací pravdu.
-                }
-            },
+                },
+                stavPolohyZActivity = { stavPolohy() },
+                povolPolohuVActivite = { runOnUiThread { povolPolohu() } },
+            ),
             "MeteoTraceObal",
         )
+
+        // Souhlas, který si WebView zapamatoval ve starší verzi obalu (viz
+        // `retain` výš), se zahodí — jinak by u lidí, kteří ho už mají
+        // uložený, oprava neplatila. Obal odpoví znovu, a správně.
+        GeolocationPermissions.getInstance().clearAll()
 
         // Ladění WebView z počítače (chrome://inspect) — jen v ladicím sestavení.
         // Ve vydání by to byla otevřená okna do appky uživatele.
@@ -231,5 +367,9 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION,
         )
+
+        /** Kde si obal pamatuje, že se na polohu už jednou ptal (viz `stavPolohy`). */
+        private const val PAMET_POLOHY = "poloha"
+        private const val KLIC_PTALI_SE = "ptali_se"
     }
 }
