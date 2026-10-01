@@ -172,6 +172,21 @@
               fill="#fff7e0" stroke="#A9750C" stroke-width="0.6"/>
       </svg>
     </button>
+    <!-- Statistiky (R35) — ikona v liště, NE třetí záložka. Michal 1. 10.
+         2026: *„Statistiky dej pod ikonkou statistik… přímo vedle kolečka
+         nastavovacího (a později i vedle srdíčka na donate)."* Pořadí
+         mince → statistiky → kolo i kresba (tři sloupky) jsou opsané
+         z Gulpky. Záložka navíc rozhodila mřížku pod sebou: tři záložky
+         nad dvěma skupinami uložených věcí, takže „Moje místa" už nestála
+         pod „Místem". Druhé klepnutí vrací tam, odkud se přišlo. -->
+    <button id="btn-stats" class="icon-btn stats" type="button" aria-pressed="false"
+            data-i18n-attr="aria-label:nav.stats|title:nav.stats">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <line x1="6"  y1="20" x2="6"  y2="13"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="18" y1="20" x2="18" y2="9"/>
+      </svg>
+    </button>
     <button id="btn-settings" class="icon-btn settings" type="button"
             data-i18n-attr="aria-label:settings.title|title:settings.title">⚙</button>
   </div>
@@ -182,9 +197,9 @@
   <nav class="tabs" data-i18n-attr="aria-label:nav.sections">
     <button id="tab-station" class="tab" type="button" aria-selected="true" data-i18n="nav.station"></button>
     <button id="tab-route" class="tab" type="button" aria-selected="false" data-i18n="nav.route"></button>
-    <!-- Statistiky (R35): jaké počasí na místě nebo po trase BYLO. Vždycky
-         třetí — pořadí z nastavení prohazuje jen Místo a Trasu. -->
-    <button id="tab-stats" class="tab" type="button" aria-selected="false" data-i18n="nav.stats"></button>
+    <!-- ⚠️ Statistiky tu do 1. 10. 2026 byly jako třetí záložka — teď jsou
+         ikonou v liště (#btn-stats). Záložky jsou DVĚ, protože pod nimi
+         stojí dvě skupiny uložených věcí a každá patří pod svou. -->
   </nav>
 
   <!-- Uložená místa. Jedno klepnutí = přepnutí, proto jsou v hlavičce

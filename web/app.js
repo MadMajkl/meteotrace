@@ -75,7 +75,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.25.0';
+const VERZE = '0.25.1';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -415,7 +415,7 @@ function stitekPolozky(polozka, current) {
   if (polozka.kind === 'here') {
     const tlacitko = el('button', 'chip chip-tady', [
       el('span', 'chip-znak', '⌖'),
-      el('span', '', polozka.name),
+      el('span', 'chip-jmeno', polozka.name),
     ]);
     tlacitko.type = 'button';
     tlacitko.setAttribute('aria-label', polozka.name);
@@ -429,7 +429,7 @@ function stitekPolozky(polozka, current) {
   const chip = polozka.kind === 'route'
     ? el('button', 'chip chip-route', [
       el('span', 'chip-znak', '↝'),
-      el('span', '', polozka.name),
+      el('span', 'chip-jmeno', polozka.name),
     ])
     : el('button', 'chip', polozka.name);
 
@@ -486,13 +486,26 @@ function srovnejRadek(idRadku) {
   if (!radek) return;
 
   const polozky = [...radek.children];
-  for (const li of polozky) li.hidden = false;
+  for (const li of polozky) { li.hidden = false; delete li.dataset.jenZnak; }
 
   const sirky = polozky.map((li) => li.getBoundingClientRect().width);
   const mezera = parseFloat(getComputedStyle(radek).gap) || 8;
   const kolik = fitCount(sirky, radek.clientWidth, mezera);
 
   polozky.forEach((li, i) => { li.hidden = i >= kolik; });
+
+  // 🚨 Když se nevejde ani ten jediný štítek, který se ukazuje vždycky,
+  // a ze jména zbudou necelá tři písmena, zůstane jen znak (⌖, ↝). Na
+  // 360 px je vedle nadpisu ~50 px a z „⌖ Tady" bylo „⌖ T." — useknuté
+  // jméno neřekne nic, kdežto znak je v appce tentýž jako u hledání.
+  // Celé jméno nese `aria-label`. ⚠️ Měří se zbytek JMÉNA, ne šířka
+  // položky: ta je stažená na šířku řádku (`max-width`), takže by se
+  // „nevešla" nikdy.
+  const jmeno = polozky[0]?.querySelector('.chip-jmeno');
+  if (jmeno && jmeno.scrollWidth > jmeno.clientWidth + 1
+      && jmeno.clientWidth < 2 * parseFloat(getComputedStyle(jmeno).fontSize)) {
+    polozky[0].dataset.jenZnak = '1';
+  }
 }
 
 /** Zavře oba rozbalené seznamy. */
@@ -3539,6 +3552,22 @@ function obrazovkaPoObnoveni() {
   return obrazovkaZeSezeni() || (state.primary === 'route' ? 'route' : 'station');
 }
 
+/** Kam vrátí druhé klepnutí na ikonu statistik — tam, odkud se přišlo. */
+let zeStatistikDo = null;
+
+/**
+ * Ikona statistik je přepínač: první klepnutí statistiky otevře, druhé
+ * vrátí tam, odkud se přišlo. Záložky jsou ve sbalené nabídce schované,
+ * takže „zapnutá" ikona, která by na klepnutí nedělala nic, by vypadala
+ * rozbitě — a cesta zpátky by byla dvě klepnutí přes nabídku.
+ */
+function prepniStatistiky() {
+  if (state.screen !== 'stats') { prepniObrazovku('stats'); return; }
+  prepniObrazovku(zeStatistikDo === 'route' || zeStatistikDo === 'station'
+    ? zeStatistikDo
+    : (state.primary === 'route' ? 'route' : 'station'));
+}
+
 function prepniObrazovku(kam) {
   // Odkud se přišlo: statistika se otevře na tom, na co se člověk díval
   // (z trasy na trase, odjinud na místě).
@@ -3551,9 +3580,11 @@ function prepniObrazovku(kam) {
   $('route').hidden = kam !== 'route';
   $('stats').hidden = kam !== 'stats';
   $('splash').hidden = kam !== 'station' || !!state.place;
-  for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route'], ['tab-stats', 'stats']]) {
+  for (const [id, jmeno] of [['tab-station', 'station'], ['tab-route', 'route']]) {
     $(id).setAttribute('aria-selected', String(kam === jmeno));
   }
+  $('btn-stats').setAttribute('aria-pressed', String(kam === 'stats'));
+  if (kam === 'stats' && odkud !== 'stats') zeStatistikDo = odkud;
   presunMapu();
   if (kam === 'stats') ukazStatistiky(odkud);
 
@@ -3642,6 +3673,10 @@ function kontextNabidky() {
   } else if (state.place) {
     co = state.place.name;
   }
+  // ⚠️ Na statistikách bez předpony: že jsem v nich, říká rozsvícená ikona
+  // vedle (od 1. 10. 2026). A ikona vzala řádku 52 px — „Statistiky ·
+  // Praha → Brno" se na 360 px už nevešlo, „Praha → Brno" ano.
+  if (state.screen === 'stats' && co) return co;
   return co ? `${zalozka} · ${co}` : zalozka;
 }
 
@@ -4580,7 +4615,7 @@ function init() {
   }
   $('tab-station').addEventListener('click', () => prepniObrazovku('station'));
   $('tab-route').addEventListener('click', () => prepniObrazovku('route'));
-  $('tab-stats').addEventListener('click', () => prepniObrazovku('stats'));
+  $('btn-stats').addEventListener('click', prepniStatistiky);
   $('btn-location').addEventListener('click', povolPolohuZNastaveni);
   window.addEventListener('meteotrace:poloha', poZmenePovoleniPolohy);
 

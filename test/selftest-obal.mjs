@@ -283,13 +283,40 @@ test('🚨 obrazovka statistik se načítá LÍNĚ, ne se startem appky (R35)', 
   const app = readFileSync(join(WEB, 'app.js'), 'utf8');
   assert.match(app, /await import\('\.\/stats-screen\.js'\)/);
   const html = readFileSync(join(WEB, 'index.html'), 'utf8');
-  assert.match(html, /<button id="tab-stats" class="tab"/);
   assert.match(html, /<main id="stats" hidden>/);
   // Obrazovka si sahá jen na prvky, které v HTML opravdu jsou.
   const obrazovka = readFileSync(join(WEB, 'stats-screen.js'), 'utf8');
   for (const [, id] of obrazovka.matchAll(/\$\('([a-z-]+)'\)/g)) {
     assert.ok(html.includes(`id="${id}"`), `stats-screen.js sahá na #${id}, které v index.html není`);
   }
+});
+
+test('🚨 statistiky jsou IKONA v liště mezi mincí a kolem, ne třetí záložka', () => {
+  // Michal 1. 10. 2026. Třetí záložka rozhodila mřížku pod sebou: dvě
+  // skupiny uložených věcí pod třemi záložkami — „Moje místa" už nestála
+  // pod „Místem". Pořadí mince → statistiky → kolo je z Gulpky.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const tabs = html.slice(html.indexOf('<nav class="tabs"'), html.indexOf('</nav>', html.indexOf('<nav class="tabs"')));
+  assert.equal([...tabs.matchAll(/<button [^>]*class="tab"/g)].length, 2, 'záložky jsou dvě: Místo a Trasa');
+  assert.doesNotMatch(html, /id="tab-stats"/);
+  const lista = html.slice(html.indexOf('<div class="brand">'), html.indexOf('<div id="top-menu"'));
+  const poradi = ['btn-donate-top', 'btn-stats', 'btn-settings'].map((id) => lista.indexOf(`id="${id}"`));
+  assert.ok(poradi.every((i) => i > 0), 'mince, statistiky i kolo patří do lišty se značkou');
+  assert.deepEqual([...poradi].sort((a, b) => a - b), poradi, 'pořadí mince → statistiky → kolo');
+  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
+  assert.match(app, /\$\('btn-stats'\)\.addEventListener\('click', prepniStatistiky\)/);
+  assert.match(app, /\$\('btn-stats'\)\.setAttribute\('aria-pressed', String\(kam === 'stats'\)\)/);
+  // Ikona nesmí nafouknout lištu — záporné okraje jako mince a kolo.
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  assert.match(css, /\.icon-btn\.stats \{[^}]*height: 44px[^}]*margin: -12px 0;/);
+});
+
+test('🚨 Moje místa a Moje trasy stojí VEDLE SEBE v obou pořadích záložek', () => {
+  // Mřížka bez pevného řádku dala při „Místo vlevo" místa o řádek níž
+  // (kurzor automatického umístění se nevrací). Layoutová kontrola to měří
+  // v prohlížeči; tohle hlídá, že pravidlo, které to drží, nezmizí.
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  assert.match(css, /\.saved > \.saved-group \{ grid-row: 1; \}/);
 });
 
 /* ============================================================

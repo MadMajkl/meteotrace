@@ -75,7 +75,14 @@ localStorage.setItem(PLACES_KEY, JSON.stringify({
     { key: '50.638,14.116', lat: 50.6381, lon: 14.1158, name: 'Ústí nad Labem-Střekov', country: 'Česko', savedAt: 2, usedAt: 2 },
     { key: '49.195,16.607', lat: 49.1951, lon: 16.6068, name: 'Brno', country: 'Česko', savedAt: 1, usedAt: 1 },
   ],
-  routes: [],
+  // ⚠️ I jedna trasa: bez ní je skupina „Moje trasy" schovaná a nedá se
+  // změřit, jestli stojí VEDLE „Mých míst" (viz `skupinyVedleSebe`).
+  routes: [
+    { key: '50.076,14.438>50.638,14.116@car', profile: 'car', via: [],
+      from: { key: '50.076,14.438', lat: 50.0755, lon: 14.4378, name: 'Praha', country: null, address: 'Praha' },
+      to: { key: '50.638,14.116', lat: 50.6381, lon: 14.1158, name: 'Ústí nad Labem-Střekov', country: null, address: 'Ústí nad Labem-Střekov' },
+      name: 'Praha → Ústí nad Labem-Střekov', savedAt: 4, usedAt: 4 },
+  ],
 }));
 
 const cases = document.getElementById('cases');
@@ -349,6 +356,59 @@ function sloupecHlavicky(doc) {
   return nalezy.length ? nalezy.join('; ') : null;
 }
 
+/**
+ * 🚨 MOJE MÍSTA A MOJE TRASY STOJÍ VEDLE SEBE — V OBOU POŘADÍCH ZÁLOŽEK.
+ *
+ * Do 1. 10. 2026 je při „Místo vlevo" mřížka dala šikmo pod sebe: trasy
+ * napravo nahoře, místa vlevo o řádek níž. Nic nepřeteklo, nic se
+ * nepřekrylo — přetečení i překryv mlčely. Při výchozím pořadí (trasy
+ * vlevo) to vidět nebylo, a v tom testy běží; proto se tu prohodí obě.
+ * Každá skupina navíc musí začínat pod svou záložkou.
+ */
+function skupinyVedleSebe(doc) {
+  const saved = doc.getElementById('saved');
+  const trasy = doc.getElementById('group-routes');
+  const mista = doc.getElementById('group-places');
+  if (!saved || saved.hidden || !trasy || trasy.hidden || !mista || mista.hidden) {
+    return 'skupiny uložených věcí se neukázaly — není co měřit';
+  }
+  const tabs = doc.querySelector('.tabs');
+  const puvodni = saved.dataset.primary;
+  const nalezy = [];
+  for (const poradi of ['route', 'station']) {
+    saved.dataset.primary = poradi;
+    tabs.dataset.primary = poradi;
+    const t = trasy.getBoundingClientRect();
+    const m = mista.getBoundingClientRect();
+    if (Math.abs(t.top - m.top) > 1) {
+      nalezy.push(`${poradi === 'station' ? 'Místo' : 'Trasa'} vlevo: Moje trasy a Moje místa nejsou vedle sebe (nahoře ${Math.round(t.top)} a ${Math.round(m.top)} px)`);
+    }
+    for (const [skupina, zalozka, jmeno] of [[t, 'tab-route', 'Moje trasy'], [m, 'tab-station', 'Moje místa']]) {
+      const z = doc.getElementById(zalozka).getBoundingClientRect();
+      if (Math.abs(skupina.left - z.left) > 1) {
+        nalezy.push(`${poradi === 'station' ? 'Místo' : 'Trasa'} vlevo: ${jmeno} nezačíná pod svou záložkou (${Math.round(skupina.left)} vs. ${Math.round(z.left)} px)`);
+      }
+    }
+  }
+  for (const el of [saved, tabs]) {
+    if (puvodni === undefined) delete el.dataset.primary;
+    else el.dataset.primary = puvodni;
+  }
+  // ⚠️ A štítek vedle nadpisu buď nese čitelné jméno, nebo jen znak —
+  // ne „⌖ T." (360 px, 1. 10. 2026). Měří se po návratu pořadí, protože
+  // řádky se přepočítávají až po změně velikosti.
+  // 🚨 I useknutí na NULU je vada (320 px): zbyde „⌖" s mezerou a jménem,
+  // které nejde vidět. Vynechá se jen štítek, který appka sama přepnula
+  // na samotný znak.
+  for (const jmeno of doc.querySelectorAll('.chips-fit > li:not([hidden]):not([data-jen-znak]) .chip-jmeno')) {
+    const r = jmeno.getBoundingClientRect();
+    if (r.width < 30 && jmeno.scrollWidth > r.width + 1) {
+      nalezy.push(`štítek „${jmeno.textContent}" je useknutý na ${Math.round(r.width)} px`);
+    }
+  }
+  return nalezy.length ? nalezy.join('; ') : null;
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -388,6 +448,13 @@ async function run() {
       if (vKontextuMisto) vady.push(`Místo: ${vKontextuMisto}`);
       const vSloupciMisto = sloupecHlavicky(doc);
       if (vSloupciMisto) vady.push(`Místo: ${vSloupciMisto}`);
+      rozbalNabidku(doc);
+      // ⚠️ Počkat, až appka štítky přeměří (ResizeObserver po rozbalení).
+      // Ve sbalené nabídce mají nulovou šířku a jsou schované VŠECHNY —
+      // měření hned po klepnutí by nevidělo nic a hlásilo ✓.
+      await new Promise((r) => setTimeout(r, 200));
+      const vedleSebe = skupinyVedleSebe(doc);
+      if (vedleSebe) vady.push(`Hlavička: ${vedleSebe}`);
 
       // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
       //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.
@@ -423,10 +490,11 @@ async function run() {
       // ⚠️ Zpátky na „Teď", ať další měření (dialogy) vidí výchozí stav.
       doc.getElementById('route-dep-now').click();
 
-      // 2c) STATISTIKY (R35). Třetí záložka se na 320 px musí vejít vedle
-      //     prvních dvou, mřížka a graf nesmí vylézt z karty — a nejširší
-      //     je „Vlastní" období se dvěma poli data vedle sebe.
-      doc.getElementById('tab-stats').click();
+      // 2c) STATISTIKY (R35). Ikona v liště (od 1. 10. 2026 místo třetí
+      //     záložky) ukrajuje ze sbaleného řádku — kontext se měří i tady.
+      //     Mřížka a graf nesmí vylézt z karty a nejširší je „Vlastní"
+      //     období se dvěma poli data vedle sebe.
+      doc.getElementById('btn-stats').click();
       // Modul obrazovky se stahuje až teď a pak se čeká na data.
       await new Promise((r) => setTimeout(r, 3500));
       rozbalNabidku(doc);
@@ -435,13 +503,19 @@ async function run() {
       for (const p of prekryvy(doc)) vady.push(`Statistiky: překryv ${p}`);
       const vKontextuStat = useknutyKontext(doc);
       if (vKontextuStat) vady.push(`Statistiky: ${vKontextuStat}`);
-      if (doc.getElementById('stats').hidden) vady.push('Statistiky: obrazovka se po klepnutí na záložku neukázala');
+      if (doc.getElementById('stats').hidden) vady.push('Statistiky: obrazovka se po klepnutí na ikonu neukázala');
+      if (doc.getElementById('btn-stats').getAttribute('aria-pressed') !== 'true') vady.push('Statistiky: ikona na statistikách nesvítí jako zapnutá');
       const obdobi = doc.getElementById('stats-period');
       obdobi.value = 'custom';
       obdobi.dispatchEvent(new Event('change', { bubbles: true }));
       const o5 = overflow(doc);
       if (o5) vady.push(`Statistiky, vlastní období: přetéká o ${o5.total - o5.limit} px (${o5.culprit} sahá na ${o5.right})`);
       for (const p of prekryvy(doc)) vady.push(`Statistiky, vlastní období: překryv ${p}`);
+      // Druhé klepnutí na ikonu vrací tam, odkud se přišlo — tady z trasy.
+      doc.getElementById('btn-stats').click();
+      if (!doc.getElementById('stats').hidden || doc.getElementById('route').hidden) {
+        vady.push('Statistiky: druhé klepnutí na ikonu nevrátilo na trasu');
+      }
 
       // 3) Dialogy. Dar sem přibyl 30. 8. 2026 kvůli QR kódu — ten se na
       //    úzkém displeji nemá jak zalomit, takže je to nejtěsnější prvek

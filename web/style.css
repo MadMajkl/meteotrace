@@ -1091,6 +1091,14 @@ main {
 .saved[data-primary="route"] #group-places,
 .saved[data-primary="station"] #group-routes { grid-column: 2; }
 
+/* 🚨 A ŘÁDEK TAKY NAPEVNO. Mřížka klade položky v pořadí z HTML (trasy,
+   pak místa) a kurzor se nevrací: když trasy padnou do druhého sloupce,
+   místa už do prvního sloupce TÉHOŽ řádku nesmí a spadnou o řádek níž.
+   Při pořadí „Místo vlevo" tak stály skupiny šikmo pod sebou místo vedle
+   sebe — Michal 1. 10. 2026: *„má to být ukotvené vedle sebe nahoře."*
+   Při výchozím pořadí (trasy vlevo) to vidět nebylo. */
+.saved > .saved-group { grid-row: 1; }
+
 .icon-btn.manage {
   flex: none;
   font-size: 18px;
@@ -1561,6 +1569,37 @@ main {
   color: var(--text-soft);
 }
 
+/* Statistiky (R35) mezi mincí a kolem. Kresba i tloušťka čáry z Gulpky;
+   barva a terč jako u kola vedle, ať tři ikony vypadají jako jedna řada.
+   🚨 Do řádku přispívá jen 20 px — stejně jako mince (viz výš): terč je
+   vysoký 44 px, ale záporné okraje ho vytahují z toku. */
+.icon-btn.stats {
+  height: 44px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  margin: -12px 0;
+  color: var(--text-soft);
+}
+.icon-btn.stats svg {
+  display: block;
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor; stroke-width: 2.2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+/* Ikony v liště drží při sobě (4 px místo 8). Třetí ikona vzala sbalenému
+   řádku 52 px a „Místo · Horšovský Týn" se na 360 px nevešlo o 4 px;
+   těsnější skupina je vrací. ⚠️ Jen mezi dvěma VIDITELNÝMI ikonami —
+   v obalu je mince schovaná a kontext je zarovnaný doprava, takže by
+   jinak dojel až k ikoně. */
+.brand > .icon-btn:not([hidden]) + .icon-btn { margin-left: -4px; }
+
+/* Na statistikách je ikona „zapnutá" — záložky jsou schované ve sbalené
+   nabídce a tohle je jediné místo, kde je vidět, že jsem v nich. */
+.icon-btn.stats[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 /* Popisek s kresbou. `flex` proto, aby ikona a text seděly na společném
    účaří i tehdy, když se dlouhý překlad zalomí na dva řádky. */
 .setting-s-ikonou { display: flex; align-items: center; gap: 8px; }
@@ -1730,7 +1769,18 @@ main {
 /* Trasa mezi uloženými místy musí být na první pohled poznat — jinak řádek
    vypadá jako seznam míst, ve kterém se jedno chová divně. */
 .chip-route { display: inline-flex; align-items: center; gap: 6px; }
-.chip-znak { color: var(--accent); font-size: 15px; line-height: 1; }
+.chip-znak { flex: none; color: var(--accent); font-size: 15px; line-height: 1; }
+/* ⚠️ Tři tečky na `.chip` u štítku se znakem NEFUNGUJÍ: ten je ohebný
+   (`inline-flex`) a `text-overflow` platí jen pro text přímo v bloku.
+   Jméno se pak jen uřízlo — z „⌖ Tady" zbylo „⌖ Tad" bez teček, což
+   vypadá jako vada. Zkracuje se proto samotné jméno. */
+.chip-jmeno { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Nevejde-li se vedle nadpisu ani první štítek, zůstane z něj jen znak
+   (`srovnejRadek` v app.js) — kulaté tlačítko místo „⌖ T.". */
+/* ⚠️ Šířka nula, ne `display: none`: jméno drží výšku řádku. Bez něj byl
+   štítek o 6 px nižší a „Moje trasy" vedle „Mých míst" poskočilo nahoru. */
+.chips-fit > li[data-jen-znak] .chip-jmeno { flex: 0 0 0; width: 0; }
+.chips-fit > li[data-jen-znak] .chip { gap: 0; }
 
 /* „Tady" (R31) není uložené místo, tak ani nevypadá jako ostatní štítky:
    obtažené barvou značky, aby bylo poznat, že je to akce — zjisti polohu —
