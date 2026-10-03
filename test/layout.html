@@ -409,6 +409,34 @@ function skupinyVedleSebe(doc) {
   return nalezy.length ? nalezy.join('; ') : null;
 }
 
+/**
+ * 🚨 IKONY V LIŠTĚ NESMÍ LEŽET NA ZÁLOŽKÁCH.
+ *
+ * Terč ikon je 44 px a do řádku přispívá jen 23 — zbytek visí pod řádek.
+ * Do 3. 10. 2026 ležely dolní hranou přímo na záložkách a kolo do nich
+ * zajíždělo o 3 px. Na webu to nebylo skoro vidět (horní půlku ikon ořízne
+ * okraj okna), v appce je nad lištou systémový okraj a ikony jsou celé.
+ * Přetečení ani překryv ovládacích prvků to nehlásily — ikona a záložka
+ * se dotýkaly, nepřekrývaly se jejich texty. Měří se proto přímo mezera
+ * (rozbalená nabídka) a že jsou ikony stejně vysoké.
+ */
+function ikonyNadZalozkami(doc) {
+  const tabs = doc.querySelector('.tabs');
+  if (!tabs || tabs.getBoundingClientRect().height < 1) return 'záložky nejsou vidět — není proti čemu měřit';
+  const horni = tabs.getBoundingClientRect().top;
+  const nalezy = [];
+  const vysky = new Set();
+  for (const b of doc.querySelectorAll('.brand > .icon-btn')) {
+    if (b.hidden) continue;
+    const r = b.getBoundingClientRect();
+    vysky.add(Math.round(r.height));
+    const mezera = horni - r.bottom;
+    if (mezera < 2) nalezy.push(`#${b.id} končí ${mezera < 0 ? `${Math.round(-mezera * 10) / 10} px V záložkách` : `jen ${Math.round(mezera * 10) / 10} px nad záložkami`}`);
+  }
+  if (vysky.size > 1) nalezy.push(`ikony v liště nejsou stejně vysoké (${[...vysky].join(', ')} px)`);
+  return nalezy.length ? nalezy.join('; ') : null;
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -455,6 +483,17 @@ async function run() {
       await new Promise((r) => setTimeout(r, 200));
       const vedleSebe = skupinyVedleSebe(doc);
       if (vedleSebe) vady.push(`Hlavička: ${vedleSebe}`);
+      const nadZalozkami = ikonyNadZalozkami(doc);
+      if (nadZalozkami) vady.push(`Hlavička: ${nadZalozkami}`);
+      // ⚠️ A ještě jednou bez mince — v androidím obalu je schovaná
+      // (DONATE-COMEBACK) a kolo se statistikami pak stojí nad záložkou samy.
+      const mince = doc.getElementById('btn-donate-top');
+      if (mince && !mince.hidden) {
+        mince.hidden = true;
+        const bezMince = ikonyNadZalozkami(doc);
+        if (bezMince) vady.push(`Hlavička bez mince (obal): ${bezMince}`);
+        mince.hidden = false;
+      }
 
       // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
       //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.

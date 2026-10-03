@@ -308,7 +308,22 @@ test('🚨 statistiky jsou IKONA v liště mezi mincí a kolem, ne třetí zálo
   assert.match(app, /\$\('btn-stats'\)\.setAttribute\('aria-pressed', String\(kam === 'stats'\)\)/);
   // Ikona nesmí nafouknout lištu — záporné okraje jako mince a kolo.
   const css = readFileSync(join(WEB, 'style.css'), 'utf8');
-  assert.match(css, /\.icon-btn\.stats \{[^}]*height: 44px[^}]*margin: -12px 0;/);
+  assert.match(css, /\.icon-btn\.stats \{[^}]*height: 44px[^}]*margin: calc\(-1 \* var\(--presah-ikon\)\) 0;/);
+});
+
+test('🚨 ikony v liště jsou stejně vysoké a záložky pod nimi nechávají mezeru', () => {
+  // Michal 3. 10. 2026: v appce ležely ikony dolní hranou na záložce Trasa
+  // a kolo (49 px z odsazení kolem znaku) trčelo výš i níž než statistiky.
+  // Výška je napevno a přesah i odstup záložek jdou z JEDNÉ proměnné —
+  // kdo změní jedno, změní obojí. Skutečnou mezeru měří layoutová kontrola.
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  for (const trida of ['mince', 'stats', 'settings']) {
+    const pravidla = [...css.matchAll(new RegExp(`\\.icon-btn\\.${trida} \\{([^}]*)\\}`, 'g'))].map((m) => m[1]).join(';');
+    assert.match(pravidla, /height: 44px/, `${trida}: výška napevno`);
+    assert.match(pravidla, /margin: calc\(-1 \* var\(--presah-ikon\)\) 0/, `${trida}: přesah z proměnné`);
+    assert.doesNotMatch(pravidla, /padding: 1\dpx 0/, `${trida}: výška z odsazení kolem znaku`);
+  }
+  assert.match(css, /\.top-menu \{ margin-top: calc\(var\(--presah-ikon\) \+ [\d.]+px\); \}/);
 });
 
 test('🚨 Moje místa a Moje trasy stojí VEDLE SEBE v obou pořadích záložek', () => {

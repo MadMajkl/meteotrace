@@ -209,6 +209,11 @@ body {
      Nahoru patří `inset-top`, dolů `inset-bottom` — a ten je u `main`. */
   padding: 5px var(--okraj);
   padding-top: calc(5px + env(safe-area-inset-top, 0px));
+  /* O kolik ikony v liště (mince, statistiky, kolo — terč 44 px) přečnívají
+     nad a pod řádek. Do řádku tak přispějí 44 − 2 × 10,5 = 23 px, což je
+     výška sbalené lišty 34 px (do 3. 10. 2026 ji tak držela náhodou výška
+     znaku ⚙). Odvozuje se z toho i odstup záložek (`.top-menu`). */
+  --presah-ikon: 10.5px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -368,7 +373,15 @@ body {
 
 /* ⚠️ Sbaluje se OBAL, ne jednotlivé kusy: jinak by v hlavičce zůstaly
    mezery po prvcích, které nejsou vidět. Schování obstará `[hidden]`. */
-.top-menu { margin-top: 10px; }
+/* 🚨 14 px, ne 10. Ikony v liště (mince, statistiky, kolo) mají terč
+   44 px, ale do řádku přispívají jen 20 — zbytek visí 12 px pod řádek.
+   S odstupem 10 px ležely dolním okrajem PŘÍMO na záložkách, kolo do nich
+   zajíždělo o 3 px. Na webu to skoro nebylo vidět (horní půlku ikon
+   ořízne okraj okna), v appce je nad lištou systémový okraj a ikony jsou
+   vidět celé. Michal 3. 10. 2026: *„pravá dlaždice jde přes spodní hranu
+   nastavení… měla by tam být malilinkatá mezírka."* Odstup = přesah ikon
+   pod řádek + 3,5 px mezery. Měří layoutová kontrola (`ikonyNadZalozkami`). */
+.top-menu { margin-top: calc(var(--presah-ikon) + 3.5px); }
 
 /* ⚠️ Už to není řádek „pole + tlačítko vedle". ⌖ sedí UVNITŘ pole
    (`.vstup-s-akci`), takže formulář je prostý blok. */
@@ -399,9 +412,17 @@ body {
    nikdo — `.icon-btn` ji nechává na obsahu, a ten je jen 21 px vysoký.
    Změřeno 29. 8. 2026 při zmenšování lišty; platilo to i předtím, jen si
    toho nikdo nevšiml, protože kolo drželo výšku od okolního řádku.
-   Odsazení s protějším záporným okrajem dá terč přes 40 px a lištu
-   přitom nezvětší. */
-.icon-btn.settings { padding: 13px 0; margin: -13px 0; }
+   Záporné okraje dají terč 44 px a lištu přitom nezvětší.
+   ♻️ 3. 10. 2026: výška NAPEVNO, ne odsazením kolem znaku. Odsazení
+   13 + 13 px kolem znaku dalo kolu 49 px (znak má svou výšku řádku),
+   takže v appce, kde je ikona vidět celá, trčelo výš i níž než
+   statistiky vedle a dolním okrajem leželo na záložce Trasa. Všechny
+   ikony v liště mají teď 44 px a zarovnání na střed. */
+.icon-btn.settings {
+  height: 44px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  margin: calc(-1 * var(--presah-ikon)) 0;
+}
 
 .results {
   list-style: none; margin: 8px 0 0; padding: 0;
@@ -1521,11 +1542,11 @@ main {
    `.brand` roztáhl z 20 na 27 px a lišta z 30 na 38 — tedy přesně to,
    na co si Michal stěžoval o dvě zprávy dřív. Terč zůstává 44 px vysoký
    (dotyk), ale záporné okraje ho vytáhnou z toku, takže do řádku přispěje
-   jen 20 px — stejně jako ozubené kolo vedle. */
+   jen 23 px (`--presah-ikon` u `.top`) — stejně jako kolo a statistiky. */
 .icon-btn.mince {
   height: 44px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  margin: -12px 0 -12px auto;
+  margin: calc(-1 * var(--presah-ikon)) 0 calc(-1 * var(--presah-ikon)) auto;
 }
 
 /* ⚠️ Pulzuje SVG, ne tlačítko. V Gulpce je tlačítko průhledné, tady má
@@ -1571,12 +1592,12 @@ main {
 
 /* Statistiky (R35) mezi mincí a kolem. Kresba i tloušťka čáry z Gulpky;
    barva a terč jako u kola vedle, ať tři ikony vypadají jako jedna řada.
-   🚨 Do řádku přispívá jen 20 px — stejně jako mince (viz výš): terč je
+   🚨 Do řádku přispívá jen 23 px — stejně jako mince (viz výš): terč je
    vysoký 44 px, ale záporné okraje ho vytahují z toku. */
 .icon-btn.stats {
   height: 44px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  margin: -12px 0;
+  margin: calc(-1 * var(--presah-ikon)) 0;
   color: var(--text-soft);
 }
 .icon-btn.stats svg {
