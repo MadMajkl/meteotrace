@@ -13,6 +13,7 @@ import {
   checkHistoryQuery, roundCoord, MAX_DNI, ARCHIV_OD,
   summarizeDaily, chartSeries, yearlyFromDaily, summarizeYears, yearsInRange, dir8,
   recordVisit, cleanVisits, visitsInRange, MAX_NAVSTEV, HISTORY_DAILY, CLIMATE_DAILY,
+  VELICINY, VELICINY_ROKY, availableQuantities,
 } from '../web/lib/stats.js';
 import { stavHistorii, stavKlima } from '../server/history.js';
 import { planRequest } from '../web/lib/proxy-core.js';
@@ -238,6 +239,89 @@ test('graf: po dnech, po týdnech, po měsících podle délky', () => {
   assert.equal(t.tMin, -2);
   assert.equal(t.precip, 6);
   assert.deepEqual([t.from, t.to], ['2026-01-01', '2026-01-07']);
+  assert.equal(t.days, 7);
+});
+
+/** `dny()` se vším, co umí přepínač veličin (6. 10. 2026). */
+function dnySeVsim(n) {
+  const d = dny(n);
+  const po7 = (f) => d.time.map((_, i) => f(i % 7));
+  return {
+    ...d,
+    apparent_temperature_max: po7((j) => 8 + j),
+    apparent_temperature_min: po7((j) => j - 5),
+    wind_speed_10m_max: po7((j) => 10 + j),
+    wind_gusts_10m_max: po7((j) => 20 + 2 * j),
+    wind_direction_10m_dominant: po7((j) => (j < 4 ? 270 : 90)),
+    relative_humidity_2m_mean: po7((j) => 60 + 5 * j),
+    cloud_cover_mean: po7((j) => 10 * j),
+    pressure_msl_mean: po7((j) => 1010 + j),
+  };
+}
+
+test('🚨 graf: týden slučuje každou veličinu podle toho, co znamená', () => {
+  // Michal 6. 10. 2026: přepínač mezi „ostatními údaji, které meteotrace
+  // ukazuje". Sloupec za týden musí říct pravdu u každého z nich.
+  const t = chartSeries(dnySeVsim(90)).points[0];
+  // Nejvyšší a nejnižší → extrém (ne průměr — „pocitově až 14 °C").
+  assert.equal(t.fMax, 14);
+  assert.equal(t.fMin, -5);
+  assert.equal(t.wind, 16);
+  assert.equal(t.gust, 32);
+  // Průměry → průměr (součet vlhkosti za týden by byl nesmysl).
+  assert.equal(t.humidity, 75);
+  assert.equal(t.cloud, 30);
+  assert.equal(t.pressure, 1013);
+  // Směr → nejčastější strana: čtyři dny západ, tři východ.
+  assert.equal(t.windDir, 'w');
+});
+
+test('🚨 graf: den bez údaje je „nevím", ne nula', () => {
+  // Nula srážek i nula procent jsou věrohodná čísla — díra by se za ně schovala
+  // a bublina po klepnutí by tvrdila „0,0 mm".
+  const p = chartSeries({ time: ['2026-01-01'], temperature_2m_max: [5], precipitation_sum: [null] }).points[0];
+  assert.equal(p.precip, null);
+  assert.equal(p.humidity, null);
+  assert.equal(p.pressure, null);
+  assert.equal(p.windDir, null);
+  assert.equal(p.tMax, 5);
+});
+
+test('přepínač nabízí jen veličiny, které v odpovědi opravdu jsou', () => {
+  // Odpověď z mezipaměti před 6. 10. 2026 nové veličiny nemá — prázdný graf
+  // „Vlhkost" by vypadal jako rozbitý.
+  assert.deepEqual(availableQuantities(TYDEN), ['temp', 'precip', 'wind', 'cloud']);
+  assert.deepEqual(availableQuantities(dnySeVsim(7)), VELICINY);
+  assert.deepEqual(availableQuantities({ time: ['2026-01-01'], relative_humidity_2m_mean: [null] }), []);
+  assert.deepEqual(availableQuantities(null), []);
+  // „Od začátku" zná jen to, co server sčítá po rocích.
+  assert.deepEqual(VELICINY_ROKY, ['temp', 'precip']);
+  assert.ok(VELICINY_ROKY.every((v) => VELICINY.includes(v)));
+});
+
+test('🚨 každá veličina z přepínače se u archivu opravdu ptá — a víc než 13 jich není', () => {
+  // Kdyby veličina v `HISTORY_DAILY` chyběla, tlačítko by se nikdy neukázalo
+  // a nikdo by nevěděl proč. A každá navíc zdražuje dotaz (váha po desíti).
+  const vse = Object.fromEntries(HISTORY_DAILY.map((k) => [k, [1]]));
+  assert.deepEqual(availableQuantities({ time: ['2026-01-01'], ...vse }), VELICINY);
+  assert.ok(HISTORY_DAILY.length <= 13, `veličin je ${HISTORY_DAILY.length}`);
+  assert.equal(new Set(HISTORY_DAILY).size, HISTORY_DAILY.length);
+  // UV index archiv nemá (samé null, ověřeno 6. 10. 2026) — ptát se na něj je vyhozená váha.
+  assert.ok(!HISTORY_DAILY.some((k) => k.startsWith('uv_')));
+});
+
+test('souhrn pro body trasy: pocitová, vítr, vlhkost a tlak i s daty', () => {
+  const s = summarizeDaily(dnySeVsim(7));
+  assert.deepEqual(s.feelsMax, { value: 14, date: '2026-01-07' });
+  assert.deepEqual(s.feelsMin, { value: -5, date: '2026-01-01' });
+  assert.deepEqual(s.windMax, { value: 16, date: '2026-01-07' });
+  assert.equal(s.humidityMean, 75);
+  assert.deepEqual(s.humidityMin, { value: 60, date: '2026-01-01' });
+  assert.equal(s.pressureMean, 1013);
+  assert.deepEqual(s.pressureMax, { value: 1016, date: '2026-01-07' });
+  // Bez údaje „nevíme", ne nula.
+  assert.equal(summarizeDaily(TYDEN).humidityMean, null);
+  assert.equal(summarizeDaily(TYDEN).feelsMax, null);
 });
 
 /* ============================================================
@@ -268,6 +352,9 @@ test('🚨 do rekordů se berou jen CELÉ roky — letošek do září by vyhrá
   // Oteplení: posledních 10 celých let proti 1961–1990.
   assert.deepEqual(s.changeYears, { from: 2016, to: 2025 });
   assert.ok(Math.abs(s.change - 1.35) < 0.01, String(s.change));
+  // Průměrný roční úhrn (body trasy na „Srážky") — taky jen z celých let.
+  const celeUhrny = roky.filter((r) => r.days >= 360).map((r) => r.precipSum);
+  assert.ok(Math.abs(s.precipMean - celeUhrny.reduce((a, v) => a + v, 0) / celeUhrny.length) < 1e-9);
 });
 
 test('bez srovnávacího období se oteplení netvrdí', () => {

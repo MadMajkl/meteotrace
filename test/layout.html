@@ -437,6 +437,59 @@ function ikonyNadZalozkami(doc) {
   return nalezy.length ? nalezy.join('; ') : null;
 }
 
+/**
+ * Přepínač veličin statistik je JEDNA řada (6. 10. 2026). Sedm voleb by
+ * se na telefonu zalomilo do tří řádků a odsunulo graf z displeje —
+ * přetečení ani překryv by to nenahlásily, řada by jen narostla.
+ */
+function jednaRadaVoleb(doc, id) {
+  const volby = [...doc.querySelectorAll(`#${id} [data-velicina]`)];
+  if (volby.length < 2) return `#${id}: přepínač veličin má ${volby.length} voleb`;
+  const radky = new Set(volby.map((b) => Math.round(b.getBoundingClientRect().top)));
+  return radky.size > 1 ? `#${id}: přepínač veličin se zalomil do ${radky.size} řádků` : null;
+}
+
+/**
+ * Bublina grafu statistik po klepnutí (6. 10. 2026: „body při klepnutí
+ * nic neukazují"). Klepne se doprostřed a na pravý kraj u KAŽDÉ veličiny:
+ * bublina se musí ukázat, nést datum a hodnotu a nevylézt z karty.
+ * ⚠️ Kraj je nejtěsnější: bublina vpravo od zaměřovače se tam nevejde
+ * a musí přeskočit na levou stranu.
+ */
+async function bublinaGrafu(doc) {
+  const win = doc.defaultView;
+  const karta = doc.getElementById('stats-chart-card');
+  if (karta.hidden) return ['graf se neukázal — nepřišla data?'];
+  const nalezy = [];
+  for (const volba of [...doc.querySelectorAll('#stats-quantity [data-velicina]')]) {
+    const v = volba.dataset.velicina;
+    volba.click();
+    await new Promise((r) => setTimeout(r, 120));
+    const svg = doc.querySelector('#stats-chart svg');
+    if (!svg) { nalezy.push(`${v}: graf se nenakreslil`); continue; }
+    for (const podil of [0.5, 0.99]) {
+      const r = svg.getBoundingClientRect();
+      svg.dispatchEvent(new win.PointerEvent('pointerdown', {
+        bubbles: true, pointerType: 'touch', clientX: r.left + r.width * podil, clientY: r.top + r.height / 2,
+      }));
+      const tip = doc.querySelector('#stats-chart .stats-tip');
+      if (!tip || tip.hidden) { nalezy.push(`${v}: po klepnutí se bublina neukázala`); continue; }
+      if (!/\d/.test(tip.querySelector('.stats-tip-kdy')?.textContent || '')) nalezy.push(`${v}: bublina nemá datum`);
+      if (!tip.querySelector('.stats-tip-radek b')) nalezy.push(`${v}: bublina nemá hodnotu`);
+      const t = tip.getBoundingClientRect();
+      const k = karta.getBoundingClientRect();
+      if (t.left < k.left - 0.5 || t.right > k.right + 0.5) {
+        nalezy.push(`${v}: bublina (klepnutí na ${Math.round(podil * 100)} %) leze z karty o ${Math.round(Math.max(k.left - t.left, t.right - k.right))} px`);
+      }
+    }
+  }
+  // Zpátky na teplotu a bez bubliny, ať další měření vidí výchozí stav.
+  doc.querySelector('#stats-quantity [data-velicina="temp"]')?.click();
+  await new Promise((r) => setTimeout(r, 120));
+  doc.getElementById('stats-title').dispatchEvent(new win.PointerEvent('pointerdown', { bubbles: true }));
+  return nalezy;
+}
+
 async function run() {
   await Promise.all(frames.map(({ f }) => new Promise((res) => {
     if (f.contentDocument?.readyState === 'complete') res();
@@ -544,6 +597,20 @@ async function run() {
       if (vKontextuStat) vady.push(`Statistiky: ${vKontextuStat}`);
       if (doc.getElementById('stats').hidden) vady.push('Statistiky: obrazovka se po klepnutí na ikonu neukázala');
       if (doc.getElementById('btn-stats').getAttribute('aria-pressed') !== 'true') vady.push('Statistiky: ikona na statistikách nesvítí jako zapnutá');
+      // Přepínač veličin nad body trasy (přišlo se z trasy) a pak nad grafem místa.
+      if (!doc.getElementById('stats-route-card').hidden) {
+        const rada = jednaRadaVoleb(doc, 'stats-route-quantity');
+        if (rada) vady.push(`Statistiky: ${rada}`);
+      }
+      doc.getElementById('stats-mode-place').click();
+      for (let i = 0; i < 40 && doc.getElementById('stats-chart-card').hidden; i++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const radaGrafu = jednaRadaVoleb(doc, 'stats-quantity');
+      if (radaGrafu) vady.push(`Statistiky: ${radaGrafu}`);
+      for (const b of await bublinaGrafu(doc)) vady.push(`Statistiky, graf: ${b}`);
+      const o6 = overflow(doc);
+      if (o6) vady.push(`Statistiky, graf: přetéká o ${o6.total - o6.limit} px (${o6.culprit} sahá na ${o6.right})`);
       const obdobi = doc.getElementById('stats-period');
       obdobi.value = 'custom';
       obdobi.dispatchEvent(new Event('change', { bubbles: true }));

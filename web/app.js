@@ -75,7 +75,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.25.2';
+const VERZE = '0.26.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 

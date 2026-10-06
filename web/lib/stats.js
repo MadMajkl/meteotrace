@@ -42,12 +42,46 @@ export const MAX_DNI = 800;
 /**
  * Denní veličiny, na které se ptáme. Jen ty, které se opravdu ukážou —
  * každá navíc zvedá váhu dotazu u zdroje.
+ *
+ * ⚠️ Zdroj váží dotaz po DESETI veličinách: do deseti je to jeden díl,
+ * třináct je 1,3 dílu. Pocitová teplota, vítr, vlhkost a tlak přibyly
+ * 6. 10. 2026 kvůli přepínači v grafu (`VELICINY`) — dotaz se tím
+ * prodražil o třetinu, ne násobně. Víc už ne bez dobrého důvodu.
  */
 export const HISTORY_DAILY = [
   'temperature_2m_max', 'temperature_2m_min', 'temperature_2m_mean',
+  'apparent_temperature_max', 'apparent_temperature_min',
   'precipitation_sum', 'snowfall_sum', 'cloud_cover_mean',
-  'wind_gusts_10m_max', 'wind_direction_10m_dominant',
+  'wind_speed_10m_max', 'wind_gusts_10m_max', 'wind_direction_10m_dominant',
+  'relative_humidity_2m_mean', 'pressure_msl_mean',
 ];
+
+/**
+ * Veličiny, mezi kterými se v grafu (a v bodech trasy) přepíná — tytéž
+ * údaje, které appka ukazuje u předpovědi.
+ *
+ * Michal 6. 10. 2026: *„ve statistikách mi chybí přepínatelné ostatní
+ * údaje, které meteotrace ukazuje, mělo by se na ně dát přepnout."*
+ *
+ * ⚠️ UV index tu není a nebude: archiv ho nemá (vrací samé `null`,
+ * ověřeno 6. 10. 2026). Východ a západ slunce ani Měsíc nejsou počasí,
+ * které „bylo" — ty se každý rok opakují.
+ */
+export const VELICINY = ['temp', 'feels', 'precip', 'wind', 'humidity', 'cloud', 'pressure'];
+
+/** Roční přehled (od roku 1940) zná jen teplotu a srážky — viz `CLIMATE_DAILY`. */
+export const VELICINY_ROKY = ['temp', 'precip'];
+
+/** Z kterých polí archivu se která veličina kreslí. */
+const ZDROJ_VELICINY = {
+  temp: ['temperature_2m_max', 'temperature_2m_min'],
+  feels: ['apparent_temperature_max', 'apparent_temperature_min'],
+  precip: ['precipitation_sum'],
+  wind: ['wind_speed_10m_max', 'wind_gusts_10m_max'],
+  humidity: ['relative_humidity_2m_mean'],
+  cloud: ['cloud_cover_mean'],
+  pressure: ['pressure_msl_mean'],
+};
 
 /**
  * Jasný a zatažený den podle PRŮMĚRNÉ DENNÍ OBLAČNOSTI (obvyklé meze:
@@ -230,6 +264,32 @@ export function dir8(degrees) {
   return STRANY8[Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
 }
 
+/**
+ * Převládající směr větru: nejčastější z osmi světových stran.
+ *
+ * ⚠️ Průměr stupňů nejde — průměr severozápadu (315°) a severovýchodu
+ * (45°) vyjde jih.
+ *
+ * @returns {{key: string, days: number}|null}
+ */
+function prevladajiciSmer(stupne) {
+  const strany = new Map();
+  for (const s of stupne) {
+    const k8 = dir8(s);
+    if (!k8) continue;
+    strany.set(k8, (strany.get(k8) || 0) + 1);
+  }
+  let nej = null;
+  for (const [k, n] of strany) if (!nej || n > nej.days) nej = { key: k, days: n };
+  return nej;
+}
+
+/** Průměr čísel v řadě; žádné číslo → `null` (ne nula). */
+function prumer(hodnoty) {
+  const cisla = hodnoty.filter(jeCislo);
+  return cisla.length ? cisla.reduce((a, v) => a + v, 0) / cisla.length : null;
+}
+
 /** Nejvyšší (nebo nejnižší) hodnota řady i s datem. */
 function extrem(casy, hodnoty, vetsi) {
   let nej = null;
@@ -279,6 +339,11 @@ export function summarizeDaily(daily) {
   const oblacnost = daily.cloud_cover_mean || [];
   const narazy = daily.wind_gusts_10m_max || [];
   const smer = daily.wind_direction_10m_dominant || [];
+  const pocitMax = daily.apparent_temperature_max || [];
+  const pocitMin = daily.apparent_temperature_min || [];
+  const vitrMax = daily.wind_speed_10m_max || [];
+  const vlhkost = daily.relative_humidity_2m_mean || [];
+  const tlak = daily.pressure_msl_mean || [];
 
   const prumery = tMean.filter(jeCislo);
   // Dny, ke kterým vůbec něco máme — podle nich se pozná díra v datech.
@@ -287,17 +352,6 @@ export function summarizeDaily(daily) {
 
   const soucet = (a) => a.filter(jeCislo).reduce((s, v) => s + v, 0);
   const pocet = (a, podm) => a.filter((v) => jeCislo(v) && podm(v)).length;
-
-  // Převládající směr větru: nejčastější z osmi světových stran. Průměr
-  // stupňů nejde — průměr severozápadu (315°) a severovýchodu (45°) je jih.
-  const strany = new Map();
-  for (const s of smer) {
-    const k8 = dir8(s);
-    if (!k8) continue;
-    strany.set(k8, (strany.get(k8) || 0) + 1);
-  }
-  let vitr = null;
-  for (const [k, n] of strany) if (!vitr || n > vitr.days) vitr = { key: k, days: n };
 
   return {
     days: casy.length,
@@ -321,7 +375,18 @@ export function summarizeDaily(daily) {
     overcastDays: pocet(oblacnost, (v) => v >= ZATAZENO_OD_PCT),
 
     gustMax: extrem(casy, narazy, true),
-    windDir: vitr,
+    windDir: prevladajiciSmer(smer),
+    windMax: extrem(casy, vitrMax, true),
+
+    // Pro přepínač veličin (body trasy): pocitová teplota, vlhkost, tlak.
+    feelsMax: extrem(casy, pocitMax, true),
+    feelsMin: extrem(casy, pocitMin, false),
+    humidityMean: prumer(vlhkost),
+    humidityMax: extrem(casy, vlhkost, true),
+    humidityMin: extrem(casy, vlhkost, false),
+    pressureMean: prumer(tlak),
+    pressureMax: extrem(casy, tlak, true),
+    pressureMin: extrem(casy, tlak, false),
 
     tropicalDays: pocet(tMax, (v) => v >= 30),
     frostDays: pocet(tMin, (v) => v < 0),
@@ -334,20 +399,37 @@ export function summarizeDaily(daily) {
    ============================================================ */
 
 /**
+ * Které veličiny v denních údajích opravdu jsou (aspoň jedno číslo).
+ *
+ * ⚠️ Odpověď uložená v mezipaměti před 6. 10. 2026 nové veličiny nemá —
+ * přepínač pak nabídne jen to, co se dá nakreslit, místo prázdného grafu.
+ */
+export function availableQuantities(daily) {
+  return VELICINY.filter((v) => ZDROJ_VELICINY[v].some((k) => (daily?.[k] || []).some(jeCislo)));
+}
+
+/**
  * Řada pro graf: sloupce po dnech, týdnech nebo měsících podle délky období.
  *
  * ⚠️ 365 sloupců se na telefon nevejde a nedá se v nich nic přečíst.
  * Hranice: do 45 dní po dnech, do 200 po týdnech, dál po měsících.
  *
- * @returns {{step: 'day'|'week'|'month', points: Array<{from, to, tMax, tMin, precip}>}}
+ * Každý bod nese VŠECHNY veličiny, ať přepnutí v grafu nechodí znovu
+ * počítat. Jak se dny slučují, záleží na tom, co číslo znamená:
+ * - nejvyšší a nejnižší (teplota, pocitová, vítr, nárazy) → extrém,
+ * - srážky → SOUČET,
+ * - průměry (vlhkost, oblačnost, tlak) → průměr,
+ * - směr větru → nejčastější strana.
+ * Bez jediného údaje je hodnota `null`, ne nula — nula srážek nebo
+ * nula stupňů je věrohodné číslo a díra by se za něj schovala.
+ *
+ * @returns {{step: 'day'|'week'|'month', points: Array<{from: string, to: string, days: number,
+ *   tMax, tMin, fMax, fMin, precip, wind, gust, windDir, humidity, cloud, pressure}>}}
  */
 export function chartSeries(daily) {
   const casy = daily?.time || [];
   const n = casy.length;
   const step = n <= 45 ? 'day' : n <= 200 ? 'week' : 'month';
-  const tMax = daily?.temperature_2m_max || [];
-  const tMin = daily?.temperature_2m_min || [];
-  const srazky = daily?.precipitation_sum || [];
 
   const klic = (i) => {
     if (step === 'day') return casy[i];
@@ -357,21 +439,42 @@ export function chartSeries(daily) {
     return String(Math.floor(i / 7));
   };
 
-  const points = [];
-  let cur = null;
+  /** Dny rozdělené do sloupců: indexy do denních polí. */
+  const skupiny = [];
   let curKlic = null;
   for (let i = 0; i < n; i++) {
     const k = klic(i);
-    if (k !== curKlic) {
-      cur = { from: casy[i], to: casy[i], tMax: null, tMin: null, precip: 0 };
-      points.push(cur);
-      curKlic = k;
-    }
-    cur.to = casy[i];
-    if (jeCislo(tMax[i])) cur.tMax = cur.tMax === null ? tMax[i] : Math.max(cur.tMax, tMax[i]);
-    if (jeCislo(tMin[i])) cur.tMin = cur.tMin === null ? tMin[i] : Math.min(cur.tMin, tMin[i]);
-    if (jeCislo(srazky[i])) cur.precip += srazky[i];
+    if (k !== curKlic) { skupiny.push([]); curKlic = k; }
+    skupiny[skupiny.length - 1].push(i);
   }
+
+  const vyber = (k, idx) => idx.map((i) => daily?.[k]?.[i]);
+  const nej = (k, idx, vetsi) => {
+    const cisla = vyber(k, idx).filter(jeCislo);
+    if (!cisla.length) return null;
+    return vetsi ? Math.max(...cisla) : Math.min(...cisla);
+  };
+  const soucet = (k, idx) => {
+    const cisla = vyber(k, idx).filter(jeCislo);
+    return cisla.length ? cisla.reduce((a, v) => a + v, 0) : null;
+  };
+
+  const points = skupiny.map((idx) => ({
+    from: casy[idx[0]],
+    to: casy[idx[idx.length - 1]],
+    days: idx.length,
+    tMax: nej('temperature_2m_max', idx, true),
+    tMin: nej('temperature_2m_min', idx, false),
+    fMax: nej('apparent_temperature_max', idx, true),
+    fMin: nej('apparent_temperature_min', idx, false),
+    precip: soucet('precipitation_sum', idx),
+    wind: nej('wind_speed_10m_max', idx, true),
+    gust: nej('wind_gusts_10m_max', idx, true),
+    windDir: prevladajiciSmer(vyber('wind_direction_10m_dominant', idx))?.key ?? null,
+    humidity: prumer(vyber('relative_humidity_2m_mean', idx)),
+    cloud: prumer(vyber('cloud_cover_mean', idx)),
+    pressure: prumer(vyber('pressure_msl_mean', idx)),
+  }));
   return { step, points };
 }
 
@@ -424,12 +527,12 @@ export function summarizeYears(years) {
 
   const nej = (pole, co, vetsi) => pole.reduce((a, r) => (
     a === null || (vetsi ? r[co] > a[co] : r[co] < a[co]) ? r : a), null);
-  const prumer = (pole) => (pole.length ? pole.reduce((s, r) => s + r.tempMean, 0) / pole.length : null);
+  const prumerTeplot = (pole) => (pole.length ? pole.reduce((s, r) => s + r.tempMean, 0) / pole.length : null);
 
   const normal = cele.filter((r) => r.year >= 1961 && r.year <= 1990);
   const posledni = cele.slice(-10);
   const zmena = normal.length >= 25 && posledni.length === 10
-    ? prumer(posledni) - prumer(normal) : null;
+    ? prumerTeplot(posledni) - prumerTeplot(normal) : null;
 
   return {
     years: cele.length,
@@ -439,7 +542,9 @@ export function summarizeYears(years) {
     coldest: nej(cele, 'tempMean', false),
     wettest: nej(cele, 'precipSum', true),
     driest: nej(cele, 'precipSum', false),
-    tempMean: prumer(cele),
+    tempMean: prumerTeplot(cele),
+    // Průměrný roční úhrn — pro body trasy, když je přepnuto na srážky.
+    precipMean: cele.reduce((a, r) => a + r.precipSum, 0) / cele.length,
     change: zmena,
     changeYears: zmena === null ? null : { from: posledni[0].year, to: posledni[9].year },
   };

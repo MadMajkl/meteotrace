@@ -17,12 +17,12 @@
 
 import { t, tf, tp } from './lib/i18n.js';
 import { apiGet, createRequestGroup } from './lib/api.js';
-import { formatTemp, formatPrecip, formatWind, SYMBOL } from './lib/units.js';
+import { formatTemp, formatPrecip, formatWind, formatPressure, SYMBOL } from './lib/units.js';
 import { isUsablePoint, placeLabel } from './lib/geo-query.js';
 import {
-  PERIODS, periodRange, localToday, daysBetween, dayMs,
-  summarizeDaily, chartSeries, summarizeYears, yearsInRange,
-  roundCoord, KROK_DNY, KROK_ROKY, CELY_ROK_DNI,
+  PERIODS, periodRange, localToday, daysBetween, dayMs, addDays,
+  summarizeDaily, chartSeries, summarizeYears, yearsInRange, availableQuantities,
+  roundCoord, KROK_DNY, KROK_ROKY, CELY_ROK_DNI, VELICINY, VELICINY_ROKY,
 } from './lib/stats.js';
 
 const $ = (id) => document.getElementById(id);
@@ -36,6 +36,13 @@ let deps = null;
 let mode = 'place';          // 'place' | 'route'
 let period = '7';
 const custom = { from: '', to: '' };
+/**
+ * Co ukazuje graf a body trasy — jedna z `VELICINY`.
+ * ⚠️ Je to PŘÁNÍ, ne nutně to, co se kreslí: „Od začátku" zná jen
+ * teplotu a srážky. Vlhkost tam ukázat nejde, ale po návratu na kratší
+ * období se má vrátit — proto se volba nepřepisuje, jen obchází.
+ */
+let velicina = 'temp';
 /** Poslední vykreslená data — kvůli překreslení grafu po změně šířky. */
 let posledniGraf = null;
 
@@ -72,7 +79,27 @@ function den(iso, sRokem = false) {
 const temp = (c, digits = 1) => formatTemp(c, stav().units, stav().lang, digits);
 const srazky = (mm) => formatPrecip(mm, stav().units, stav().lang);
 const vitr = (kmh) => formatWind(kmh, stav().units, stav().lang);
+const tlak = (hpa) => formatPressure(hpa, stav().units, stav().lang);
 const dni = (n) => tp('stats.days', n, {}, stav().lang);
+
+/** Procenta (vlhkost, oblačnost). Prázdno je pomlčka, ne nula. */
+function pct(v) {
+  if (v == null || !Number.isFinite(v)) return '—';
+  return `${new Intl.NumberFormat(stav().lang, { maximumFractionDigits: 0 }).format(v)} %`;
+}
+
+/**
+ * Srážky na ose grafu: od deseti nahoru bez desetin. „978,0 mm" je
+ * delší než místo na popisky a desetina u horní linky nic neříká.
+ */
+function srazkyOsa(mm) {
+  const s = stav();
+  const palce = s.units.precip === 'in';
+  const v = palce ? mm / 25.4 : mm;
+  // Palce jsou malá čísla: „0,35 in" by na jedno místo bylo „0,4".
+  const digits = v >= 10 ? 0 : palce && v < 1 ? 2 : 1;
+  return `${new Intl.NumberFormat(s.lang, { maximumFractionDigits: digits }).format(v)} ${SYMBOL[s.units.precip]}`;
+}
 
 /**
  * ROZDÍL teplot („o 1,9 °C tepleji").
@@ -148,6 +175,90 @@ function bunka(popis, hodnota, doplnek) {
 }
 
 /* ============================================================
+   PŘEPÍNAČ VELIČIN
+   ============================================================ */
+
+/** Co se doopravdy kreslí: přání, když jde, jinak první dostupná veličina. */
+const ucinna = (dostupne) => (dostupne.includes(velicina) ? velicina : dostupne[0] || 'temp');
+
+/**
+ * Řada tlačítek nad grafem (a nad body trasy).
+ *
+ * ⚠️ Tlačítka se při přepnutí NEZAKLÁDAJÍ ZNOVU, jen přepnou `aria-pressed`.
+ * Řada se dá posunout prstem do strany — nová tlačítka by ji vrátila
+ * na začátek a „Tlak" by člověku po klepnutí ujel z prstu.
+ */
+function vykresliVolbu(id, dostupne) {
+  const box = $(id);
+  const L = stav().lang;
+  const zapnuta = ucinna(dostupne);
+  const stejne = box.children.length === dostupne.length
+    && [...box.children].every((b, i) => b.dataset.velicina === dostupne[i]);
+  if (!stejne) {
+    box.replaceChildren(...dostupne.map((v) => {
+      const b = el('button', 'dep-mode', t(`stats.q.${v}`, L));
+      b.type = 'button';
+      b.dataset.velicina = v;
+      return b;
+    }));
+  }
+  for (const b of box.children) {
+    b.textContent = t(`stats.q.${b.dataset.velicina}`, L);
+    b.setAttribute('aria-pressed', String(b.dataset.velicina === zapnuta));
+  }
+  // Jedna volba není volba.
+  box.hidden = dostupne.length < 2;
+  srovnejKraj(box);
+}
+
+/** Vybledlý pravý kraj řady, dokud je vpravo ještě co posunout. */
+function srovnejKraj(box) {
+  box.toggleAttribute('data-vic', box.scrollLeft + box.clientWidth < box.scrollWidth - 2);
+}
+
+/**
+ * Jak se která veličina kreslí.
+ *
+ * - `cary`: jedna nebo dvě čáry — `[klíč bodu, role, jméno]`; role
+ *   `horni`/`dolni` (dvojice, mezi nimi pás) nebo `jedna`,
+ * - `sloupce`: místo čar sloupce od nuly — `[klíč bodu, jméno]`,
+ * - `osa`: `auto` (podle dat), `nula` (od nuly — rychlost, úhrn),
+ *   `procenta` (0–100 napevno, ať 60 % vlhkosti nevypadá jako sucho),
+ * - `fmt` hodnota do bubliny, `fmtOsa` popisek osy,
+ * - `minRozpeti`: nejmenší výška osy v jednotkách zdroje — rovná čára
+ *   by jinak splynula s okrajem a malý výkyv by vypadal jako velký.
+ */
+function popisVeliciny(v, roky = false) {
+  const L = stav().lang;
+  const jm = (k) => t(`stats.series.${k}`, L);
+  const teplota = { fmt: (x) => temp(x), fmtOsa: (x) => temp(x, 0), osa: 'auto', minRozpeti: 4 };
+  if (roky) {
+    return v === 'precip'
+      ? { sloupce: ['precip', jm('yearPrecip')], osa: 'nula', fmt: srazky, fmtOsa: srazkyOsa }
+      : { ...teplota, cary: [['mean', 'jedna', jm('yearMean')]], minRozpeti: 2 };
+  }
+  switch (v) {
+    case 'feels':
+      return { ...teplota, cary: [['fMax', 'horni', jm('max')], ['fMin', 'dolni', jm('min')]] };
+    case 'precip':
+      return { sloupce: ['precip', jm('precip')], osa: 'nula', fmt: srazky, fmtOsa: srazkyOsa };
+    case 'wind':
+      return {
+        cary: [['gust', 'horni', jm('gust')], ['wind', 'dolni', jm('wind')]],
+        osa: 'nula', fmt: vitr, fmtOsa: vitr, smer: true,
+      };
+    case 'humidity':
+      return { cary: [['humidity', 'jedna', jm('humidity')]], osa: 'procenta', fmt: pct, fmtOsa: pct };
+    case 'cloud':
+      return { cary: [['cloud', 'jedna', jm('cloud')]], osa: 'procenta', fmt: pct, fmtOsa: pct };
+    case 'pressure':
+      return { cary: [['pressure', 'jedna', jm('pressure')]], osa: 'auto', fmt: tlak, fmtOsa: tlak, minRozpeti: 8 };
+    default:
+      return { ...teplota, cary: [['tMax', 'horni', jm('max')], ['tMin', 'dolni', jm('min')]] };
+  }
+}
+
+/* ============================================================
    MÍSTO — souhrn po dnech
    ============================================================ */
 
@@ -164,8 +275,7 @@ function vykresliSouhrn(s) {
       s.dryStreak.days > 1 ? `${den(s.dryStreak.from)} – ${den(s.dryStreak.to)}` : den(s.dryStreak.from)),
     s.wetStreak.days > 1 && bunka(t('stats.wetStreak', L), dni(s.wetStreak.days),
       `${den(s.wetStreak.from)} – ${den(s.wetStreak.to)}`),
-    s.cloudMean !== null && bunka(t('stats.cloud', L),
-      `${new Intl.NumberFormat(L, { maximumFractionDigits: 0 }).format(s.cloudMean)} %`,
+    s.cloudMean !== null && bunka(t('stats.cloud', L), pct(s.cloudMean),
       tp('stats.clearDays', s.clearDays, {}, L)),
     s.gustMax && bunka(t('stats.gust', L), vitr(s.gustMax.value), den(s.gustMax.date)),
     s.windDir && bunka(t('stats.wind', L), t(`windDirLong.${s.windDir.key}`, L),
@@ -211,114 +321,317 @@ function vykresliRoky(roky) {
    GRAF (SVG v pixelech podle skutečné šířky)
    ============================================================ */
 
+const jeCislo = (v) => v != null && Number.isFinite(v);
+
+/** Šířka popisku osy — kvůli místu vlevo (tlak „1 031 hPa" je delší než „−5 °C"). */
+let merak = null;
+function sirkaPopisku(text) {
+  merak ??= document.createElement('canvas').getContext('2d');
+  if (!merak) return text.length * 6.5;
+  merak.font = `11px ${getComputedStyle(document.body).fontFamily}`;
+  return merak.measureText(text).width;
+}
+
 /**
- * @param {{labels: string[], hi: (number|null)[], lo: (number|null)[]|null, bars: number[], note: string}} g
- *   `hi`/`lo` jsou teploty ve °C (převod na jednotky až při popiscích),
- *   `bars` srážky v mm. `lo: null` = jedna čára (roční průměr).
+ * Geometrie posledního grafu: kam padá který bod. Z ní žije zaměřovač
+ * i bublina — graf se kreslí znovu po změně šířky a výběr se musí trefit.
+ */
+let geo = null;
+/** Index vybraného bodu (klepnutí, tažení, šipky), nebo `null`. */
+let vybrany = null;
+
+/**
+ * @param {object} g
+ * @param {string} g.klic     totožnost dat (místo + období): dokud se nezmění,
+ *   výběr bodu přežije přepnutí veličiny i překreslení po otočení telefonu
+ * @param {Array<object>} g.body   body z `chartSeries` (nebo roky)
+ * @param {'day'|'week'|'month'|'year'} g.krok
+ * @param {string[]} g.labels  popisky vodorovné osy
+ * @param {object} g.popis     z `popisVeliciny()`
+ * @param {string} g.nazev     jméno veličiny (do popisu pro čtečku)
+ * @param {string} g.note      věta pod grafem
  */
 function nakresliGraf(g) {
+  const stejnaData = posledniGraf?.klic === g.klic;
   posledniGraf = g;
+  if (!stejnaData) vybrany = null;
+  const karta = $('stats-chart-card');
+  karta.hidden = false;
+
   const box = $('stats-chart');
   const W = Math.max(260, Math.round(box.clientWidth || 320));
-  const H = 210;
-  const L = 44;                 // místo na popisky teplot vlevo („−11 °C", „102 °F")
+  const H = 196;
   const R = 8;
   const T = 10;
-  const Y_TEPLOTY = 128;        // spodní hrana pásu teplot
-  const Y_SRAZKY_OD = 146;
-  const Y_SRAZKY_DO = 186;      // spodní hrana sloupců srážek
-  const n = g.labels.length;
+  const B = 166;                // spodní hrana plochy grafu
+  const { body, popis } = g;
+  const n = body.length;
+
+  const klice = popis.sloupce ? [popis.sloupce[0]] : popis.cary.map((c) => c[0]);
+  const cisla = body.flatMap((p) => klice.map((k) => p[k])).filter(jeCislo);
+  if (!cisla.length || !n) {
+    geo = null;
+    box.replaceChildren();
+    $('stats-chart-note').replaceChildren(t('stats.empty', stav().lang));
+    return;
+  }
+
+  // Rozsah osy podle druhu veličiny (viz `popisVeliciny`).
+  let min;
+  let max;
+  if (popis.osa === 'procenta') {
+    min = 0; max = 100;
+  } else if (popis.osa === 'nula') {
+    min = 0;
+    max = Math.max(...cisla);
+    if (max <= 0) max = 1;     // samé nuly: plochá čára na dně, ne dělení nulou
+  } else {
+    min = Math.min(...cisla);
+    max = Math.max(...cisla);
+    const r = popis.minRozpeti || 4;
+    if (max - min < r) { const st = (max + min) / 2; min = st - r / 2; max = st + r / 2; }
+  }
+
+  const urovne = [max, (max + min) / 2, min];
+  const popiskyOsy = urovne.map(popis.fmtOsa);
+  const L = Math.ceil(Math.max(...popiskyOsy.map(sirkaPopisku))) + 12;
+  const sirka = W - L - R;
+  // Sloupce sedí uprostřed svých přihrádek (krajní by jinak vylezl do
+  // popisků osy); čáry sahají od kraje ke kraji.
+  const x = popis.sloupce
+    ? (i) => L + (sirka * (i + 0.5)) / n
+    : (i) => (n === 1 ? L + sirka / 2 : L + (sirka * i) / (n - 1));
+  const y = (v) => T + ((max - v) / (max - min)) * (B - T);
 
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('width', String(W));
   svg.setAttribute('height', String(H));
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', t('stats.chartAria', stav().lang));
-  const prvek = (tag, attrs, text) => {
+  svg.setAttribute('aria-hidden', 'true');
+  const prvek = (tag, attrs, text, rodic = svg) => {
     const e = document.createElementNS(SVG, tag);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
     if (text != null) e.textContent = text;
-    svg.append(e);
+    rodic.append(e);
     return e;
   };
 
-  const cisla = [...g.hi, ...(g.lo || [])].filter((v) => v != null && Number.isFinite(v));
-  if (!cisla.length || !n) { box.replaceChildren(); return; }
-  let min = Math.min(...cisla);
-  let max = Math.max(...cisla);
-  if (max - min < 4) { min -= 2; max += 2; }   // rovná čára by splynula s okrajem
-  const sirka = W - L - R;
-  const x = (i) => (n === 1 ? L + sirka / 2 : L + (sirka * i) / (n - 1));
-  const y = (v) => T + ((max - v) / (max - min)) * (Y_TEPLOTY - T);
-
-  // Vodorovné linky s popisky teplot (v jednotkách uživatele).
-  for (const v of [max, (max + min) / 2, min]) {
+  // Vodorovné linky s popisky (v jednotkách uživatele).
+  urovne.forEach((v, i) => {
     prvek('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'stats-mrizka' });
-    prvek('text', { x: L - 6, y: y(v) + 4, class: 'stats-popisek', 'text-anchor': 'end' },
-      temp(v, 0));
-  }
+    prvek('text', { x: L - 6, y: y(v) + 4, class: 'stats-popisek', 'text-anchor': 'end' }, popiskyOsy[i]);
+  });
 
-  // Pás mezi nejvyšší a nejnižší teplotou + obě čáry. Díra v datech čáru přeruší.
-  const cesta = (hodnoty) => {
-    let d = '';
-    let pero = false;
-    hodnoty.forEach((v, i) => {
-      if (v == null || !Number.isFinite(v)) { pero = false; return; }
-      d += `${pero ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
-      pero = true;
-    });
-    return d;
-  };
-  if (g.lo) {
-    const plne = g.hi.map((v, i) => (v != null && g.lo[i] != null ? i : -1)).filter((i) => i >= 0);
-    if (plne.length > 1) {
-      const nahore = plne.map((i) => `${x(i).toFixed(1)} ${y(g.hi[i]).toFixed(1)}`);
-      const dole = plne.reverse().map((i) => `${x(i).toFixed(1)} ${y(g.lo[i]).toFixed(1)}`);
-      prvek('path', { d: `M${nahore.join('L')}L${dole.join('L')}Z`, class: 'stats-pas' });
-    }
-    prvek('path', { d: cesta(g.lo), class: 'stats-cara stats-cara-min' });
-  }
-  prvek('path', { d: cesta(g.hi), class: 'stats-cara stats-cara-max' });
-  // Jediný bod (nebo bod mezi dvěma dírami) by čára neukázala — tečky ano.
-  if (n <= 45) {
-    g.hi.forEach((v, i) => { if (v != null) prvek('circle', { cx: x(i), cy: y(v), r: 2.2, class: 'stats-bod stats-bod-max' }); });
-    if (g.lo) g.lo.forEach((v, i) => { if (v != null) prvek('circle', { cx: x(i), cy: y(v), r: 2.2, class: 'stats-bod stats-bod-min' }); });
-  }
-
-  // Srážky: sloupce ve vlastním pásu dole, měřítko podle nejvyššího.
-  const maxSrazky = Math.max(0, ...g.bars.filter((v) => Number.isFinite(v)));
-  const sloupec = Math.max(1.5, Math.min(14, (sirka / Math.max(n, 1)) * 0.62));
-  prvek('line', { x1: L, x2: W - R, y1: Y_SRAZKY_DO, y2: Y_SRAZKY_DO, class: 'stats-mrizka' });
-  if (maxSrazky > 0) {
-    g.bars.forEach((v, i) => {
-      if (!Number.isFinite(v) || v <= 0) return;
-      const h = Math.max(1, (v / maxSrazky) * (Y_SRAZKY_DO - Y_SRAZKY_OD));
-      prvek('rect', {
-        x: (x(i) - sloupec / 2).toFixed(1), y: (Y_SRAZKY_DO - h).toFixed(1),
-        width: sloupec.toFixed(1), height: h.toFixed(1), rx: 1, class: 'stats-srazky',
+  /** Sloupce podle indexu — kvůli zvýraznění vybraného. */
+  const sloupce = [];
+  if (popis.sloupce) {
+    const [k] = popis.sloupce;
+    const sirkaSloupce = Math.max(1.5, Math.min(14, (sirka / n) * 0.62));
+    body.forEach((p, i) => {
+      const v = p[k];
+      if (!jeCislo(v) || v <= 0) return;
+      const h = Math.max(1, y(0) - y(v));
+      sloupce[i] = prvek('rect', {
+        x: (x(i) - sirkaSloupce / 2).toFixed(1), y: (y(0) - h).toFixed(1),
+        width: sirkaSloupce.toFixed(1), height: h.toFixed(1), rx: 1, class: 'stats-srazky',
       });
     });
-    // ⚠️ Popisek srážek sedí NAD sloupci uvnitř grafu, ne vlevo na ose:
-    // „978,0 mm" je delší než místo na popisky teplot a vlevo se usekl.
-    prvek('text', { x: L, y: Y_SRAZKY_OD - 5, class: 'stats-popisek', 'text-anchor': 'start' },
-      srazky(maxSrazky));
+  } else {
+    // Čáry; díra v datech čáru přeruší.
+    const cesta = (k) => {
+      let d = '';
+      let pero = false;
+      body.forEach((p, i) => {
+        const v = p[k];
+        if (!jeCislo(v)) { pero = false; return; }
+        d += `${pero ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+        pero = true;
+      });
+      return d;
+    };
+    if (popis.cary.length === 2) {
+      // Pás mezi horní a dolní čárou.
+      const [[kh], [kd]] = popis.cary;
+      const plne = body.map((p, i) => (jeCislo(p[kh]) && jeCislo(p[kd]) ? i : -1)).filter((i) => i >= 0);
+      if (plne.length > 1) {
+        const nahore = plne.map((i) => `${x(i).toFixed(1)} ${y(body[i][kh]).toFixed(1)}`);
+        const dole = [...plne].reverse().map((i) => `${x(i).toFixed(1)} ${y(body[i][kd]).toFixed(1)}`);
+        prvek('path', { d: `M${nahore.join('L')}L${dole.join('L')}Z`, class: 'stats-pas' });
+      }
+    }
+    // Dolní čára první, ať horní (teplá) leží navrch.
+    for (const [k, role] of [...popis.cary].reverse()) {
+      prvek('path', { d: cesta(k), class: `stats-cara stats-cara-${role}` });
+    }
+    // Jediný bod (nebo bod mezi dvěma dírami) by čára neukázala — tečky ano.
+    if (n <= 45) {
+      for (const [k, role] of popis.cary) {
+        body.forEach((p, i) => {
+          if (jeCislo(p[k])) prvek('circle', { cx: x(i), cy: y(p[k]), r: 2.2, class: `stats-bod stats-bod-${role}` });
+        });
+      }
+    }
   }
-
   // Popisky osy: první, prostřední, poslední — víc by se na telefon nevešlo.
   const kde = n > 2 ? [0, Math.floor((n - 1) / 2), n - 1] : n === 2 ? [0, 1] : [0];
   kde.forEach((i, poradi) => {
     const kotva = kde.length === 1 ? 'middle' : poradi === 0 ? 'start' : poradi === kde.length - 1 ? 'end' : 'middle';
-    prvek('text', { x: x(i), y: H - 6, class: 'stats-popisek', 'text-anchor': kotva }, g.labels[i]);
+    const xi = popis.sloupce && kde.length > 1 ? (poradi === 0 ? L : poradi === kde.length - 1 ? W - R : x(i)) : x(i);
+    prvek('text', { x: xi, y: H - 6, class: 'stats-popisek', 'text-anchor': kotva }, g.labels[i]);
   });
 
-  box.replaceChildren(svg);
-  $('stats-chart-note').textContent = g.note;
-  $('stats-chart-card').hidden = false;
+  // Zaměřovač a zvýraznění vybraného bodu — kreslí je `ukazBod()`.
+  const zamer = prvek('line', { x1: 0, x2: 0, y1: T, y2: B, class: 'stats-zamer', visibility: 'hidden' });
+  const zvyrazneni = prvek('g', {});
+
+  const tip = el('div', 'stats-tip');
+  tip.hidden = true;
+  tip.setAttribute('role', 'status');
+  tip.setAttribute('aria-live', 'polite');
+
+  box.replaceChildren(svg, tip);
+  box.setAttribute('aria-label', tf('stats.chartAria', { what: g.nazev }, stav().lang));
+  geo = { svg, tip, W, L, T, B, n, x, y, body, popis, krok: g.krok, sloupce, zamer, zvyrazneni };
+
+  vypisPoznamku(g);
+  if (vybrany !== null) ukazBod(vybrany);
 }
 
-function grafZeDnu(daily) {
+/** Věta pod grafem; u dvou čar před ní legenda (barva sama nikdy nestačí). */
+function vypisPoznamku(g) {
   const L = stav().lang;
+  const pozn = $('stats-chart-note');
+  const legenda = g.popis.cary?.length > 1
+    ? [el('span', 'stats-legendy', g.popis.cary.map(([, role, jmeno]) => el('span', 'stats-legenda', [
+      el('span', `stats-klic stats-klic-${role}`), document.createTextNode(jmeno),
+    ])))]
+    : [];
+  pozn.replaceChildren(...legenda, document.createTextNode(g.note));
+}
+
+/**
+ * Kdy bod platí, pro bublinu — s datem, jak chtěl Michal.
+ *
+ * ⚠️ Měsíc na kraji období je NECELÝ (období začíná 6. 10.) — pak se
+ * píše rozsah dnů, ne „říjen 2025", jinak by součet srážek za půl
+ * měsíce vypadal jako za celý.
+ */
+function kdyBod(p, krok) {
+  const L = stav().lang;
+  if (krok === 'year') return String(p.year);
+  const rozsah = () => {
+    const ruzneRoky = p.from.slice(0, 4) !== p.to.slice(0, 4);
+    return `${den(p.from, ruzneRoky)} – ${den(p.to, true)}`;
+  };
+  if (krok === 'week') return rozsah();
+  if (krok === 'month') {
+    const cely = p.from.endsWith('-01') && addDays(p.to, 1).endsWith('-01');
+    return cely
+      ? new Intl.DateTimeFormat(L, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(dayMs(p.from)))
+      : rozsah();
+  }
+  return new Intl.DateTimeFormat(L, {
+    weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC',
+  }).format(new Date(dayMs(p.from)));
+}
+
+/**
+ * Ukáže hodnoty bodu: svislý zaměřovač, zvětšené tečky a bublinu s datem.
+ *
+ * 🚨 Michal 6. 10. 2026: *„body při klepnutí na ne v telefonu nebo ve
+ * webappce nic neukazují!"* Tečka má 4 px — trefit ji prstem nejde,
+ * proto se netrefuje: rozhoduje nejbližší bod VODOROVNĚ, kamkoli do grafu.
+ */
+function ukazBod(i) {
+  if (!geo) return;
+  const { svg, tip, x, y, body, popis, zamer, zvyrazneni, sloupce } = geo;
+  const idx = Math.max(0, Math.min(geo.n - 1, i));
+  vybrany = idx;
+  const p = body[idx];
+  const L = stav().lang;
+
+  zamer.setAttribute('x1', x(idx).toFixed(1));
+  zamer.setAttribute('x2', x(idx).toFixed(1));
+  zamer.setAttribute('visibility', 'visible');
+  for (const s of sloupce) s?.classList.remove('stats-srazky-vybrany');
+  zvyrazneni.replaceChildren();
+
+  const radky = [];
+  const radek = (role, hodnota, jmeno) => el('div', 'stats-tip-radek', [
+    el('span', `stats-klic stats-klic-${role}`), el('b', '', hodnota), el('span', 'stats-tip-jmeno', jmeno),
+  ]);
+  if (popis.sloupce) {
+    const [k, jmeno] = popis.sloupce;
+    sloupce[idx]?.classList.add('stats-srazky-vybrany');
+    radky.push(radek('sloupec', popis.fmt(p[k]), jmeno));
+  } else {
+    for (const [k, role, jmeno] of popis.cary) {
+      if (jeCislo(p[k])) {
+        const c = document.createElementNS(SVG, 'circle');
+        c.setAttribute('cx', x(idx).toFixed(1));
+        c.setAttribute('cy', y(p[k]).toFixed(1));
+        c.setAttribute('r', '4.5');
+        c.setAttribute('class', `stats-bod stats-bod-${role} stats-bod-vybrany`);
+        zvyrazneni.append(c);
+      }
+      radky.push(radek(role, popis.fmt(p[k]), jmeno));
+    }
+  }
+  if (popis.smer && p.windDir) {
+    radky.push(radek('prazdny', t(`windDirLong.${p.windDir}`, L), t('stats.series.dir', L)));
+  }
+  tip.replaceChildren(el('div', 'stats-tip-kdy', kdyBod(p, geo.krok)), ...radky);
+  tip.hidden = false;
+
+  // Bublina vedle zaměřovače, ne přes něj: vpravo, a když se nevejde, vlevo.
+  // ⚠️ Vlevo nejdál po začátek plochy grafu — přes popisky osy jen tehdy,
+  // když jinak nejde, jinak by schovala „25 °C" zrovna ve chvíli, kdy
+  // člověk hodnotu porovnává.
+  const box = $('stats-chart');
+  const meritko = (svg.getBoundingClientRect().width / geo.W) || 1;
+  const px = x(idx) * meritko;
+  const plocha = geo.L * meritko;
+  const sirkaBoxu = box.clientWidth;
+  const sirkaTipu = tip.offsetWidth;
+  let left;
+  if (px + 12 + sirkaTipu <= sirkaBoxu) left = px + 12;
+  else if (px - 12 - sirkaTipu >= plocha) left = px - 12 - sirkaTipu;
+  else if (px - 3 - sirkaTipu >= plocha) left = plocha;
+  else left = px - 12 - sirkaTipu;
+  left = Math.max(0, Math.min(sirkaBoxu - sirkaTipu, left));
+  tip.style.left = `${Math.round(left)}px`;
+  tip.style.top = `${Math.round(geo.T * meritko)}px`;
+}
+
+function schovejBod() {
+  vybrany = null;
+  if (!geo) return;
+  geo.zamer.setAttribute('visibility', 'hidden');
+  geo.zvyrazneni.replaceChildren();
+  for (const s of geo.sloupce) s?.classList.remove('stats-srazky-vybrany');
+  geo.tip.hidden = true;
+}
+
+/** Nejbližší bod k místu klepnutí — jen vodorovně (viz `ukazBod`). */
+function bodPodPrstem(e) {
+  if (!geo) return null;
+  const r = geo.svg.getBoundingClientRect();
+  if (!r.width) return null;
+  const px = ((e.clientX - r.left) / r.width) * geo.W;
+  let nej = 0;
+  let vzdalenost = Infinity;
+  for (let i = 0; i < geo.n; i++) {
+    const d = Math.abs(geo.x(i) - px);
+    if (d < vzdalenost) { vzdalenost = d; nej = i; }
+  }
+  return nej;
+}
+
+function grafZeDnu(daily, klic) {
+  const L = stav().lang;
+  const dostupne = availableQuantities(daily);
+  vykresliVolbu('stats-quantity', dostupne);
+  const v = ucinna(dostupne);
   const { step, points } = chartSeries(daily);
   const roky = new Set(points.map((p) => p.from.slice(0, 4))).size > 1;
   const popisek = (p) => {
@@ -329,24 +642,34 @@ function grafZeDnu(daily) {
     return den(p.from);
   };
   nakresliGraf({
+    klic,
+    body: points,
+    krok: step,
     labels: points.map(popisek),
-    hi: points.map((p) => p.tMax),
-    lo: points.map((p) => p.tMin),
-    bars: points.map((p) => p.precip),
-    note: `${t('stats.chartLegend', L)} ${t(`stats.chartStep.${step}`, L)}`,
+    popis: popisVeliciny(v),
+    nazev: t(`stats.q.${v}`, L),
+    note: `${t(`stats.qNote.${v}`, L)} ${t(`stats.chartStep.${step}`, L)} ${t('stats.chartTap', L)}`,
   });
 }
 
-function grafZRoku(roky) {
+function grafZRoku(roky, klic) {
   const L = stav().lang;
+  vykresliVolbu('stats-quantity', VELICINY_ROKY);
+  const v = ucinna(VELICINY_ROKY);
   // Necelé roky do grafu nepatří: půlrok má úplně jiný průměr i úhrn.
   const cele = roky.filter((r) => r.days >= CELY_ROK_DNI);
   nakresliGraf({
+    klic,
+    body: cele.map((r) => ({
+      year: r.year, from: `${r.year}-01-01`, to: `${r.year}-12-31`, mean: r.tempMean, precip: r.precipSum,
+    })),
+    krok: 'year',
     labels: cele.map((r) => String(r.year)),
-    hi: cele.map((r) => r.tempMean),
-    lo: null,
-    bars: cele.map((r) => r.precipSum),
-    note: t('stats.chartLegendYears', L),
+    popis: popisVeliciny(v, true),
+    nazev: t(`stats.q.${v}`, L),
+    // ⚠️ Kdo si vybral vlhkost a přepnul na „Od začátku", musí se dozvědět,
+    // proč ji tu nevidí — jinak to vypadá, že volba zmizela.
+    note: `${t('stats.chartYears', L)} ${t('stats.chartTap', L)} ${t('stats.yearsOnly', L)}`,
   });
 }
 
@@ -389,12 +712,46 @@ function bodyTrasy() {
   ];
 }
 
+/** Hodnoty bodu trasy za dny — podle přepínače veličin. */
+function hodnotyDnu(s, v) {
+  const L = stav().lang;
+  const prumer = (x) => tf('stats.meanValue', { value: x }, L);
+  const jm = (k) => t(`stats.series.${k}`, L);
+  switch (v) {
+    case 'feels':
+      return [`${temp(s.feelsMin?.value, 0)} – ${temp(s.feelsMax?.value, 0)}`];
+    case 'precip':
+      return [srazky(s.precipSum), tp('stats.rainDays', s.rainDays, {}, L)];
+    case 'wind':
+      return [`${jm('wind')} ${vitr(s.windMax?.value)}`, `${jm('gust')} ${vitr(s.gustMax?.value)}`,
+        s.windDir && t(`windDirLong.${s.windDir.key}`, L)];
+    case 'humidity':
+      return [prumer(pct(s.humidityMean)), `${pct(s.humidityMin?.value)} – ${pct(s.humidityMax?.value)}`];
+    case 'cloud':
+      return [prumer(pct(s.cloudMean)), tp('stats.clearDays', s.clearDays, {}, L)];
+    case 'pressure':
+      return [prumer(tlak(s.pressureMean)), `${tlak(s.pressureMin?.value)} – ${tlak(s.pressureMax?.value)}`];
+    default:
+      return [prumer(temp(s.tempMean)), `${temp(s.tempMin?.value, 0)} – ${temp(s.tempMax?.value, 0)}`];
+  }
+}
+
+/** Hodnoty bodu trasy za roky (jen teplota a srážky — víc roční přehled nezná). */
+function hodnotyRoku(s, v) {
+  const L = stav().lang;
+  if (v === 'precip') {
+    return [tf('stats.perYear', { value: srazky(s.precipMean) }, L), tf('stats.wettestShort', { year: s.wettest.year }, L)];
+  }
+  return [temp(s.tempMean), s.change !== null ? rozdilTeplot(s.change) : '',
+    tf('stats.warmestShort', { year: s.warmest.year }, L)];
+}
+
 function radekTrasy(bod, hodnoty) {
   const L = stav().lang;
   const b = el('button', 'stats-bod-trasy', [
     el('span', 'stats-bod-role', bod.role),
     el('strong', 'stats-bod-jmeno', placeLabel(bod.misto, L)),
-    el('span', 'stats-bod-hodnoty', hodnoty.join(' · ')),
+    el('span', 'stats-bod-hodnoty', hodnoty.filter(Boolean).join(' · ')),
   ]);
   b.type = 'button';
   // Klepnutí = podrobnosti pro tenhle bod: přepne na Místo, stejné období.
@@ -447,13 +804,14 @@ export async function refreshStats() {
   try {
     await requests.run('stats', async (signal) => {
       if (mode === 'place') {
+        const klic = `${misto.lat},${misto.lon}:${rozsah.from}:${rozsah.to}`;
         if (rozsah.years) {
           const data = await rokyPro(misto, signal);
           if (signal.aborted) return;
           const roky = yearsInRange(data.years, rozsah.from, rozsah.to);
           $('stats-route-card').hidden = true;
           if (!vykresliRoky(roky)) { schovejVysledky(); vypisStav(t('stats.empty', L)); return; }
-          grafZRoku(roky);
+          grafZRoku(roky, klic);
         } else {
           const data = await dnyPro(misto, rozsah, signal);
           if (signal.aborted) return;
@@ -461,31 +819,30 @@ export async function refreshStats() {
           $('stats-route-card').hidden = true;
           if (!s) { schovejVysledky(); vypisStav(t('stats.empty', L)); return; }
           vykresliSouhrn(s);
-          grafZeDnu(data.daily);
+          grafZeDnu(data.daily, klic);
         }
       } else {
         // Trasa: každý bod zvlášť, všechny naráz.
-        const vysledky = await Promise.all(body.map(async (b) => {
+        const souhrny = await Promise.all(body.map(async (b) => {
           if (rozsah.years) {
             const data = await rokyPro(b.misto, signal);
-            const s = summarizeYears(yearsInRange(data.years, rozsah.from, rozsah.to));
-            return s ? [temp(s.tempMean), s.change !== null ? rozdilTeplot(s.change) : '',
-              tf('stats.warmestShort', { year: s.warmest.year }, L)].filter(Boolean) : null;
+            return { s: summarizeYears(yearsInRange(data.years, rozsah.from, rozsah.to)), dostupne: VELICINY_ROKY };
           }
           const data = await dnyPro(b.misto, rozsah, signal);
-          const s = summarizeDaily(data.daily);
-          return s ? [
-            temp(s.tempMean),
-            `${temp(s.tempMin?.value, 0)} – ${temp(s.tempMax?.value, 0)}`,
-            srazky(s.precipSum),
-            tp('stats.rainDays', s.rainDays, {}, L),
-          ] : null;
+          return { s: summarizeDaily(data.daily), dostupne: availableQuantities(data.daily) };
         }));
         if (signal.aborted) return;
+        // Volba nabízí, co má aspoň jeden bod — v pořadí `VELICINY`.
+        const dostupne = VELICINY.filter((q) => souhrny.some((x) => x.dostupne.includes(q)));
+        vykresliVolbu('stats-route-quantity', dostupne);
+        const v = ucinna(dostupne);
         $('stats-summary-card').hidden = true;
         $('stats-chart-card').hidden = true;
-        $('stats-route-points').replaceChildren(...body.map((b, i) => radekTrasy(b,
-          vysledky[i] || [t('stats.empty', L)])));
+        $('stats-route-points').replaceChildren(...body.map((b, i) => {
+          const { s } = souhrny[i];
+          const hodnoty = !s ? [t('stats.empty', L)] : rozsah.years ? hodnotyRoku(s, v) : hodnotyDnu(s, v);
+          return radekTrasy(b, hodnoty);
+        }));
         $('stats-route-card').hidden = false;
       }
       vypisStav('');
@@ -536,11 +893,66 @@ export function initStats(d) {
     $(id).addEventListener('change', (e) => { custom[klic] = e.target.value; refreshStats(); });
   }
 
-  // Graf se kreslí v pixelech podle šířky karty — po otočení telefonu znovu.
-  let casovac = 0;
-  new ResizeObserver(() => {
-    clearTimeout(casovac);
-    casovac = setTimeout(() => { if (posledniGraf && !$('stats-chart-card').hidden) nakresliGraf(posledniGraf); }, 120);
-  }).observe($('stats-chart'));
-}
+  // Přepínač veličin: nad grafem i nad body trasy, volba je jedna.
+  // Data jsou v paměti, takže překreslení nechodí na síť.
+  for (const id of ['stats-quantity', 'stats-route-quantity']) {
+    const box = $(id);
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-velicina]');
+      if (!b || b.getAttribute('aria-pressed') === 'true') return;
+      velicina = b.dataset.velicina;
+      b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      refreshStats();
+    });
+    box.addEventListener('scroll', () => srovnejKraj(box), { passive: true });
+  }
 
+  // Graf: klepnutí, tažení prstem do stran, myš, šipky.
+  const graf = $('stats-chart');
+  graf.addEventListener('pointerdown', (e) => {
+    const i = bodPodPrstem(e);
+    if (i !== null) ukazBod(i);
+  });
+  graf.addEventListener('pointermove', (e) => {
+    // Myš ukazuje už najetím; prst jen když je na displeji (tažení).
+    if (e.pointerType !== 'mouse' && !e.buttons) return;
+    const i = bodPodPrstem(e);
+    if (i !== null && i !== vybrany) ukazBod(i);
+  });
+  graf.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') schovejBod(); });
+  // Prst, který se rozjel nahoru nebo dolů, roluje stránkou — bublina by
+  // pak visela nad grafem, na který se už nikdo nedívá.
+  graf.addEventListener('pointercancel', schovejBod);
+  graf.addEventListener('keydown', (e) => {
+    if (!geo) return;
+    const posun = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (posun) {
+      ukazBod(vybrany === null ? (posun > 0 ? 0 : geo.n - 1) : vybrany + posun);
+    } else if (e.key === 'Home') {
+      ukazBod(0);
+    } else if (e.key === 'End') {
+      ukazBod(geo.n - 1);
+    } else if (e.key === 'Escape') {
+      schovejBod();
+    } else {
+      return;
+    }
+    e.preventDefault();
+  });
+  // Klepnutí jinam bublinu zavře (na telefonu není „odjetí myší").
+  document.addEventListener('pointerdown', (e) => {
+    if (vybrany !== null && !graf.contains(e.target)) schovejBod();
+  });
+
+  // Graf se kreslí v pixelech podle šířky karty — po otočení telefonu znovu.
+  // Řady přepínačů se sledují taky: kraj vybledá podle toho, co se vejde.
+  let casovac = 0;
+  const sledovac = new ResizeObserver(() => {
+    clearTimeout(casovac);
+    casovac = setTimeout(() => {
+      if (posledniGraf && !$('stats-chart-card').hidden) nakresliGraf(posledniGraf);
+      for (const id of ['stats-quantity', 'stats-route-quantity']) srovnejKraj($(id));
+    }, 120);
+  });
+  for (const id of ['stats-chart', 'stats-quantity', 'stats-route-quantity']) sledovac.observe($(id));
+}

@@ -1064,14 +1064,25 @@
     <p class="hint stats-hint" id="stats-summary-note" hidden></p>
   </section>
 
+  <!-- Průběh: přepínač veličin a graf (Michal 6. 10. 2026). Do té doby
+       uměl graf jen teploty a srážky a body po klepnutí NEUKAZOVALY NIC.
+       Teď klepnutí (nebo tažení prstem do stran) ukáže zaměřovač a bublinu
+       s datem a hodnotami; šipky na klávesnici dělají totéž.
+       ⚠️ Přepínač je JEDNA ŘADA, která se posouvá do strany — sedm voleb
+       by se na telefonu zalomilo do tří řádků a odsunulo graf z displeje. -->
   <section class="card" id="stats-chart-card" hidden aria-labelledby="h-stats-chart">
     <h2 id="h-stats-chart" data-i18n="stats.chart"></h2>
-    <div class="stats-chart" id="stats-chart"></div>
+    <div class="stats-veliciny" id="stats-quantity" role="group"
+         data-i18n-attr="aria-label:stats.quantityAria"></div>
+    <div class="stats-chart" id="stats-chart" role="group" tabindex="0"></div>
     <p class="hint stats-hint" id="stats-chart-note"></p>
   </section>
 
   <section class="card" id="stats-route-card" hidden aria-labelledby="h-stats-route">
     <h2 id="h-stats-route" data-i18n="stats.routeTitle"></h2>
+    <!-- Tatáž volba jako nad grafem: body trasy ukazují vybranou veličinu. -->
+    <div class="stats-veliciny" id="stats-route-quantity" role="group"
+         data-i18n-attr="aria-label:stats.quantityAria"></div>
     <ol class="stats-route" id="stats-route-points"></ol>
     <p class="hint stats-hint" data-i18n="stats.routeHint"></p>
   </section>

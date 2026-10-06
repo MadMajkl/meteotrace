@@ -311,6 +311,36 @@ test('🚨 statistiky jsou IKONA v liště mezi mincí a kolem, ne třetí zálo
   assert.match(css, /\.icon-btn\.stats \{[^}]*height: 44px[^}]*margin: calc\(-1 \* var\(--presah-ikon\)\) 0;/);
 });
 
+test('🚨 graf statistik odpovídá na klepnutí a přepíná veličiny', () => {
+  // Michal 6. 10. 2026: *„body při klepnutí na ne v telefonu nebo ve
+  // webappce nic neukazují!"* a chyběl přepínač na ostatní údaje.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const obrazovka = readFileSync(join(WEB, 'stats-screen.js'), 'utf8');
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+
+  // Přepínač nad grafem i nad body trasy; obrazovka je volá jménem v proměnné,
+  // takže je kontrola `$('…')` výš nevidí.
+  for (const id of ['stats-quantity', 'stats-route-quantity']) {
+    assert.match(html, new RegExp(`class="stats-veliciny" id="${id}" role="group"`));
+    assert.ok(obrazovka.includes(`'${id}'`), `stats-screen.js nekreslí #${id}`);
+  }
+  // Graf jde vybrat i z klávesnice.
+  assert.match(html, /id="stats-chart" role="group" tabindex="0"/);
+
+  // Klepnutí, tažení, myš i šipky — a prst rolující stránkou bublinu zavře.
+  for (const udalost of ['pointerdown', 'pointermove', 'pointerleave', 'pointercancel', 'keydown']) {
+    assert.match(obrazovka, new RegExp(`graf\\.addEventListener\\('${udalost}'`), `graf neposlouchá ${udalost}`);
+  }
+  // ⚠️ Bez `pan-y` by prohlížeč tažení do strany sebral (nebo by nešlo
+  // rolovat přes graf) a bez `[hidden]` by prázdná bublina visela v grafu.
+  assert.match(css, /\.stats-chart \{[^}]*position: relative[^}]*touch-action: pan-y/);
+  assert.match(css, /\.stats-tip \{[^}]*position: absolute[^}]*pointer-events: none/);
+  assert.match(css, /\.stats-tip\[hidden\] \{ display: none; \}/);
+  // Řada přepínačů se posouvá do strany, nezalamuje — a skrytá je skrytá.
+  assert.match(css, /\.stats-veliciny \{[^}]*overflow-x: auto/);
+  assert.match(css, /\.stats-veliciny\[hidden\] \{ display: none; \}/);
+});
+
 test('🚨 ikony v liště jsou stejně vysoké a záložky pod nimi nechávají mezeru', () => {
   // Michal 3. 10. 2026: v appce ležely ikony dolní hranou na záložce Trasa
   // a kolo (49 px z odsazení kolem znaku) trčelo výš i níž než statistiky.

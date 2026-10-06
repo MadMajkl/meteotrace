@@ -2392,22 +2392,74 @@ main {
 
 .stats-visited { flex-wrap: wrap; overflow: visible; }
 
+/* Přepínač veličin nad grafem a nad body trasy: JEDNA řada, posouvá se
+   prstem do strany. Dokud je vpravo co posunout, kraj vybledne
+   (`data-vic` z stats-screen.js) — jinak by nebylo poznat, že Tlak existuje. */
+.stats-veliciny {
+  display: flex; gap: 6px; margin: 0 0 12px;
+  overflow-x: auto; scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.stats-veliciny[hidden] { display: none; }
+.stats-veliciny::-webkit-scrollbar { display: none; }
+.stats-veliciny[data-vic] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.stats-veliciny .dep-mode { flex: none; }
+
 /* Graf. Kreslí se v pixelech podle šířky karty (stats-screen.js), takže
-   písmo má na telefonu i na stole stejnou velikost. */
-.stats-chart { width: 100%; line-height: 0; }
-.stats-chart svg { display: block; max-width: 100%; }
+   písmo má na telefonu i na stole stejnou velikost.
+   ⚠️ `touch-action: pan-y`: prst nahoru a dolů roluje stránkou, do strany
+   jezdí zaměřovačem po dnech. */
+.stats-chart { position: relative; width: 100%; line-height: 0; touch-action: pan-y; border-radius: 6px; }
+.stats-chart:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stats-chart svg { display: block; max-width: 100%; cursor: crosshair; }
 .stats-mrizka { stroke: var(--line); stroke-width: 1; }
 .stats-popisek { fill: var(--text-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
 .stats-pas { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: none; }
 .stats-cara { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-/* ⚠️ Teplá a studená čára se liší i POLOHOU (horní/dolní), ne jen barvou —
-   a legenda pod grafem to říká slovy. Barva je jen zvýrazňovač. */
-.stats-cara-max { stroke: hsl(14 78% 52%); }
-.stats-cara-min { stroke: var(--accent); }
+/* ⚠️ Horní a dolní čára se liší i POLOHOU, ne jen barvou — a legenda pod
+   grafem to říká slovy. Barva je jen zvýrazňovač. Horní je teplá (nejvyšší
+   teplota, nárazy), dolní a samotná čára v barvě appky. */
+.stats-cara-horni { stroke: var(--stats-horni); }
+.stats-cara-dolni, .stats-cara-jedna { stroke: var(--accent); }
 .stats-bod { stroke: var(--surface); stroke-width: 1; }
-.stats-bod-max { fill: hsl(14 78% 52%); }
-.stats-bod-min { fill: var(--accent); }
+.stats-bod-horni { fill: var(--stats-horni); }
+.stats-bod-dolni, .stats-bod-jedna { fill: var(--accent); }
+.stats-bod-vybrany { stroke-width: 2; }
 .stats-srazky { fill: color-mix(in srgb, var(--accent) 70%, transparent); }
+.stats-srazky-vybrany { fill: var(--accent); }
+.stats-zamer { stroke: var(--text-soft); stroke-width: 1; }
+#stats { --stats-horni: hsl(14 78% 52%); }
+
+/* Bublina po klepnutí: datum nahoře, pod ním hodnota (výrazně) a jméno
+   čáry (tiše) — člověk už ví, na co ukázal, chce číslo. */
+.stats-tip {
+  position: absolute; z-index: 1; top: 0; left: 0;
+  padding: 8px 10px;
+  font-size: 13px; line-height: 1.4; color: var(--text);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.stats-tip[hidden] { display: none; }
+.stats-tip-kdy { margin-bottom: 3px; font-size: 12px; color: var(--text-soft); }
+.stats-tip-radek { display: flex; align-items: center; gap: 6px; }
+.stats-tip-radek b { font-weight: 600; }
+.stats-tip-jmeno { font-size: 12px; color: var(--text-soft); }
+
+/* Klíč čáry v bublině i v legendě: krátká čárka v barvě čáry, ne čtvereček. */
+.stats-klic { flex: none; display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
+.stats-klic-horni { background: var(--stats-horni); }
+.stats-klic-dolni, .stats-klic-jedna { background: var(--accent); }
+.stats-klic-sloupec { width: 8px; height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.stats-klic-prazdny { background: none; }
+/* Legenda má vlastní řádek nad větou — nalepená na text se četla jako jeho začátek. */
+.stats-legendy { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 4px; }
+.stats-legenda { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--text); }
 
 /* Body trasy: každý je tlačítko přes celou šířku (klepnutí = podrobnosti). */
 .stats-route { list-style: none; margin: 0; padding: 0; }
