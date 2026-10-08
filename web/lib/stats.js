@@ -104,8 +104,53 @@ export const CLIMATE_DAILY = ['temperature_2m_mean', 'precipitation_sum'];
 /** Od kolika milimetrů se den počítá jako deštivý (obvyklá klimatologická mez). */
 export const DESTIVY_DEN_MM = 1;
 
-/** Období ve výběru, v pořadí, v jakém se nabízejí (vzor Gulpka + aktuální rok). */
-export const PERIODS = ['7', 'month', 'm3', 'year', 'thisyear', 'lastyear', 'all', 'custom'];
+/**
+ * Období ve výběru, v pořadí, v jakém se nabízejí (vzor Gulpka + aktuální rok).
+ * `h48` = posledních 48 hodin PO HODINÁCH (8. 10. 2026) — viz `HODIN`.
+ */
+export const PERIODS = ['h48', '7', 'month', 'm3', 'year', 'thisyear', 'lastyear', 'all', 'custom'];
+
+/**
+ * Posledních 48 hodin po hodinách, až do teď.
+ *
+ * Michal 8. 10. 2026: *„potřeboval bych přidat do statistik poslední den
+ * a to po hodinách"* — a vzápětí *„nebo radši posledních 48 hodin, to dává
+ * větší smysl"*.
+ *
+ * 🚨 ZDROJ JE JINÝ NEŽ U DNŮ. Archiv dnešek celý nemá (končí včerejškem),
+ * takže „do teď" z něj nejde. Bere se model předpovědi s uplynulými dny
+ * (`past_days`) — CELÝCH 48 hodin z jednoho zdroje. Slepit včerejšek
+ * z archivu s dneškem z předpovědi by na přelomu dne dělalo schod:
+ * na stejné hodině se oba zdroje lišily o 0,5–2,5 °C (Praha, 8. 10. 2026).
+ * Obrazovka to musí říct (`stats.hourlyNote`).
+ */
+export const HODIN = 48;
+
+/**
+ * Hodinové veličiny pro `HODIN`. Totéž, co přepínač ukazuje u dnů,
+ * jen po hodinách.
+ *
+ * ⚠️ Deset, ne víc: zdroj váží dotaz po deseti veličinách (jako archiv).
+ * Tři dny × deset veličin je jeden díl — levnější než týden z archivu.
+ */
+export const RECENT_HOURLY = [
+  'temperature_2m', 'apparent_temperature', 'precipitation', 'snowfall', 'cloud_cover',
+  'wind_speed_10m', 'wind_gusts_10m', 'wind_direction_10m', 'relative_humidity_2m', 'pressure_msl',
+];
+
+/** Z kterých hodinových polí se která veličina kreslí. */
+const ZDROJ_HODIN = {
+  temp: ['temperature_2m'],
+  feels: ['apparent_temperature'],
+  precip: ['precipitation'],
+  wind: ['wind_speed_10m', 'wind_gusts_10m'],
+  humidity: ['relative_humidity_2m'],
+  cloud: ['cloud_cover'],
+  pressure: ['pressure_msl'],
+};
+
+/** Od kolika milimetrů za hodinu se hodina počítá jako deštivá (měřitelné srážky). */
+export const DESTIVA_HODINA_MM = 0.1;
 
 /* ============================================================
    DATA
@@ -164,14 +209,17 @@ export function localToday(nowMs, offsetMin = -new Date(nowMs).getTimezoneOffset
  * @param {string} key       jedna z `PERIODS`
  * @param {string} today     dnešní den (`localToday()`)
  * @param {{from?: string, to?: string}} [custom]
- * @returns {{from: string, to: string, years?: boolean}|{empty: true}}
- *   `years: true` = ptát se po rocích (služba `climate`), ne po dnech
+ * @returns {{from: string, to: string, years?: boolean}|{hours: number}|{empty: true}}
+ *   `years: true` = ptát se po rocích (služba `climate`), ne po dnech;
+ *   `hours` = posledních tolik hodin až do teď (služba `recent`) — kdy
+ *   přesně, ví až zdroj, protože hodiny počítá v čase MÍSTA, ne telefonu
  */
 export function periodRange(key, today, custom = {}) {
   const vcera = addDays(today, -1);
   const rok = Number(today.slice(0, 4));
 
   switch (key) {
+    case 'h48': return { hours: HODIN };
     case '7': return { from: addDays(vcera, -6), to: vcera };
     case 'month': return { from: addDays(vcera, -29), to: vcera };
     case 'm3': return { from: addDays(vcera, -89), to: vcera };
@@ -243,6 +291,16 @@ export function checkHistoryQuery({ lat, lon, from, to }, today) {
   return {
     lat: roundCoord(bod.lat, KROK_DNY), lon: roundCoord(bod.lon, KROK_DNY), from, to,
   };
+}
+
+/**
+ * Ověří dotaz na posledních 48 hodin: jen místo — kdy, určuje server
+ * (teď). Zaokrouhlení stejné jako u dnů, ať se ulice dělí o odpověď.
+ */
+export function checkRecentQuery({ lat, lon }) {
+  const bod = { lat: Number(lat), lon: Number(lon) };
+  if (!isUsablePoint(bod)) throw new Error('Chybí platné souřadnice (lat, lon).');
+  return { lat: roundCoord(bod.lat, KROK_DNY), lon: roundCoord(bod.lon, KROK_DNY) };
 }
 
 /* ============================================================
@@ -476,6 +534,137 @@ export function chartSeries(daily) {
     pressure: prumer(vyber('pressure_msl_mean', idx)),
   }));
   return { step, points };
+}
+
+/* ============================================================
+   HODINY — posledních 48 (služba `recent`, viz `HODIN`)
+   ============================================================ */
+
+/** Milisekundy → `2026-10-08T14:00` (začátek hodiny, v UTC). */
+export function hourIso(ms) {
+  return `${new Date(ms).toISOString().slice(0, 13)}:00`;
+}
+
+/**
+ * Výřez posledních `n` hodin, které už začaly — poslední je ta, ve které
+ * právě jsme. Zdroj posílá celé dny, tedy i hodiny, které teprve přijdou;
+ * ty do „jak bylo" nepatří.
+ *
+ * ⚠️ `nowLocal` je čas MÍSTA, ne serveru ani telefonu: hodiny ze zdroje
+ * jsou místní (`timezone=auto`). Kdo se z Prahy dívá na New York, má
+ * dostat hodiny až do teď v New Yorku.
+ *
+ * @param {object} hourly    pole ze zdroje: `time` (`RRRR-MM-DDTHH:MM`), …
+ * @param {string} nowLocal  právě běžící hodina v čase místa
+ * @returns {object} táž pole, jen výřez (nic nesedí → prázdná pole)
+ */
+export function recentHours(hourly, nowLocal, n = HODIN) {
+  const casy = hourly?.time || [];
+  let konec = -1;
+  // Textové srovnání stačí: `RRRR-MM-DDTHH:MM` se řadí jako čas.
+  for (let i = 0; i < casy.length; i++) if (casy[i] <= nowLocal) konec = i;
+  const od = Math.max(0, konec - n + 1);
+  const out = { time: [] };
+  for (const [k, v] of Object.entries(hourly || {})) {
+    if (Array.isArray(v)) out[k] = konec < 0 ? [] : v.slice(od, konec + 1);
+  }
+  return out;
+}
+
+/** Které veličiny v hodinových údajích opravdu jsou (jako `availableQuantities`). */
+export function availableHourQuantities(hourly) {
+  return VELICINY.filter((v) => ZDROJ_HODIN[v].some((k) => (hourly?.[k] || []).some(jeCislo)));
+}
+
+/**
+ * Body grafu po hodinách. Klíče jako u dnů tam, kde znamenají totéž
+ * (srážky, vítr, vlhkost, oblačnost, tlak); teplota a pocitová jsou
+ * JEDNA čára (`t`, `f`) — hodina nemá nejvyšší a nejnižší.
+ * Chybějící údaj je `null`, ne nula (viz `chartSeries`).
+ */
+export function hourlySeries(hourly) {
+  const casy = hourly?.time || [];
+  const h = (k, i) => {
+    const v = hourly?.[k]?.[i];
+    return jeCislo(v) ? v : null;
+  };
+  return casy.map((time, i) => ({
+    time,
+    t: h('temperature_2m', i),
+    f: h('apparent_temperature', i),
+    precip: h('precipitation', i),
+    wind: h('wind_speed_10m', i),
+    gust: h('wind_gusts_10m', i),
+    windDir: dir8(h('wind_direction_10m', i)),
+    humidity: h('relative_humidity_2m', i),
+    cloud: h('cloud_cover', i),
+    pressure: h('pressure_msl', i),
+  }));
+}
+
+/**
+ * Souhrn posledních hodin. Pole se jmenují jako u `summarizeDaily`, kde
+ * znamenají totéž — body trasy pak mluví stejně. Místo dnů se počítají
+ * HODINY (`rainHours`, `windDir.hours`) a extrémy nesou místo data čas.
+ *
+ * Navíc tlak: poslední hodnota a o kolik se změnil od první hodiny.
+ * U dnů to smysl nedává, u dvou dnů ano — rychle padající tlak je zpráva.
+ *
+ * @returns {object|null} čísla v °C, mm, km/h, % a hPa; `null` = žádná hodina
+ */
+export function summarizeHourly(hourly) {
+  const casy = hourly?.time || [];
+  if (!casy.length) return null;
+  const pole = (k) => hourly[k] || [];
+  const t = pole('temperature_2m');
+  const pocit = pole('apparent_temperature');
+  const srazky = pole('precipitation');
+  const vlhkost = pole('relative_humidity_2m');
+  const tlak = pole('pressure_msl');
+
+  const hodinSDaty = casy.filter((_, i) => jeCislo(t[i]) || jeCislo(srazky[i])).length;
+  if (!hodinSDaty) return null;
+
+  const cislaSrazek = srazky.filter(jeCislo);
+  const smer = prevladajiciSmer(pole('wind_direction_10m'));
+  const sTlakem = tlak.map((v, i) => (jeCislo(v) ? i : -1)).filter((i) => i >= 0);
+  const prvni = sTlakem[0];
+  const posledni = sTlakem[sTlakem.length - 1];
+
+  return {
+    hours: casy.length,
+    hoursWithData: hodinSDaty,
+    from: casy[0],
+    to: casy[casy.length - 1],
+
+    tempMean: prumer(t),
+    tempMax: extrem(casy, t, true),
+    tempMin: extrem(casy, t, false),
+    feelsMax: extrem(casy, pocit, true),
+    feelsMin: extrem(casy, pocit, false),
+
+    // Bez jediného údaje `null`, ne nula — „0 mm" by byla věrohodná lež.
+    precipSum: cislaSrazek.length ? cislaSrazek.reduce((a, v) => a + v, 0) : null,
+    rainHours: cislaSrazek.filter((v) => v >= DESTIVA_HODINA_MM).length,
+    wettestHour: extrem(casy, srazky, true),
+    snowHours: pole('snowfall').filter((v) => jeCislo(v) && v > 0).length,
+
+    cloudMean: prumer(pole('cloud_cover')),
+    windMax: extrem(casy, pole('wind_speed_10m'), true),
+    gustMax: extrem(casy, pole('wind_gusts_10m'), true),
+    windDir: smer && { key: smer.key, hours: smer.days },
+
+    humidityMean: prumer(vlhkost),
+    humidityMax: extrem(casy, vlhkost, true),
+    humidityMin: extrem(casy, vlhkost, false),
+    pressureMean: prumer(tlak),
+    pressureMax: extrem(casy, tlak, true),
+    pressureMin: extrem(casy, tlak, false),
+    pressureNow: sTlakem.length ? { value: tlak[posledni], date: casy[posledni] } : null,
+    // Hodin mezi první a poslední hodnotou (u celé řady 47, ne 48).
+    pressureChange: sTlakem.length > 1
+      ? { value: tlak[posledni] - tlak[prvni], since: casy[prvni], hours: posledni - prvni } : null,
+  };
 }
 
 /* ============================================================

@@ -575,6 +575,7 @@ export default {
     modeAria: 'Statistiky pro místo, nebo pro trasu',
     period: 'Období',
     periods: {
+      h48: 'Posledních 48 hodin',
       7: '7 dní',
       month: 'Poslední měsíc',
       m3: 'Poslední 3 měsíce',
@@ -615,11 +616,24 @@ export default {
     frost: 'Mrazové dny',
     frostNote: 'v noci pod nulou',
     snow: 'Dny se sněžením',
+    /* Posledních 48 hodin po hodinách (8. 10. 2026). ⚠️ Jiný zdroj než dny —
+       model předpovědi, ne archiv; `hourlyNote` to musí říct. */
+    hours: { one: '{count} hodina', few: '{count} hodiny', many: '{count} hodiny', other: '{count} hodin' },
+    rainHours: { one: '{count} hodina s deštěm', few: '{count} hodiny s deštěm', many: '{count} hodiny s deštěm', other: '{count} hodin s deštěm' },
+    wettestHour: 'Nejvíc za hodinu',
+    snowHours: 'Sněžilo',
+    windShareHours: '{hours} z {total} hodin',
+    pressureNow: 'Tlak teď',
+    pressureChange: '{value} za {hours} h',
+    nowValue: 'teď {value}',
+    hourlyNote: 'Po hodinách bere appka údaje z modelu předpovědi, ne z archivu. Jsou čerstvé až do teď, ale od statistik po dnech se můžou lišit o stupeň nebo dva.',
     chart: 'Průběh',
     chartAria: 'Graf: {what} za zvolené období. Šipkami vybereš den.',
-    chartStep: { day: 'Po dnech.', week: 'Po týdnech.', month: 'Po měsících.' },
+    chartAriaHour: 'Graf: {what} za posledních 48 hodin. Šipkami vybereš hodinu.',
+    chartStep: { hour: 'Po hodinách.', day: 'Po dnech.', week: 'Po týdnech.', month: 'Po měsících.' },
     chartYears: 'Po rocích, jen celé roky.',
     chartTap: 'Klepni do grafu a uvidíš hodnoty s datem.',
+    chartTapHour: 'Klepni do grafu a uvidíš hodnoty s datem a časem.',
     /* Přepínač veličin (6. 10. 2026): tytéž údaje, které appka ukazuje
        u předpovědi. ⚠️ UV index ne — archiv ho nemá. */
     quantityAria: 'Co graf ukazuje',
@@ -642,8 +656,20 @@ export default {
       cloud: 'Průměrná oblačnost během dne.',
       pressure: 'Průměrný tlak přepočtený na hladinu moře, jako u předpovědi.',
     },
+    // Totéž po hodinách — hodina nemá „nejvyšší a nejnižší" ani „průměr dne".
+    qNoteHour: {
+      temp: 'Teplota vzduchu v každé hodině.',
+      feels: 'Pocitová teplota započítává vítr, vlhkost a slunce.',
+      precip: 'Srážky za každou hodinu, déšť i sníh přepočtený na vodu.',
+      wind: 'Vítr a nejsilnější nárazy v každé hodině.',
+      humidity: 'Relativní vlhkost vzduchu v každé hodině.',
+      cloud: 'Oblačnost v každé hodině.',
+      pressure: 'Tlak přepočtený na hladinu moře, jako u předpovědi.',
+    },
     // Jména čar a sloupců v legendě a v bublině po klepnutí.
     series: {
+      temp: 'Teplota',
+      feels: 'Pocitová',
       max: 'Nejvýš',
       min: 'Nejníž',
       precip: 'Srážky',

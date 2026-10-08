@@ -456,7 +456,7 @@ function jednaRadaVoleb(doc, id) {
  * ⚠️ Kraj je nejtěsnější: bublina vpravo od zaměřovače se tam nevejde
  * a musí přeskočit na levou stranu.
  */
-async function bublinaGrafu(doc) {
+async function bublinaGrafu(doc, sCasem = false) {
   const win = doc.defaultView;
   const karta = doc.getElementById('stats-chart-card');
   if (karta.hidden) return ['graf se neukázal — nepřišla data?'];
@@ -474,7 +474,10 @@ async function bublinaGrafu(doc) {
       }));
       const tip = doc.querySelector('#stats-chart .stats-tip');
       if (!tip || tip.hidden) { nalezy.push(`${v}: po klepnutí se bublina neukázala`); continue; }
-      if (!/\d/.test(tip.querySelector('.stats-tip-kdy')?.textContent || '')) nalezy.push(`${v}: bublina nemá datum`);
+      const kdy = tip.querySelector('.stats-tip-kdy')?.textContent || '';
+      if (!/\d/.test(kdy)) nalezy.push(`${v}: bublina nemá datum`);
+      // Po hodinách (8. 10. 2026) i čas — „s datem a časem".
+      if (sCasem && !/\d{1,2}:\d{2}/.test(kdy)) nalezy.push(`${v}: bublina po hodinách nemá čas („${kdy}")`);
       if (!tip.querySelector('.stats-tip-radek b')) nalezy.push(`${v}: bublina nemá hodnotu`);
       const t = tip.getBoundingClientRect();
       const k = karta.getBoundingClientRect();
@@ -611,7 +614,22 @@ async function run() {
       for (const b of await bublinaGrafu(doc)) vady.push(`Statistiky, graf: ${b}`);
       const o6 = overflow(doc);
       if (o6) vady.push(`Statistiky, graf: přetéká o ${o6.total - o6.limit} px (${o6.culprit} sahá na ${o6.right})`);
+      // Posledních 48 hodin (8. 10. 2026): 48 bodů, popisky s časem na ose
+      // a bublina s datem I ČASEM. Rozsah nad grafem se dopíše až s daty.
       const obdobi = doc.getElementById('stats-period');
+      obdobi.value = 'h48';
+      obdobi.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 40 && !/:/.test(doc.getElementById('stats-range').textContent); i++) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      if (!/:/.test(doc.getElementById('stats-range').textContent)) {
+        vady.push('Statistiky, 48 hodin: rozsah s časem se neukázal — nepřišla data?');
+      } else {
+        for (const b of await bublinaGrafu(doc, true)) vady.push(`Statistiky, 48 hodin: ${b}`);
+        const o7 = overflow(doc);
+        if (o7) vady.push(`Statistiky, 48 hodin: přetéká o ${o7.total - o7.limit} px (${o7.culprit} sahá na ${o7.right})`);
+        for (const p of prekryvy(doc)) vady.push(`Statistiky, 48 hodin: překryv ${p}`);
+      }
       obdobi.value = 'custom';
       obdobi.dispatchEvent(new Event('change', { bubbles: true }));
       const o5 = overflow(doc);

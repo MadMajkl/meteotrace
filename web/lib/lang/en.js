@@ -499,6 +499,7 @@ export default {
     modeAria: 'Statistics for a place or for a route',
     period: 'Period',
     periods: {
+      h48: 'Last 48 hours',
       7: '7 days',
       month: 'Last month',
       m3: 'Last 3 months',
@@ -539,11 +540,24 @@ export default {
     frost: 'Frost days',
     frostNote: 'below freezing at night',
     snow: 'Days with snowfall',
+    /* Last 48 hours by the hour (8 Oct 2026). ⚠️ A different source than days —
+       the forecast model, not the archive; `hourlyNote` has to say so. */
+    hours: { one: '{count} hour', other: '{count} hours' },
+    rainHours: { one: '{count} hour with rain', other: '{count} hours with rain' },
+    wettestHour: 'Wettest hour',
+    snowHours: 'Snowed',
+    windShareHours: '{hours} of {total} hours',
+    pressureNow: 'Pressure now',
+    pressureChange: '{value} in {hours} h',
+    nowValue: 'now {value}',
+    hourlyNote: 'By the hour, the app reads a forecast model, not the archive. The data are fresh up to now, but may differ from the daily statistics by a degree or two.',
     chart: 'Over time',
     chartAria: 'Chart: {what} over the chosen period. Arrow keys pick a day.',
-    chartStep: { day: 'By day.', week: 'By week.', month: 'By month.' },
+    chartAriaHour: 'Chart: {what} over the last 48 hours. Arrow keys pick an hour.',
+    chartStep: { hour: 'By hour.', day: 'By day.', week: 'By week.', month: 'By month.' },
     chartYears: 'By year, full years only.',
     chartTap: 'Tap the chart to see values with dates.',
+    chartTapHour: 'Tap the chart to see values with date and time.',
     /* Quantity switch (6 Oct 2026): the same data the app shows in the forecast.
        ⚠️ No UV index — the archive has none. */
     quantityAria: 'What the chart shows',
@@ -566,8 +580,20 @@ export default {
       cloud: 'Average cloud cover over the day.',
       pressure: 'Average pressure at sea level, as in the forecast.',
     },
+    // The same by the hour — an hour has no "high and low" or "daily average".
+    qNoteHour: {
+      temp: 'Air temperature in each hour.',
+      feels: 'Feels-like temperature includes wind, humidity and sunshine.',
+      precip: 'Precipitation in each hour, rain and snow as water.',
+      wind: 'Wind and strongest gusts in each hour.',
+      humidity: 'Relative humidity in each hour.',
+      cloud: 'Cloud cover in each hour.',
+      pressure: 'Pressure at sea level, as in the forecast.',
+    },
     // Line and bar names in the legend and in the bubble after a tap.
     series: {
+      temp: 'Temperature',
+      feels: 'Feels like',
       max: 'High',
       min: 'Low',
       precip: 'Precipitation',

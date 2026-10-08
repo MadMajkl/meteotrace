@@ -6,6 +6,12 @@
  * - `history` — denní údaje za období (nejvýš `MAX_DNI` dní),
  * - `climate` — roční přehled od roku 1940, sečtený TADY.
  *
+ * A jedna nad modelem předpovědi (8. 10. 2026):
+ *
+ * - `recent` — posledních 48 hodin PO HODINÁCH až do teď. Archiv dnešek
+ *   nemá, proto `past_days` u předpovědi — celé z jednoho zdroje, viz
+ *   `HODIN` v `web/lib/stats.js`.
+ *
  * ────────────────────────────────────────────────────────────────────────
  * 🚨 PROČ SE ROKY SČÍTAJÍ NA SERVERU
  *
@@ -28,8 +34,8 @@
 'use strict';
 
 import {
-  checkHistoryQuery, yearlyFromDaily, roundCoord, isoDay, addDays, dayMs,
-  HISTORY_DAILY, CLIMATE_DAILY, KROK_ROKY, ARCHIV_OD,
+  checkHistoryQuery, checkRecentQuery, yearlyFromDaily, roundCoord, isoDay, addDays, dayMs,
+  recentHours, hourIso, HISTORY_DAILY, CLIMATE_DAILY, RECENT_HOURLY, HODIN, KROK_ROKY, ARCHIV_OD,
 } from '../web/lib/stats.js';
 import { isUsablePoint } from '../web/lib/geo-query.js';
 
@@ -39,7 +45,10 @@ const STROP_MS = 20_000;
 const naObjekt = (params) => (params instanceof URLSearchParams
   ? Object.fromEntries(params.entries()) : (params || {}));
 
-/** Jeden dotaz do archivu, se stropem. Stav chyby se nese dál (429 ≠ výpadek). */
+/**
+ * Jeden dotaz do archivu (nebo u `recent` do předpovědi), se stropem.
+ * Stav chyby se nese dál (429 ≠ výpadek).
+ */
 async function zArchivu(fetchImpl, base, q) {
   const url = new URL(base);
   url.search = '';
@@ -117,4 +126,34 @@ export async function stavKlima({ fetchImpl, base, nowMs, params }) {
     for (const k of Object.keys(spojene)) spojene[k].push(...(o.daily[k] || []));
   }
   return { years: yearlyFromDaily(spojene), from: ARCHIV_OD, to: vcera };
+}
+
+/**
+ * Posledních `HODIN` hodin po hodinách, až do právě běžící hodiny.
+ *
+ * Zdroj vrací celé dny (předevčírem až dnes), výřez dělá server: klientovi
+ * jde jen to, co už bylo. „Teď" se počítá v čase MÍSTA — posun bere
+ * z odpovědi zdroje (`utc_offset_seconds`), ne z časového pásma serveru.
+ *
+ * @returns {Promise<{hourly: object, from: string, to: string, elevation: number|null}>}
+ */
+export async function stavPoslednich({ fetchImpl, base, nowMs, params }) {
+  const q = checkRecentQuery(naObjekt(params));
+  const data = await zArchivu(fetchImpl, base, {
+    latitude: q.lat, longitude: q.lon,
+    hourly: RECENT_HOURLY.join(','),
+    // Dva celé dny zpátky + dnešek: 48 hodin se vejde vždycky, i v jednu ráno.
+    past_days: 2, forecast_days: 1,
+    timezone: 'auto',
+  });
+  if (!data?.hourly?.time) throw new Error('zdroj nevrátil hodinové údaje');
+  const posun = Number.isFinite(data.utc_offset_seconds) ? data.utc_offset_seconds : 0;
+  const hourly = recentHours(data.hourly, hourIso(nowMs + posun * 1000), HODIN);
+  if (!hourly.time.length) throw new Error('zdroj nevrátil žádnou uplynulou hodinu');
+  return {
+    hourly,
+    from: hourly.time[0],
+    to: hourly.time[hourly.time.length - 1],
+    elevation: Number.isFinite(data.elevation) ? data.elevation : null,
+  };
 }

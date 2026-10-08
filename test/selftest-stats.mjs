@@ -14,8 +14,10 @@ import {
   summarizeDaily, chartSeries, yearlyFromDaily, summarizeYears, yearsInRange, dir8,
   recordVisit, cleanVisits, visitsInRange, MAX_NAVSTEV, HISTORY_DAILY, CLIMATE_DAILY,
   VELICINY, VELICINY_ROKY, availableQuantities,
+  HODIN, RECENT_HOURLY, DESTIVA_HODINA_MM, checkRecentQuery, hourIso, recentHours,
+  availableHourQuantities, hourlySeries, summarizeHourly,
 } from '../web/lib/stats.js';
-import { stavHistorii, stavKlima } from '../server/history.js';
+import { stavHistorii, stavKlima, stavPoslednich } from '../server/history.js';
 import { planRequest } from '../web/lib/proxy-core.js';
 import { isKnownService } from '../web/lib/upstreams.js';
 
@@ -69,12 +71,19 @@ test('vlastní období: prohozené kraje, budoucnost, moc dlouhé', () => {
   assert.equal(periodRange('custom', DNES, { from: '2025-01-01', to: '2026-09-01' }).years, undefined);
 });
 
-test('každé období z nabídky dá rozsah nebo prázdno, nic jiného', () => {
+test('každé období z nabídky dá rozsah, hodiny nebo prázdno, nic jiného', () => {
   for (const k of PERIODS) {
     const r = periodRange(k, DNES, { from: '2026-08-01', to: '2026-08-31' });
-    assert.ok(r.empty || (dayMs(r.from) <= dayMs(r.to)), k);
+    assert.ok(r.empty || r.hours > 0 || (dayMs(r.from) <= dayMs(r.to)), k);
   }
   assert.deepEqual(periodRange('nesmysl', DNES), { empty: true });
+});
+
+test('🚨 posledních 48 hodin: první v nabídce a „kdy" neurčuje telefon', () => {
+  assert.equal(PERIODS[0], 'h48');
+  // Bez data: hodiny se počítají v čase MÍSTA, a ten zná až zdroj.
+  assert.deepEqual(periodRange('h48', DNES), { hours: 48 });
+  assert.equal(HODIN, 48);
 });
 
 test('🚨 dnešek se bere v místním čase, ne v UTC', () => {
@@ -489,4 +498,165 @@ test('roky: chyba zdroje nese stav dál (429 není výpadek)', async () => {
     (e) => e.status === 429,
   );
   await assert.rejects(stavKlima({ fetchImpl: f, base: ARCHIV, nowMs: NYNI, params: { lat: '0', lon: '0' } }));
+});
+
+/* ============================================================
+   POSLEDNÍCH 48 HODIN (služba `recent`)
+   ============================================================ */
+
+/** Hodiny jako ze zdroje: `od` (místní čas) a dál po hodině, `n` kusů. */
+function hodiny(n, od = '2026-09-28T00:00', vyplnit = () => 1) {
+  const start = Date.parse(`${od}:00Z`);
+  const time = Array.from({ length: n }, (_, i) => hourIso(start + i * 3_600_000));
+  const pole = Object.fromEntries(RECENT_HOURLY.map((k) => [k, time.map((_, i) => vyplnit(k, i))]));
+  return { time, ...pole };
+}
+
+test('🚨 výřez: posledních 48 hodin AŽ DO TEĎ, budoucí hodiny ne', () => {
+  // Zdroj pošle předevčírem až dnes celé: 72 hodin.
+  const vse = hodiny(72);
+  const h = recentHours(vse, '2026-09-30T10:00');
+  assert.equal(h.time.length, 48);
+  assert.equal(h.time[47], '2026-09-30T10:00', 'poslední je právě běžící hodina');
+  assert.equal(h.time[0], '2026-09-28T11:00');
+  // Všechna pole se řežou stejně, ne jen čas.
+  for (const k of RECENT_HOURLY) assert.equal(h[k].length, 48, k);
+  // V jednu ráno: 48 hodin pořád celých (proto dva dny zpátky).
+  assert.equal(recentHours(vse, '2026-09-30T01:00').time.length, 48);
+  // Teď je před začátkem dat → nic, ne celé pole.
+  assert.equal(recentHours(vse, '2026-09-27T23:00').time.length, 0);
+  assert.equal(recentHours(null, '2026-09-30T10:00').time.length, 0);
+  assert.equal(hourIso(Date.parse('2026-09-30T10:37:12Z')), '2026-09-30T10:00');
+});
+
+test('hodiny: dotaz zná jen místo a zaokrouhlí ho jako dny', () => {
+  assert.deepEqual(checkRecentQuery({ lat: '50.08331', lon: '14.41672' }), { lat: 50.08, lon: 14.42 });
+  assert.throws(() => checkRecentQuery({ lat: '0', lon: '0' }));
+  assert.throws(() => checkRecentQuery({ lat: 'x', lon: '14' }));
+  // ⚠️ Zdroj váží po deseti veličinách — víc by dotaz zdražilo.
+  assert.ok(RECENT_HOURLY.length <= 10);
+});
+
+test('katalog: služba recent ověřuje dotaz, sdílí mezipaměť a platí krátce', () => {
+  assert.ok(isKnownService('recent'));
+  const p = (params) => planRequest({ pathname: '/api/recent', params });
+  const a = p({ lat: '50.08331', lon: '14.41672' });
+  const b = p({ lat: '50.08412', lon: '14.41598', hourly: 'vsechno' });
+  assert.equal(a.ok, true);
+  assert.equal(a.builder, 'meteoPosledni');
+  assert.equal(a.cacheKey, b.cacheKey, 'ulice sdílí odpověď a klient si nic navíc neřekne');
+  assert.equal(p({ lat: '0', lon: '0' }).status, 400);
+  // Každou hodinu přibude jedna — den v mezipaměti by „do teď" zestaral.
+  assert.ok(a.ttlS <= 15 * 60);
+});
+
+test('každá veličina z přepínače má po hodinách svůj zdroj', () => {
+  assert.deepEqual(availableHourQuantities(hodiny(3)), VELICINY);
+  const bezTlaku = hodiny(3, undefined, (k) => (k === 'pressure_msl' ? null : 1));
+  assert.ok(!availableHourQuantities(bezTlaku).includes('pressure'));
+});
+
+test('🚨 graf po hodinách: hodina bez údaje je „nevím", ne nula', () => {
+  const h = hodiny(3, undefined, (k, i) => {
+    if (i === 1) return null;
+    return k === 'wind_direction_10m' ? 350 : 5;
+  });
+  const body = hourlySeries(h);
+  assert.equal(body.length, 3);
+  assert.equal(body[0].time, '2026-09-28T00:00');
+  assert.equal(body[0].t, 5);
+  assert.equal(body[0].windDir, 'n');
+  for (const k of ['t', 'f', 'precip', 'wind', 'gust', 'humidity', 'cloud', 'pressure', 'windDir']) {
+    assert.equal(body[1][k], null, k);
+  }
+});
+
+test('souhrn hodin: extrémy s časem, hodiny s deštěm, tlak a kam se hnul', () => {
+  const TEPLOTY = [8, 12, 19.4, 15];
+  const SRAZKY = [0, 0.05, 1.2, 0.3];
+  const h = hodiny(4, '2026-10-07T13:00', (k, i) => ({
+    temperature_2m: TEPLOTY[i],
+    apparent_temperature: TEPLOTY[i] - 2,
+    precipitation: SRAZKY[i],
+    snowfall: 0,
+    wind_gusts_10m: [20, 38, 25, 10][i],
+    wind_direction_10m: [130, 140, 135, 300][i],
+    pressure_msl: [1012, 1010, 1008, 1006.2][i],
+  }[k] ?? 50));
+  const s = summarizeHourly(h);
+  assert.equal(s.hours, 4);
+  assert.deepEqual(s.tempMax, { value: 19.4, date: '2026-10-07T15:00' });
+  assert.deepEqual(s.tempMin, { value: 8, date: '2026-10-07T13:00' });
+  assert.equal(s.feelsMin.value, 6);
+  assert.ok(Math.abs(s.precipSum - 1.55) < 1e-9);
+  // 0,05 mm není měřitelný déšť — hodina s deštěm je od DESTIVA_HODINA_MM.
+  assert.equal(DESTIVA_HODINA_MM, 0.1);
+  assert.equal(s.rainHours, 2);
+  assert.deepEqual(s.wettestHour, { value: 1.2, date: '2026-10-07T15:00' });
+  assert.deepEqual(s.gustMax, { value: 38, date: '2026-10-07T14:00' });
+  assert.deepEqual(s.windDir, { key: 'se', hours: 3 });
+  assert.deepEqual(s.pressureNow, { value: 1006.2, date: '2026-10-07T16:00' });
+  assert.ok(Math.abs(s.pressureChange.value + 5.8) < 1e-9);
+  assert.equal(s.pressureChange.hours, 3);
+  assert.equal(s.snowHours, 0);
+});
+
+test('souhrn hodin: bez srážek je úhrn „nevím", prázdno nedá souhrn', () => {
+  const s = summarizeHourly(hodiny(2, undefined, (k) => (k === 'precipitation' ? null : 4)));
+  assert.equal(s.precipSum, null, 'nula srážek by byla věrohodná lež');
+  assert.equal(s.rainHours, 0);
+  assert.equal(summarizeHourly({ time: [] }), null);
+  assert.equal(summarizeHourly(hodiny(2, undefined, () => null)), null);
+});
+
+function fakePredpoved(zapis, posunS) {
+  return async (url) => {
+    const u = new URL(url);
+    zapis.push(u);
+    // Předevčírem až dnes, celé dny v místním čase.
+    const dnes = isoDay(NYNI + posunS * 1000);
+    const vse = hodiny(72, `${addDays(dnes, -2)}T00:00`);
+    return { ok: true, status: 200, json: async () => ({ utc_offset_seconds: posunS, elevation: 190, hourly: vse }) };
+  };
+}
+
+test('🚨 hodiny na serveru: veličiny určuje server, „teď" je v čase MÍSTA', async () => {
+  const volani = [];
+  const out = await stavPoslednich({
+    fetchImpl: fakePredpoved(volani, 7200), base: 'https://api.open-meteo.com/v1/forecast', nowMs: NYNI,
+    params: { lat: '50.08331', lon: '14.41672', hourly: 'vsechno', daily: 'x' },
+  });
+  assert.equal(volani.length, 1);
+  const q = volani[0].searchParams;
+  assert.equal(q.get('hourly'), RECENT_HOURLY.join(','));
+  assert.equal(q.get('daily'), null, 'klient si nesmí říct o nic navíc');
+  assert.equal(q.get('past_days'), '2');
+  assert.equal(q.get('forecast_days'), '1');
+  assert.equal(q.get('latitude'), '50.08');
+  // 08:00 UTC = 10:00 v Praze: poslední hodina je desátá, ne osmá.
+  assert.equal(out.hourly.time.length, 48);
+  assert.equal(out.to, '2026-09-30T10:00');
+  assert.equal(out.from, '2026-09-28T11:00');
+  assert.equal(out.elevation, 190);
+
+  // New York (UTC−4): tam jsou teprve čtyři ráno.
+  const ny = await stavPoslednich({
+    fetchImpl: fakePredpoved([], -14400), base: 'https://api.open-meteo.com/v1/forecast', nowMs: NYNI,
+    params: { lat: '40.71', lon: '-74.01' },
+  });
+  assert.equal(ny.to, '2026-09-30T04:00');
+  assert.equal(ny.hourly.time.length, 48);
+});
+
+test('hodiny na serveru: vadné místo se ven nepošle, chyba zdroje nese stav', async () => {
+  const volani = [];
+  await assert.rejects(stavPoslednich({
+    fetchImpl: fakePredpoved(volani, 0), base: 'https://x', nowMs: NYNI, params: { lat: '0', lon: '0' },
+  }));
+  assert.equal(volani.length, 0);
+  const f = async () => ({ ok: false, status: 429, json: async () => ({}) });
+  await assert.rejects(
+    stavPoslednich({ fetchImpl: f, base: 'https://x', nowMs: NYNI, params: { lat: '50', lon: '14' } }),
+    (e) => e.status === 429,
+  );
 });

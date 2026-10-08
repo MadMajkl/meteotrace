@@ -25,7 +25,7 @@
 'use strict';
 
 import { stripDiacritics, isUsablePoint } from './geo-query.js';
-import { checkHistoryQuery, roundCoord, KROK_ROKY } from './stats.js';
+import { checkHistoryQuery, checkRecentQuery, roundCoord, KROK_ROKY } from './stats.js';
 
 const MINUTE = 60;
 const HOUR = 3600;
@@ -434,6 +434,28 @@ export const UPSTREAMS = {
       return { lat: String(roundCoord(bod.lat, KROK_ROKY)), lon: String(roundCoord(bod.lon, KROK_ROKY)) };
     },
     ttl: 7 * 24 * HOUR,
+  },
+
+  /**
+   * Posledních 48 hodin po hodinách, až do teď (8. 10. 2026).
+   *
+   * 🚨 NE z archivu: ten končí včerejškem. Model předpovědi s uplynulými
+   * dny (`past_days`) dá celých 48 hodin z jednoho zdroje — viz `HODIN`
+   * v `lib/stats.js`. Veličiny určuje server (`RECENT_HOURLY`), klient
+   * posílá jen místo; výřez „do teď" dělá stavitel.
+   *
+   * ⚠️ Platnost jako u předpovědi: každou hodinu přibude jedna a deset
+   * minut zpoždění nikomu nevadí. Souřadnice zaokrouhlené jako u dnů.
+   */
+  recent: {
+    base: 'https://api.open-meteo.com/v1/forecast',
+    params: ['lat', 'lon'],
+    builder: 'meteoPosledni',
+    mapParams: (p) => {
+      const q = checkRecentQuery(p);
+      return { lat: String(q.lat), lon: String(q.lon) };
+    },
+    ttl: 10 * MINUTE,
   },
 };
 
