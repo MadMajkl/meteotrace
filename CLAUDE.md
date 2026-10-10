@@ -181,7 +181,8 @@ tohle je jen shrnutí.**
   z `android/version.properties` (píše `android-sync`, `versionCode` = počet
   commitů). 🚨 `pre-commit` nepustí změnu ve `web/`, `android/`, `server/` ani
   `netlify/` bez zvednuté verze — obcházet jen `SKIP_VERSION_CHECK=1`.
-  Teď **0.15.1**; na `1.0.0` až s vydáním na Play.
+  **`1.0.0` = první ostré vydání na Play** (10. 10. 2026, versionCode 196,
+  Alpha i produkce naráz).
 
 ### 🟢 Vývojový server — JEN JEDNA INSTANCE
 
