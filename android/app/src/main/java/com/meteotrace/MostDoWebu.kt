@@ -50,26 +50,23 @@ class MostDoWebu(
     fun umiUpozorneni(): Boolean = true
 
     /**
-     * Zapne hlídání jednoho místa: výstrahy a (když `bourky`) bouřky z radaru.
+     * Zapne hlídání míst (`R38`): výstrahy a (když `bourky`) bouřky z radaru.
+     *
+     * Zadání je JSON: `{lang, prah, bourky, mista: [{lat, lon, jmeno, nadpis,
+     * nadpisBourka}]}`. ⚠️ Jeden řetězec, ne parametr za každou věc: do
+     * 0.28.0 měla metoda sedm parametrů a každé rozšíření hrozilo, že se web
+     * a obal rozejdou v počtu — a hlídání se pak tiše nezapne.
      *
      * ⚠️ Nadpisy chodí HOTOVÉ z webu, protože jazyk appky je volba uživatele,
-     * kdežto `strings.xml` se řídí jazykem systému. Viz `Vystrahy.Hlidane`.
+     * kdežto `strings.xml` se řídí jazykem systému. Viz `Vystrahy.Misto`.
      *
-     * 🚨 Počet parametrů MUSÍ sedět s voláním v `app.js` (`zapisHlidani`).
-     * Most hledá metodu podle jména I počtu — jiný počet znamená „metoda
-     * neexistuje" a hlídání by se tiše nezapnulo. Hlídá `selftest-obal.mjs`.
+     * 🚨 Nečitelné nebo prázdné zadání hlídání VYPNE. Nechat běžet staré by
+     * znamenalo upozornění na místa, která web už nehlídá.
      */
     @JavascriptInterface
-    fun hlidejVystrahy(
-        lat: Double,
-        lon: Double,
-        nadpis: String,
-        lang: String,
-        prah: String,
-        nadpisBourka: String,
-        bourky: Boolean,
-    ) {
-        Vystrahy.hlidej(ctx, Vystrahy.Hlidane(lat, lon, nadpis, lang, prah, nadpisBourka, bourky))
+    fun hlidejMista(zadani: String) {
+        val co = Vystrahy.zJson(zadani)
+        if (co == null) Vystrahy.nehlidej(ctx) else Vystrahy.hlidej(ctx, co)
     }
 
     /** Vypne hlídání a zapomene, o čem se už zvonilo. */

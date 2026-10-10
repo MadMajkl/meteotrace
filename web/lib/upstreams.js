@@ -295,7 +295,7 @@ export const UPSTREAMS = {
     // Když ČHMÚ nebo rozbor výpisu selže, MeteoAlarm pořád stojí za pokus —
     // přeposílá tatáž data a horší zdroj je lepší než žádný.
     fallback: 'warningsAlarm',
-    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity'],
+    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity', 'mista'],
     ttl: 5 * MINUTE,
   },
 
@@ -319,7 +319,7 @@ export const UPSTREAMS = {
     // patří SEM, ne do Kotlinu: tabulka stupňů závažnosti tak zůstává na
     // jednom místě a obal jen porovnává řetězce (viz `Vystrahy.kt`).
     normalize: 'warnings',
-    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity'],
+    local: ['lang', 'lat', 'lon', 'geo', 'minSeverity', 'mista'],
     ttl: 5 * MINUTE,
   },
 
@@ -354,6 +354,8 @@ export const UPSTREAMS = {
    * 🚨 Místo (`lat`, `lon`) a jazyk jsou proto v `local`, ne v `params` —
    * kdyby byly v klíči cache, četly by se snímky pro každý telefon zvlášť.
    * Výřez pro místo a věta se dělají až za cache (`filterByPlace`).
+   * Totéž `mista` — všechna hlídaná místa jedním dotazem (`R38`); umí ho
+   * i `warnings`.
    *
    * ⚠️ Platnost 4 minuty jako u `nowcast`: snímky chodí po pěti.
    */
@@ -362,7 +364,7 @@ export const UPSTREAMS = {
     params: [],
     builder: 'chmiBourka',
     normalize: 'storm',
-    local: ['lat', 'lon', 'lang'],
+    local: ['lat', 'lon', 'lang', 'mista'],
     ttl: 4 * MINUTE,
   },
 

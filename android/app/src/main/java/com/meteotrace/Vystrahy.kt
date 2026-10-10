@@ -20,14 +20,18 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
- * Upozornění na meteo výstrahy a na bouřku z radaru (`R17`, `R37`).
+ * Upozornění na meteo výstrahy a na bouřku z radaru (`R17`, `R37`) —
+ * pro každé hlídané místo zvlášť (`R38`).
  *
  * ────────────────────────────────────────────────────────────────────────
  * PROČ TO JE V KOTLINU, KDYŽ „NATIVNÍ VRSTVA NIC NEROZHODUJE" (R13)
@@ -57,18 +61,37 @@ object Vystrahy {
     private const val PRACE_HNED = "meteotrace-vystrahy-hned"
     private const val PREFS = "meteotrace-hlidani"
 
-    /** Id upozornění. 2 a 3 patří ranní a večerní zprávě (`Zpravy`). */
-    private const val ID_VYSTRAHA = 1
-    private const val ID_BOURKA = 4
+    /**
+     * Id upozornění hlídaných míst: každé místo má dvojici — výstraha
+     * (sudé) a bouřka (liché, o jedno víc). 2 a 3 patří ranní a večerní
+     * zprávě (`Zpravy`); 1 a 4 byly výstraha a bouřka jediného místa
+     * do 0.28.0.
+     *
+     * 🚨 VLASTNÍ ID PRO KAŽDÉ MÍSTO (`R38`). Se společným id by výstraha
+     * pro Plzeň nahradila v liště tu pro Horšovský Týn — a o té doma by se
+     * člověk nedozvěděl.
+     */
+    private const val ID_MISTA_OD = 1000
 
     /** Id budíku (`PendingIntent`). Jiné než budíky zpráv (2, 3). */
     private const val ID_BUDIKU = 10
 
+    /**
+     * Kolik míst jde hlídat naráz. ⚠️ Totéž číslo je ve webu
+     * (`MAX_HLIDANYCH`) i na serveru — hlídá `selftest-obal.mjs`.
+     */
+    const val MAX_MIST = 5
+
     /* Klíče v paměti. ⚠️ Čte je i `StavNaPozadi` — stav, který člověk
        uvidí v nastavení, se nesmí počítat jinde než tady. */
+    private const val KLIC_HLIDANI = "hlidani"
     private const val KLIC_KONTROLA = "kontrolaMs"
-    private const val KLIC_BOURKA_VIDENA = "bourkaVidenaMs"
     private const val KLIC_BOURKA_OHLASENA = "bourkaOhlasenaMs"
+
+    /* Paměť KAŽDÉHO MÍSTA zvlášť: `oznamene@49.530,12.944`. Výstraha
+       ohlášená pro domov není ohlášená pro Plzeň. */
+    private const val PAMET_VYSTRAH = "oznamene@"
+    private const val PAMET_BOURKY = "bourkaVidenaMs@"
 
     /**
      * Jak často se kontroluje.
@@ -104,7 +127,7 @@ object Vystrahy {
     private val ZAMEK = Any()
 
     /**
-     * Co se hlídá. `null` = nic; pak se práce vůbec neplánuje.
+     * Jedno hlídané místo.
      *
      * 🚨 Nadpisy jsou HOTOVÝ TEXT Z WEBU, ne `R.string`. Jazyk appky je volba
      * uživatele (`R10`), kdežto `strings.xml` se řídí jazykem SYSTÉMU —
@@ -114,37 +137,122 @@ object Vystrahy {
      * ⚠️ Jméno kanálu v systémovém nastavení naopak `R.string` zůstává:
      * tam se člověk dívá do nastavení ANDROIDU a tam patří jazyk systému.
      */
-    data class Hlidane(
+    data class Misto(
         val lat: Double,
         val lon: Double,
+        /** Jméno místa — jen pro stav v nastavení, upozornění nesou nadpisy. */
+        val jmeno: String,
         val nadpis: String,
-        val lang: String,
-        val prah: String,
         /** Nadpis upozornění na bouřku z radaru — taky hotový z webu (`R37`). */
         val nadpisBourka: String,
+    )
+
+    /** Co se hlídá. `null` = nic; pak se práce vůbec neplánuje. */
+    data class Hlidane(
+        /** Hlídaná místa (`R38`), nejvýš [MAX_MIST], v pořadí z webu. */
+        val mista: List<Misto>,
+        val lang: String,
+        val prah: String,
         /** Hlídat i bouřky z radaru? Vypnout jde zvlášť od výstrah (`R37`). */
         val bourky: Boolean,
     )
 
+    /**
+     * Zadání z webu (`MostDoWebu.hlidejMista`) i z paměti → [Hlidane].
+     * Nesmysl nebo prázdný seznam → `null`.
+     *
+     * ⚠️ Vadné místo se VYNECHÁ, ne celé zadání: tady se odpověď s místy
+     * nepáruje (to až po dotazu, podle seznamu, který z tohohle vyjde).
+     */
+    fun zJson(text: String?): Hlidane? {
+        val o = try { JSONObject(text ?: return null) } catch (e: Exception) { return null }
+        val pole = o.optJSONArray("mista") ?: return null
+        val mista = mutableListOf<Misto>()
+        for (i in 0 until pole.length()) {
+            val m = pole.optJSONObject(i) ?: continue
+            val lat = m.optDouble("lat", Double.NaN)
+            val lon = m.optDouble("lon", Double.NaN)
+            if (!lat.isFinite() || !lon.isFinite() || abs(lat) > 90 || abs(lon) > 180) continue
+            mista += Misto(
+                lat = lat,
+                lon = lon,
+                jmeno = m.optString("jmeno"),
+                nadpis = m.optString("nadpis"),
+                nadpisBourka = m.optString("nadpisBourka"),
+            )
+            if (mista.size >= MAX_MIST) break
+        }
+        if (mista.isEmpty()) return null
+        return Hlidane(
+            mista = mista,
+            lang = o.optString("lang").ifEmpty { "cs" },
+            prah = o.optString("prah").ifEmpty { "Moderate" },
+            // ⚠️ Výchozí ANO: kdo zapnul upozornění ve starší verzi, chtěl
+            // upozornění na bouřku — jen je appka neuměla (`R37`).
+            bourky = o.optBoolean("bourky", true),
+        )
+    }
+
+    private fun doJson(co: Hlidane): String = JSONObject()
+        .put("lang", co.lang)
+        .put("prah", co.prah)
+        .put("bourky", co.bourky)
+        .put("mista", JSONArray().apply {
+            for (m in co.mista) put(JSONObject()
+                .put("lat", m.lat).put("lon", m.lon).put("jmeno", m.jmeno)
+                .put("nadpis", m.nadpis).put("nadpisBourka", m.nadpisBourka))
+        })
+        .toString()
+
+    /**
+     * Klíč místa v paměti — tatáž mřížka jako `placeKey` ve webu (~110 m).
+     * ⚠️ `Locale.ROOT`: česká čárka místo tečky by klíč rozbila.
+     */
+    internal fun klicMista(m: Misto): String =
+        String.format(Locale.ROOT, "%.3f,%.3f", m.lat, m.lon)
+
+    /**
+     * Id upozornění pro každé místo (výstraha; bouřka = +1).
+     *
+     * Odvozené z klíče místa, ne z pořadí: kdyby se bralo pořadí, přidání
+     * nového místa by posunulo ostatní a upozornění jednoho místa by
+     * v liště přepsalo upozornění jiného. Srážka dvou klíčů se rozstrčí.
+     */
+    internal fun idUpozorneni(mista: List<Misto>): List<Int> {
+        val pouzite = mutableSetOf<Int>()
+        return mista.map { m ->
+            var id = ID_MISTA_OD + (klicMista(m).hashCode() and 0x3fff) * 2
+            while (id in pouzite) id += 2
+            pouzite += id
+            id
+        }
+    }
+
     /* ── plánování ────────────────────────────────────────────────────── */
 
     /**
-     * Zapne hlídání jednoho bodu. Volá se z webu přes most (`MostDoWebu`).
+     * Zapne hlídání míst. Volá se z webu přes most (`MostDoWebu`).
      *
-     * ⚠️ `UPDATE` schválně: uživatel si mění místo klidně desetkrát denně
-     * a KEEP by nechal běžet hlídání toho prvního. Upozornění na místo,
-     * které si člověk dávno přepnul, je horší než žádné — vypadá jako vada.
+     * ⚠️ `UPDATE` schválně: seznam se mění (zvonek u místa, přejmenování,
+     * jazyk) a KEEP by nechal běžet hlídání podle starého. Upozornění na
+     * místo, které si člověk dávno vypnul, je horší než žádné.
      */
     fun hlidej(ctx: Context, co: Hlidane) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putFloat("lat", co.lat.toFloat())
-            .putFloat("lon", co.lon.toFloat())
-            .putString("nadpis", co.nadpis)
-            .putString("lang", co.lang)
-            .putString("prah", co.prah)
-            .putString("nadpisBourka", co.nadpisBourka)
-            .putBoolean("bourky", co.bourky)
-            .apply()
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prevedStare(prefs)
+        val e = prefs.edit().putString(KLIC_HLIDANI, doJson(co))
+        // Paměť míst, která se už nehlídají, se zahodí. Nehlídané místo,
+        // které se zase zapne, je nová situace — platná výstraha se ohlásí.
+        val klice = co.mista.map(::klicMista).toSet()
+        for (k in prefs.all.keys) {
+            val misto = when {
+                k.startsWith(PAMET_VYSTRAH) -> k.removePrefix(PAMET_VYSTRAH)
+                k.startsWith(PAMET_BOURKY) -> k.removePrefix(PAMET_BOURKY)
+                else -> continue
+            }
+            if (misto !in klice) e.remove(k)
+        }
+        e.apply()
 
         // Kanál hned, ne až při prvním zvonění: dokud neexistuje, nejde
         // v Androidu najít ani vypnout — a nastavení appky by o něm nevědělo.
@@ -172,20 +280,47 @@ object Vystrahy {
 
     fun hlidaSe(ctx: Context): Boolean = hlidane(ctx) != null
 
+    /** Jména hlídaných míst — pro stav v nastavení (`StavNaPozadi`). */
+    fun hlidanaJmena(ctx: Context): List<String> = hlidane(ctx)?.mista?.map { it.jmeno } ?: emptyList()
+
     private fun hlidane(ctx: Context): Hlidane? {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!p.contains("lat")) return null
-        return Hlidane(
+        prevedStare(p)
+        return zJson(p.getString(KLIC_HLIDANI, null))
+    }
+
+    /**
+     * Hlídání z verze do 0.28.0 (jedno místo v samostatných klíčích) →
+     * seznam míst. Volá se při každém čtení, převede se jednou.
+     *
+     * 🚨 Bez převodu by po aktualizaci hlídání STÁLO, dokud člověk appku
+     * neotevře — obal by v paměti nenašel nic, co umí přečíst. A paměť
+     * ohlášených výstrah se přenese k tomu místu, jinak by se po aktualizaci
+     * znovu ohlásilo všechno, co zrovna platí.
+     */
+    private fun prevedStare(p: android.content.SharedPreferences) {
+        if (p.contains(KLIC_HLIDANI) || !p.contains("lat")) return
+        val m = Misto(
             lat = p.getFloat("lat", 0f).toDouble(),
             lon = p.getFloat("lon", 0f).toDouble(),
+            jmeno = "",
             nadpis = p.getString("nadpis", "") ?: "",
+            nadpisBourka = p.getString("nadpisBourka", "") ?: "",
+        )
+        val co = Hlidane(
+            mista = listOf(m),
             lang = p.getString("lang", "cs") ?: "cs",
             prah = p.getString("prah", "Moderate") ?: "Moderate",
-            nadpisBourka = p.getString("nadpisBourka", "") ?: "",
-            // ⚠️ Výchozí ANO: kdo zapnul upozornění ve starší verzi, chtěl
-            // upozornění na bouřku — jen je appka neuměla (`R37`).
             bourky = p.getBoolean("bourky", true),
         )
+        val klic = klicMista(m)
+        val e = p.edit().putString(KLIC_HLIDANI, doJson(co))
+        p.getStringSet("oznamene", null)?.let { e.putStringSet(PAMET_VYSTRAH + klic, it) }
+        if (p.contains("bourkaVidenaMs")) e.putLong(PAMET_BOURKY + klic, p.getLong("bourkaVidenaMs", 0L))
+        for (k in listOf("lat", "lon", "nadpis", "lang", "prah", "nadpisBourka", "bourky", "oznamene", "bourkaVidenaMs")) {
+            e.remove(k)
+        }
+        e.commit()
     }
 
     /** Kdy naposledy prošla celá kontrola (výstrahy i bouřka). 0 = ještě ne. */
@@ -259,14 +394,21 @@ object Vystrahy {
             }
 
             // Síť MIMO zámek — zámek drží jen rozhodnutí a zápis.
-            val vystrahy = stahni(adresaVystrah(co))
-            val bourka = if (co.bourky) stahni(adresaBourky(co)) else null
-            val vsechnoDoslo = vystrahy != null && (!co.bourky || bourka != null)
+            // 🚨 VŠECHNA MÍSTA JEDNÍM DOTAZEM na výstrahy a jedním na bouřky
+            // (`R38`) — ne dotaz za každé místo. Kontrola jede každých ~10
+            // minut v každém telefonu; server čte radar i výstrahy stejně
+            // jednou pro všechny.
+            val vystrahy = odpovediMist(stahni(adresaVystrah(co)), co.mista.size)
+            val bourky = if (co.bourky) odpovediMist(stahni(adresaBourky(co)), co.mista.size) else null
+            val vsechnoDoslo = vystrahy != null && (!co.bourky || bourky != null)
 
             synchronized(ZAMEK) {
                 val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                if (vystrahy != null) zpracujVystrahy(ctx, co, vystrahy)
-                if (bourka != null) zpracujBourku(ctx, co, bourka, ted)
+                val id = idUpozorneni(co.mista)
+                co.mista.forEachIndexed { i, m ->
+                    vystrahy?.optJSONObject(i)?.let { zpracujVystrahy(ctx, m, id[i], it) }
+                    bourky?.optJSONObject(i)?.let { zpracujBourku(ctx, m, id[i] + 1, it, ted) }
+                }
                 // 🚨 Čas kontroly se zapíše, jen když dorazilo VŠECHNO, co se
                 // hlídá. Kdyby stačila půlka, ukazovalo by nastavení „poslední
                 // kontrola před chvílí", zatímco bouřka by se dávno nehlídala.
@@ -275,15 +417,23 @@ object Vystrahy {
             return if (vsechnoDoslo) Result.success() else Result.retry()
         }
 
-        private fun zpracujVystrahy(ctx: Context, co: Hlidane, telo: String) {
-            val vystrahy = try {
-                JSONObject(telo).optJSONArray("warnings")
-            } catch (e: Exception) {
-                null
-            } ?: return
+        /**
+         * Odpověď serveru → odpovědi pro jednotlivá místa, v pořadí dotazu.
+         *
+         * 🚨 Jiný počet než míst = jako by nedošlo nic. Párovat napůl by
+         * znamenalo přiřadit výstrahu jednoho místa jinému.
+         */
+        private fun odpovediMist(telo: String?, pocet: Int): JSONArray? {
+            val pole = try { JSONObject(telo ?: return null).optJSONArray("mista") } catch (e: Exception) { null }
+            return pole?.takeIf { it.length() == pocet }
+        }
+
+        private fun zpracujVystrahy(ctx: Context, m: Misto, id: Int, odpoved: JSONObject) {
+            val vystrahy = odpoved.optJSONArray("warnings") ?: return
 
             val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val znam = prefs.getStringSet("oznamene", emptySet()) ?: emptySet()
+            val pamet = PAMET_VYSTRAH + klicMista(m)
+            val znam = prefs.getStringSet(pamet, emptySet()) ?: emptySet()
 
             val platne = mutableListOf<Pair<String, String>>()   // id → jev
             for (i in 0 until vystrahy.length()) {
@@ -298,7 +448,7 @@ object Vystrahy {
             // Server prošlé nevrací, takže se paměť sama čistí a nemůže růst
             // donekonečna. Kdyby tatáž výstraha byla vydána znovu, ozve se:
             // je to nová situace, ne opakování téže.
-            prefs.edit().putStringSet("oznamene", platne.map { it.first }.toSet()).apply()
+            prefs.edit().putStringSet(pamet, platne.map { it.first }.toSet()).apply()
 
             if (nove.isEmpty()) return
 
@@ -312,7 +462,7 @@ object Vystrahy {
             // a nepotřebuje překlad.
             val prvni = nove.first().second
             val text = if (nove.size > 1) "$prvni +${nove.size - 1}" else prvni
-            zazvon(ctx, ID_VYSTRAHA, co.nadpis, text)
+            zazvon(ctx, id, m.nadpis, text)
         }
 
         /**
@@ -323,22 +473,33 @@ object Vystrahy {
          * mlčí se, a nová se ohlásí až po `tichoMin` klidu. Hodnotu posílá
          * server — obal o počasí nic nerozhoduje, jen porovná čas.
          */
-        private fun zpracujBourku(ctx: Context, co: Hlidane, telo: String, ted: Long) {
-            val o = try { JSONObject(telo) } catch (e: Exception) { return }
+        private fun zpracujBourku(ctx: Context, m: Misto, id: Int, o: JSONObject, ted: Long) {
             if (o.optString("stav") != "bourka") return
             val text = o.optJSONObject("bourka")?.optString("text")
                 ?.takeIf { it.isNotEmpty() && it != "null" } ?: return
             val ticho = TimeUnit.MINUTES.toMillis(o.optLong("tichoMin", 120L).coerceIn(0L, 24 * 60L))
 
+            // ⚠️ Ticho se počítá pro každé místo zvlášť. Bouřka, která
+            // přejde přes Plzeň a za hodinu dorazí domů, jsou dvě zprávy.
             val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val naposledy = prefs.getLong(KLIC_BOURKA_VIDENA, 0L)
-            prefs.edit().putLong(KLIC_BOURKA_VIDENA, ted).apply()
+            val pamet = PAMET_BOURKY + klicMista(m)
+            val naposledy = prefs.getLong(pamet, 0L)
+            prefs.edit().putLong(pamet, ted).apply()
             if (ted - naposledy <= ticho) return
 
-            if (zazvon(ctx, ID_BOURKA, co.nadpisBourka, text)) {
+            // ⚠️ Hlídání převedené z 0.27.0 nadpis bouřky nemá (tehdy bouřky
+            // nebyly) a dostane ho až s prvním otevřením appky. Do té doby
+            // nadpis výstrahy — nese aspoň jméno místa; prázdný nadpis ne.
+            if (zazvon(ctx, id, m.nadpisBourka.ifBlank { m.nadpis }, text)) {
                 prefs.edit().putLong(KLIC_BOURKA_OHLASENA, ted).apply()
             }
         }
+
+        /** `49.5302,12.9441;49.7384,13.3736` — tvar čte `mistaZDotazu` na serveru. */
+        private fun mista(co: Hlidane): String = URLEncoder.encode(
+            co.mista.joinToString(";") { String.format(Locale.ROOT, "%.4f,%.4f", it.lat, it.lon) },
+            "UTF-8",
+        )
 
         /**
          * ⚠️ `minSeverity` řeší SERVER. Kdyby se filtrovalo tady, byla by
@@ -347,13 +508,13 @@ object Vystrahy {
          */
         private fun adresaVystrah(co: Hlidane): String =
             BuildConfig.API_BASE.trimEnd('/') +
-                "/api/warnings?lat=${co.lat}&lon=${co.lon}" +
+                "/api/warnings?mista=${mista(co)}" +
                 "&lang=${URLEncoder.encode(co.lang, "UTF-8")}" +
                 "&minSeverity=${URLEncoder.encode(co.prah, "UTF-8")}"
 
         private fun adresaBourky(co: Hlidane): String =
             BuildConfig.API_BASE.trimEnd('/') +
-                "/api/storm?lat=${co.lat}&lon=${co.lon}" +
+                "/api/storm?mista=${mista(co)}" +
                 "&lang=${URLEncoder.encode(co.lang, "UTF-8")}"
 
         private fun stahni(adresa: String): String? = try {
@@ -421,9 +582,10 @@ object Vystrahy {
             .setContentIntent(otevri)
             .build()
 
-        // ⚠️ Pevné id podle druhu: novější výstraha NAHRADÍ starší (deset
-        // zpráv o téže bouřce pod sebou je způsob, jak si člověk kanál
-        // vypne), ale bouřka z radaru výstrahu nepřepíše — jsou to dvě zprávy.
+        // ⚠️ Pevné id podle místa a druhu: novější výstraha téhož místa
+        // NAHRADÍ starší (deset zpráv o téže bouřce pod sebou je způsob, jak
+        // si člověk kanál vypne), ale bouřka z radaru výstrahu nepřepíše
+        // a jedno místo nepřepíše druhé (`idUpozorneni`).
         return try {
             NotificationManagerCompat.from(ctx).notify(id, zprava)
             true

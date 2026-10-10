@@ -337,6 +337,17 @@ test('výřez pro místo se dělá až za cache (filterByPlace)', () => {
   assert.match(o.bourka.text, /^A thunderstorm/);
 });
 
+test('🚨 víc hlídaných míst jedním dotazem (R38): bouřku dostane jen to, kam jde', () => {
+  const p = podklad({ jadra: [zapad(30)], stopa: [[Math.floor(P.x), Math.floor(P.y), 40]] });
+  const o = filterByPlace('storm', p, { mista: `50.0755,14.4378;${BOD.lat},${BOD.lon}`, lang: 'cs' }, { nowMs: NOW });
+  assert.equal(o.mista.length, 2);
+  assert.equal(o.mista[0].stav, 'klid', 'Praha');
+  assert.equal(o.mista[1].stav, 'bourka', 'Horšovský Týn');
+  assert.match(o.mista[1].bourka.text, /^Od západu/);
+  // Každé místo nese i ticho a stáří snímků — obal je čte u každého zvlášť.
+  for (const m of o.mista) assert.equal(m.tichoMin, 120);
+});
+
 /* ============================================================
    STAVITEL NA SERVERU (podvržené ČHMÚ)
    ============================================================ */

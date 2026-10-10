@@ -2118,6 +2118,58 @@ main {
 }
 .manage-hlavicka[hidden] { display: none; }
 
+/* Zvonek „hlídat" (R38): čtvrtý sloupec, jen se zapnutými upozorněními
+   v obalu. ⚠️ Záhlaví i řádky přepínají sloupce SPOLU — jinak by popisek
+   „Hlídat" stál nad tlačítkem Odebrat. */
+.manage-list.s-hlidanim .manage-row,
+.manage-hlavicka.s-hlidanim {
+  /* ⚠️ Sloupec zvonku PEVNĚ: popisek „Hlídat" je o pár px širší než zvonek
+     a s `auto` by záhlaví a řádky vyšly každé jinak. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) 42px auto;
+}
+.manage-hlavicka:not(.s-hlidanim) .manage-hlavicka-hlidat { display: none; }
+.manage-hlavicka-hlidat { text-align: center; overflow: hidden; }
+/* Se zvonkem je řádek o sloupec bohatší — mezery se o kousek zúží, ať na
+   320 px zbude na jméno aspoň pár písmen víc. */
+.manage-list.s-hlidanim .manage-row,
+.manage-hlavicka.s-hlidanim { column-gap: 6px; }
+
+/* Neviditelná kopie tlačítka Odebrat: tytéž rozměry písma a okrajů, takže
+   poslední sloupec záhlaví je stejně široký jako v řádcích. */
+.manage-hlavicka-odebrat {
+  visibility: hidden;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  font-size: 13px; font-weight: 400;
+  letter-spacing: normal; text-transform: none;
+  white-space: nowrap;
+}
+
+.manage-zvonek {
+  display: grid; place-items: center;
+  width: 36px; height: 38px;
+  justify-self: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.manage-zvonek svg {
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+/* Zapnutý zvonek je vyplněný a v barvě akce. ⚠️ Stav nese i tvar (plný
+   vs. obrys) a `aria-pressed`, ne jen barva (`tile-tone.js`). */
+.manage-zvonek[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.manage-zvonek[aria-pressed="true"] svg { fill: currentColor; }
+
 /* ── Legenda barev u bodů na trase ───────────────────────────────────────
    Michal 30. 8. 2026 chtěl u bodů vysvětlivky. Legenda je ta levnější
    polovina odpovědi: řeší otázku „co ta barva znamená" jednou provždy

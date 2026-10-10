@@ -819,13 +819,18 @@ test('počítadlo argumentů nepočítá čárky v závorkách, řetězcích ani
   assert.equal(pocetArgumentu('\n  lat: Double,\n  lon: Double,\n'), 2);
 });
 
-test('🚨 bouřka z radaru má vlastní id upozornění — nepřepíše výstrahu ani zprávy', () => {
-  const kt = KT('Vystrahy.kt');
-  const vystraha = /ID_VYSTRAHA\s*=\s*(\d+)/.exec(kt)?.[1];
-  const bourka = /ID_BOURKA\s*=\s*(\d+)/.exec(kt)?.[1];
-  assert.ok(vystraha && bourka);
-  assert.equal(vystraha, '1', 'id 1 patří výstrahám odjakživa');
-  assert.ok(!['1', '2', '3'].includes(bourka), '2 a 3 jsou ranní a večerní zpráva');
+test('🚨 každé hlídané místo má vlastní id upozornění — výstraha, bouřka a zprávy se nepřepíšou', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  const od = Number(/ID_MISTA_OD\s*=\s*(\d+)/.exec(kt)?.[1]);
+  assert.ok(od >= 1000, 'pod tím leží zprávy (2, 3), budíky a staré id 1 a 4');
+  // Id z KLÍČE místa, ne z pořadí: přidané místo nesmí posunout ostatní.
+  const fn = /fun idUpozorneni[\s\S]*?\n {4}\}/.exec(kt)?.[0] || '';
+  assert.match(fn, /klicMista\(m\)\.hashCode\(\)/);
+  assert.match(fn, /\* 2/, 'sudé id = výstraha, liché (+1) = bouřka');
+  assert.match(fn, /while \(id in pouzite\) id \+= 2/, 'srážka dvou míst se rozstrčí');
+  assert.match(kt, /zpracujVystrahy\(ctx, m, id\[i\], it\)/);
+  assert.match(kt, /zpracujBourku\(ctx, m, id\[i\] \+ 1, it, ted\)/);
+  assert.ok(!/ID_VYSTRAHA|ID_BOURKA/.test(kt), 'společné id pro všechna místa by přepisovalo jedno místo druhým');
 });
 
 test('🚨 obal o bouřce NIC nerozhoduje — ptá se serveru a zvoní hotovou větou', () => {
@@ -857,7 +862,7 @@ test('🚨 kontrola jde budíkem i v hlubokém spánku, budík se hned nasadí z
 test('🚨 „poslední kontrola" se zapíše jen tehdy, když došlo VŠECHNO hlídané', () => {
   // Jinak by nastavení hlásilo „před chvílí", zatímco by se bouřka nehlídala.
   const kt = bezKomentaru(KT('Vystrahy.kt'));
-  assert.match(kt, /val vsechnoDoslo = vystrahy != null && \(!co\.bourky \|\| bourka != null\)/);
+  assert.match(kt, /val vsechnoDoslo = vystrahy != null && \(!co\.bourky \|\| bourky != null\)/);
   assert.match(kt, /if \(vsechnoDoslo\) prefs\.edit\(\)\.putLong\(KLIC_KONTROLA/);
 });
 
@@ -960,4 +965,68 @@ test('🚨 značka DONATE-COMEBACK visí jen na daru, ne na zprávách', () => {
   const kodove = app.split('\n').filter((r) => r.includes('DONATE-COMEBACK') && !/^\s*(\*|\/\/)/.test(r));
   assert.ok(kodove.length > 0, 'značka z kódu zmizela úplně');
   for (const r of kodove) assert.match(r, /schovejDarVObalu/, `značka na cizím řádku: ${r.trim()}`);
+});
+
+/* ============================================================
+   HLÍDANÁ MÍSTA (R38)
+   ============================================================ */
+
+test('🚨 obal se ptá na VŠECHNA místa jedním dotazem — ne dotazem za každé místo', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /"\/api\/warnings\?mista=\$\{mista\(co\)\}"/);
+  assert.match(kt, /"\/api\/storm\?mista=\$\{mista\(co\)\}"/);
+  assert.ok(!/lat=\$\{/.test(kt), 'dotaz za jedno místo zůstal');
+  // Tvar bodu musí projít `mistaZDotazu` na serveru: tečka (Locale.ROOT), 4 desetinná.
+  assert.match(kt, /String\.format\(Locale\.ROOT, "%\.4f,%\.4f", it\.lat, it\.lon\)/);
+  assert.match(kt, /joinToString\(";"\)/);
+});
+
+test('🚨 odpověď s jiným počtem míst se nepáruje — jako by nedošla', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /optJSONArray\("mista"\)/);
+  assert.match(kt, /takeIf \{ it\.length\(\) == pocet \}/);
+});
+
+test('🚨 strop hlídaných míst je v obalu, webu i na serveru TÝŽ', async () => {
+  const { MAX_HLIDANYCH } = await import('../web/lib/watched-places.js');
+  assert.equal(Number(/const val MAX_MIST = (\d+)/.exec(KT('Vystrahy.kt'))?.[1]), MAX_HLIDANYCH);
+});
+
+test('🚨 paměť ohlášeného je pro každé místo zvlášť — výstraha pro domov není ohlášená pro Plzeň', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /val pamet = PAMET_VYSTRAH \+ klicMista\(m\)/);
+  assert.match(kt, /val pamet = PAMET_BOURKY \+ klicMista\(m\)/);
+  assert.match(kt, /putStringSet\(pamet,/);
+  // Staré společné klíče smí zůstat jen v převodu z 0.28.0.
+  const mimoPrevod = kt.replace(/private fun prevedStare[\s\S]*?\n {4}\}/, '');
+  assert.ok(!/"oznamene"|"bourkaVidenaMs"/.test(mimoPrevod), 'společná paměť pro všechna místa zůstala');
+});
+
+test('🚨 hlídání z 0.28.0 se po aktualizaci převede — nestojí, dokud člověk appku neotevře', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  const prevod = /private fun prevedStare[\s\S]*?\n {4}\}/.exec(kt)?.[0] || '';
+  assert.match(prevod, /PAMET_VYSTRAH \+ klic/, 'paměť ohlášených výstrah se přenese k místu');
+  assert.match(prevod, /PAMET_BOURKY \+ klic/);
+  assert.match(prevod, /putString\(KLIC_HLIDANI/);
+  // Převádí se při čtení i před zápisem nového zadání.
+  assert.match(/private fun hlidane\([\s\S]*?\n {4}\}/.exec(kt)?.[0] || '', /prevedStare\(p\)/);
+  assert.match(/fun hlidej\(ctx[\s\S]*?\n {4}\}/.exec(kt)?.[0] || '', /prevedStare\(prefs\)/);
+});
+
+test('🚨 nečitelné zadání hlídání VYPNE — staré by hlídalo místa, která web už nehlídá', () => {
+  const most = bezKomentaru(KT('MostDoWebu.kt'));
+  const fn = /fun hlidejMista\(zadani: String\)[\s\S]*?\n {4}\}/.exec(most)?.[0] || '';
+  assert.match(fn, /if \(co == null\) Vystrahy\.nehlidej\(ctx\) else Vystrahy\.hlidej\(ctx, co\)/);
+});
+
+test('web posílá obalu hlídaná místa (zvonek) a obal je čte týmiž jmény', () => {
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const fn = /function zapisHlidani\(\)[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /hlidanaMista\(state\.places, state\.hlidana, state\.place\)/);
+  assert.match(fn, /most\.hlidejMista\(JSON\.stringify\(/);
+  const kt = KT('Vystrahy.kt');
+  for (const k of ['lat', 'lon', 'jmeno', 'nadpis', 'nadpisBourka', 'lang', 'prah', 'bourky', 'mista']) {
+    assert.match(fn, new RegExp(`\\b${k}:`), `web neposílá ${k}`);
+    assert.match(kt, new RegExp(`opt(String|Double|Boolean|JSONArray)\\("${k}"`), `obal nečte ${k}`);
+  }
 });

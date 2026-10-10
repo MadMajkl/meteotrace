@@ -46,6 +46,10 @@ object StavNaPozadi {
         o.put("kanaly", kanaly)
 
         o.put("hlida", Vystrahy.hlidaSe(ctx))
+        // Co telefon OPRAVDU hlídá (`R38`) — ne co si myslí web. Rozejít se
+        // to může (starší zadání po aktualizaci, nepřijatý zápis) a bez
+        // tohohle by se to nedalo poznat.
+        o.put("mista", JSONArray(Vystrahy.hlidanaJmena(ctx)))
         o.put("kontrolaMs", Vystrahy.posledniKontrola(ctx))
         o.put("bourkaMs", Vystrahy.posledniBourka(ctx))
         o.put("zpravy", Zpravy.stav(ctx))

@@ -70,13 +70,19 @@ export default {
     setting: 'Upozorňovat na výstrahy',
     off: 'Neupozorňovat',
     level: 'Od závažnosti',
-    // ⚠️ Musí být poznat, že hlídané místo je JEDNO a které. Bez toho by
-    // člověk čekal upozornění i tam, kam se zrovna chystá.
+    // ⚠️ Musí být poznat, KTERÁ místa se hlídají. Bez toho by člověk čekal
+    // upozornění i tam, kam se zrovna chystá. {place} = „Týn a Plzeň" (R38).
     // 🚨 Musí říct, CO se hlídá. Do 10. 10. 2026 tu stálo jen „Hlídá se
     // {place}" a Michal to četl jako hlídání bouřky — přitom šlo jen
     // o výstrahy ČHMÚ, a ty 8. 10. pro Horšovský Týn nepřišly (R37).
     watching: 'Hlídá se {place}: výstrahy ČHMÚ a bouřky podle radaru. Upozornění chodí, i když je appka zavřená.',
     watchingNoStorm: 'Hlídá se {place}, ale jen výstrahy ČHMÚ. Na bouřku, ke které ČHMÚ výstrahu nevydá, appka neupozorní.',
+    // R38: bez zapnutého zvonku se hlídá OTEVŘENÉ místo — a to se mění.
+    // Michal 10. 10. 2026: pes doma v Týně, on v práci v Plzni.
+    watchOpen: 'Je to místo, které máš právě otevřené. Stálá místa, třeba domov, zapneš zvonkem ve správě uložených míst.',
+    watchSaved: 'Místa zapneš a vypneš zvonkem ve správě uložených míst.',
+    phoneWatches: 'Telefon hlídá: {places}.',
+    phoneWatchesNothing: 'Telefon zatím nic nehlídá, přestože jsou upozornění zapnutá. Zavři appku a otevři ji znovu.',
     storm: 'Bouřky podle radaru',
     stormOn: 'Upozorňovat',
     stormOff: 'Neupozorňovat',
@@ -185,6 +191,13 @@ export default {
     nameLabel: 'Jméno uloženého místa',
     removeOne: 'Odebrat',
     confirmRemove: 'Opravdu odebrat?',
+    // Hlídání uloženého místa (R38) — zvonek ve správě míst.
+    watchCol: 'Hlídat',
+    watchStart: 'Hlídat {name} — výstrahy a bouřky i se zavřenou appkou',
+    watchStop: 'Přestat hlídat {name}',
+    watchStarted: '{name} se teď hlídá.',
+    watchStopped: '{name} se už nehlídá.',
+    watchFull: 'Hlídat jde nejvýš {max} míst. Nejdřív u jiného místa zvonek vypni.',
     nameEmpty: 'Jméno nemůže být prázdné, původní zůstalo.',
     renamed: 'Přejmenováno na „{name}“.',
     removed: 'Místo „{name}“ je odebrané.',

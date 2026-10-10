@@ -20,6 +20,7 @@ import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 import { staciNa } from './severity.js';
 import { zpravaJeCerstva } from './cap.js';
 import { odpovedProMisto } from './storm-watch.js';
+import { mistaZDotazu } from './watched-places.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -72,6 +73,14 @@ export function planRequest(req) {
   const { service, subPath } = parsed;
   if (!isKnownService(service)) {
     return { ok: false, status: 404, error: `Neznámá služba: ${service}` };
+  }
+
+  // Seznam hlídaných míst (`R38`). Vadný se ODMÍTÁ celý, ne opravuje:
+  // odpověď se páruje s místy podle pořadí a vynechaný bod by výstrahu
+  // jednoho místa přiřadil jinému. Viz `mistaZDotazu`.
+  const mista = params instanceof URLSearchParams ? params.get('mista') : params.mista;
+  if (mista != null && (UPSTREAMS[service].local || []).includes('mista') && !mistaZDotazu(mista)) {
+    return { ok: false, status: 400, error: 'Nepřípustný seznam míst.' };
   }
 
   try {
@@ -196,6 +205,19 @@ export function casVydani(body) {
  * @param {number} [opts.nowMs] čas pro vyhození prošlých výstrah
  */
 export function filterByPlace(service, body, params = {}, opts = {}) {
+  // Víc hlídaných míst jedním dotazem (`R38`): každé místo projde TOUŽ
+  // cestou jako samostatný dotaz, odpovědi jdou ven ve stejném pořadí.
+  // ⚠️ Hranice území (`geo`) se tu nepřikládá — obal ji nekreslí a pět
+  // hranic by byly desítky kilobajtů na pozadí.
+  if (params.mista != null && (UPSTREAMS[service]?.local || []).includes('mista')) {
+    const { mista: _m, geo: _g, ...zbytek } = params;
+    return {
+      mista: (mistaZDotazu(params.mista) || []).map((m) => filterByPlace(service, body, {
+        ...zbytek, lat: String(m.lat), lon: String(m.lon),
+      }, opts)),
+    };
+  }
+
   // Bouřka z radaru (`R37`): v cache leží podklad společný všem, místo
   // a věta v jazyce appky se z něj dělají až tady — jako u výstrah.
   if (UPSTREAMS[service]?.normalize === 'storm') {

@@ -109,6 +109,7 @@
 <link rel="modulepreload" href="lib/fit-row.js">
 <link rel="modulepreload" href="lib/pull-refresh.js">
 <link rel="modulepreload" href="lib/warn-notify.js">
+<link rel="modulepreload" href="lib/watched-places.js">
 <link rel="modulepreload" href="lib/drift.js">
 <link rel="modulepreload" href="lib/tile-tone.js">
 <link rel="modulepreload" href="lib/onboarding.js">
@@ -348,6 +349,13 @@
   <div class="manage-hlavicka" id="places-hlavicka" hidden aria-hidden="true">
     <span data-i18n="places.addressCol"></span>
     <span data-i18n="places.nameCol"></span>
+    <!-- Sloupec zvonku (R38). Jen se zapnutými upozorněními v obalu
+         (`.s-hlidanim`), jinak by visel nad tlačítkem Odebrat. -->
+    <span class="manage-hlavicka-hlidat" data-i18n="places.watchCol"></span>
+    <!-- ⚠️ Neviditelná kopie tlačítka Odebrat. Záhlaví je vlastní mřížka:
+         bez stejně širokého posledního sloupce vyjdou sloupce nad řádky
+         jinak široké a popisky stojí mimo pole pod sebou. -->
+    <span class="manage-hlavicka-odebrat" data-i18n="places.removeOne"></span>
   </div>
   <ul id="places-manage" class="manage-list"></ul>
 

@@ -45,6 +45,7 @@ import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
 import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
+import { hlidanaMista, prepniHlidani, jeHlidane, vycistiKlice, MAX_HLIDANYCH } from './lib/watched-places.js';
 import { kamMiri, coRict } from './lib/drift.js';
 import { windTon, uvTon, pressureTon, soumrakPodil } from './lib/tile-tone.js';
 import { maSeSpustit, createOnboarding } from './lib/onboarding.js';
@@ -75,7 +76,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.28.0';
+const VERZE = '0.29.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -128,6 +129,9 @@ const state = {
   // upozorněními. ⚠️ Výchozí ANO: kdo upozornění zapne, chce vědět o bouřce —
   // přesně tohle 8. 10. 2026 chybělo, když ČHMÚ výstrahu nevydal.
   bourky: true,
+  // Uložená místa, která obal hlídá (klíče, `R38`). Prázdné = hlídá se místo
+  // otevřené na meteostanici, tak jako do 0.28.0.
+  hlidana: [],
   // O čem se už upozornilo, aby se o téže výstraze nezvonilo pořád dokola.
   oznameno: [],
   // Prošel už uvítáním? 🚨 Vlastní příznak, NE prázdnota seznamu míst —
@@ -173,6 +177,9 @@ function load() {
     }
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     if (typeof saved.bourky === 'boolean') state.bourky = saved.bourky;
+    // ⚠️ Klíče se tu jen převezmou; proti skladu míst se čistí až při
+    // použití (`vycistiKlice`) — místa se načítají zvlášť a později.
+    if (Array.isArray(saved.hlidana)) state.hlidana = saved.hlidana.filter((k) => typeof k === 'string');
     // 🚨 Poloha se obnovuje, protože na ní stojí ranní a večerní zpráva:
     // bez ní by po restartu appky přestaly chodit, dokud by si člověk
     // znovu nesáhl na ⌖ — a nic by mu to neřeklo.
@@ -222,7 +229,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
-      notify: state.notify, bourky: state.bourky, oznameno: state.oznameno,
+      notify: state.notify, bourky: state.bourky, hlidana: state.hlidana, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
@@ -288,6 +295,7 @@ function toggleSave() {
     state.places = forgetPlace(state.places, existing.key);
     persistPlaces();
     renderSaved();
+    poZmeneHlidanych();
     return;
   }
 
@@ -1183,12 +1191,19 @@ function vypisStavUpozorneni() {
       : t('notify.browserOnly', state.lang);
   } else if (!most.majiPovoleni()) {
     text = t('notify.denied', state.lang);
-  } else if (!state.place) {
-    text = t('notify.watchingNone', state.lang);
   } else {
-    // 🚨 Musí říct, CO se hlídá (`R37`). Bez bouřek z radaru to výslovně
-    // řekne, že na bouřku bez výstrahy ČHMÚ appka neupozorní.
-    text = tf(state.bourky ? 'notify.watching' : 'notify.watchingNoStorm', { place: state.place.name }, state.lang);
+    const { mista, zOtevreneho } = hlidanaMista(state.places, state.hlidana, state.place);
+    if (!mista.length) {
+      text = t('notify.watchingNone', state.lang);
+    } else {
+      // 🚨 Musí říct, CO se hlídá (`R37`) a KDE (`R38`). Bez bouřek z radaru
+      // to výslovně řekne, že na bouřku bez výstrahy ČHMÚ appka neupozorní.
+      text = tf(state.bourky ? 'notify.watching' : 'notify.watchingNoStorm',
+        { place: spojJmena(mista.map((m) => m.name)) }, state.lang);
+      // ⚠️ Hlídá se otevřené místo → říct, že to jde jinak. Jinak člověk
+      // neví, že si v práci tím, že otevře Plzeň, přestane hlídat domov.
+      text += ` ${t(zOtevreneho ? 'notify.watchOpen' : 'notify.watchSaved', state.lang)}`;
+    }
   }
 
   p.textContent = text;
@@ -1200,7 +1215,22 @@ function vypisStavUpozorneni() {
 }
 
 /**
+ * „Horšovský Týn, Plzeň a Klatovy" v jazyce appky.
+ * ⚠️ `Intl.ListFormat` nemusí starší WebView znát — pak čárky.
+ */
+function spojJmena(jmena) {
+  try {
+    return new Intl.ListFormat(state.lang, { style: 'long', type: 'conjunction' }).format(jmena);
+  } catch {
+    return jmena.join(', ');
+  }
+}
+
+/**
  * Řekne obalu, co má hlídat — nebo že nemá hlídat nic.
+ *
+ * Hlídají se uložená místa se zapnutým zvonkem (`R38`); bez nich to
+ * otevřené na meteostanici (`hlidanaMista`).
  *
  * ⚠️ Volá se při KAŽDÉ změně místa, jazyka i prahu. Hlídání bodu, který si
  * uživatel dávno přepnul, je horší než žádné: upozornění by chodila na
@@ -1210,24 +1240,41 @@ function zapisHlidani() {
   const most = obal();
   if (!most) return;
 
-  if (!state.notify || !state.place) {
+  const { mista } = hlidanaMista(state.places, state.hlidana, state.place);
+  if (!state.notify || !mista.length) {
     most.nehlidejVystrahy();
     return;
   }
 
-  // ⚠️ Nadpis se skládá TADY, v jazyce appky. `strings.xml` v obalu se řídí
-  // jazykem systému — kdo má appku česky a telefon anglicky, dostal by
+  // ⚠️ Nadpisy se skládají TADY, v jazyce appky. `strings.xml` v obalu se
+  // řídí jazykem systému — kdo má appku česky a telefon anglicky, dostal by
   // českou appku a anglické upozornění.
-  const { nadpis } = textUpozorneni({
-    nove: [{ event: '' }], misto: state.place.name, lang: state.lang,
-  }) || { nadpis: '' };
+  most.hlidejMista(JSON.stringify({
+    lang: state.lang,
+    prah: state.notify,
+    bourky: state.bourky === true,
+    mista: mista.map((m) => ({
+      lat: m.lat,
+      lon: m.lon,
+      jmeno: m.name,
+      nadpis: (textUpozorneni({ nove: [{ event: '' }], misto: m.name, lang: state.lang }) || { nadpis: '' }).nadpis,
+      nadpisBourka: tf('storm.title', { place: m.name }, state.lang),
+    })),
+  }));
+}
 
-  // 🚨 Sedm parametrů — musí sedět s `MostDoWebu.hlidejVystrahy`. Most hledá
-  // metodu podle jména i počtu a při neshodě hlídání tiše nezapne.
-  most.hlidejVystrahy(
-    state.place.lat, state.place.lon, nadpis, state.lang, state.notify,
-    tf('storm.title', { place: state.place.name }, state.lang), state.bourky === true,
-  );
+/**
+ * Po každé změně hlídaných míst: smazané místo vypadne, obal dostane nový
+ * seznam a nastavení řekne, co se hlídá.
+ */
+function poZmeneHlidanych() {
+  const ciste = vycistiKlice(state.places, state.hlidana);
+  if (ciste.length !== state.hlidana.length) {
+    state.hlidana = ciste;
+    save();
+  }
+  zapisHlidani();
+  vypisStavUpozorneni();
 }
 
 /* ============================================================
@@ -1468,6 +1515,12 @@ function vypisStavNaPozadi() {
   const rekni = (text, varovani = false) => radky.push([text, varovani]);
 
   if (state.notify) {
+    // Co telefon OPRAVDU hlídá (`R38`) — z obalu, ne z toho, co si myslí web.
+    const jmena = (Array.isArray(s.mista) ? s.mista : []).filter((j) => typeof j === 'string' && j);
+    if (jmena.length) rekni(tf('notify.phoneWatches', { places: spojJmena(jmena) }, state.lang));
+    else if (!s.hlida && hlidanaMista(state.places, state.hlidana, state.place).mista.length) {
+      rekni(t('notify.phoneWatchesNothing', state.lang), true);
+    }
     if (!s.kontrolaMs) rekni(t('notify.noCheck', state.lang));
     else if (ted - s.kontrolaMs > KONTROLA_POZDE_MS) rekni(tf('notify.lateCheck', { when: kdyNaTelefonu(s.kontrolaMs, ted) }, state.lang), true);
     else rekni(tf('notify.lastCheck', { when: kdyNaTelefonu(s.kontrolaMs, ted) }, state.lang));
@@ -1676,6 +1729,13 @@ function renderManage() {
   // Záhlaví jen když je co popisovat.
   $('places-hlavicka').hidden = !list.length;
 
+  // Zvonek „hlídat" (`R38`) jen tam, kde hlídání na pozadí opravdu běží:
+  // v obalu a se zapnutými upozorněními. V prohlížeči by sliboval něco,
+  // co prohlížeč na pozadí neumí (`R17`).
+  const sHlidanim = !!obal() && !!state.notify && !state.places.readOnly;
+  $('places-manage').classList.toggle('s-hlidanim', sHlidanim);
+  $('places-hlavicka').classList.toggle('s-hlidanim', sHlidanim);
+
   fill($('places-manage'), list, (p) => {
     const li = document.createElement('li');
     li.className = 'manage-row';
@@ -1730,11 +1790,55 @@ function renderManage() {
       notice(tf('places.removed', { name: p.name }, state.lang));
       renderManage();
       renderSaved();
+      poZmeneHlidanych();
     });
 
-    li.append(adresa, input, del);
+    if (sHlidanim) li.append(adresa, input, zvonekMista(p), del);
+    else li.append(adresa, input, del);
     return li;
   });
+}
+
+/** Obrys zvonku; zapnutý se vyplní (CSS). Kresba, ne emoji — viz domeček. */
+const ZVONEK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+  + '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2H4.4z"/><path d="M9.8 20.5a2.3 2.3 0 0 0 4.4 0"/></svg>';
+
+/**
+ * Zvonek u uloženého místa: hlídat ho na pozadí, i když není otevřené.
+ *
+ * 🚨 Michal 10. 10. 2026: pes doma v Horšovském Týně, on v práci v Plzni.
+ * Hlídání do té doby šlo za otevřeným místem — otevřením Plzně přestal
+ * hlídat domov.
+ */
+function zvonekMista(p) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'manage-zvonek';
+  btn.innerHTML = ZVONEK_SVG;
+  const popis = () => {
+    const zap = jeHlidane(state.hlidana, p.key);
+    btn.setAttribute('aria-pressed', String(zap));
+    const text = tf(zap ? 'places.watchStop' : 'places.watchStart', { name: p.name }, state.lang);
+    btn.title = text;
+    btn.setAttribute('aria-label', text);
+  };
+  popis();
+  btn.addEventListener('click', () => {
+    const r = prepniHlidani(state.places, state.hlidana, p.key);
+    // ⚠️ Plno se ŘEKNE. Zvonek, který po klepnutí jen zůstane zhasnutý,
+    // vypadá jako rozbitý.
+    if (r.plno) {
+      notice(tf('places.watchFull', { max: MAX_HLIDANYCH }, state.lang));
+      return;
+    }
+    state.hlidana = r.klice;
+    save();
+    popis();
+    notice(tf(jeHlidane(state.hlidana, p.key) ? 'places.watchStarted' : 'places.watchStopped',
+      { name: p.name }, state.lang));
+    poZmeneHlidanych();
+  });
+  return btn;
 }
 
 function setRemoveLabel(btn, armed) {
@@ -1771,6 +1875,8 @@ function commitRename(place, input) {
   notice(tf('places.renamed', { name: input.value.trim() }, state.lang));
   renderManage();
   renderSaved();
+  // Nadpisy upozornění nesou jméno místa — obal musí dostat nové.
+  poZmeneHlidanych();
 }
 
 /* ============================================================
