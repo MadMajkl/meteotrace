@@ -11,7 +11,7 @@
         zná (viz `Vystrahy.Hlidane`).
     -->
     <string name="kanal_vystrahy">Meteo výstrahy</string>
-    <string name="kanal_vystrahy_popis">Upozornění na výstrahy pro hlídané místo.</string>
+    <string name="kanal_vystrahy_popis">Výstrahy ČHMÚ a bouřky podle radaru pro hlídané místo.</string>
 
     <!-- ⚠️ Vlastní kanál, ne společný s výstrahami: ranní předpověď a bouřka
          jsou dvě různé věci a musí jít vypnout zvlášť. -->

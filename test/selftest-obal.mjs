@@ -754,6 +754,124 @@ test('🚨 budíky se obnoví po restartu telefonu', () => {
 });
 
 /* ============================================================
+   BOUŘKA Z RADARU A STAV NA POZADÍ (R37)
+   ============================================================ */
+
+const KT = (jmeno) => readFileSync(join(dirname(ZPRAVY), jmeno), 'utf8');
+
+/** Obsah závorky od `od` (index za otevírací závorkou) po tu párovou. */
+function vZavorce(text, od) {
+  let hloubka = 1;
+  let i = od;
+  let retezec = null;
+  for (; i < text.length && hloubka > 0; i++) {
+    const c = text[i];
+    if (retezec) { if (c === '\\') i++; else if (c === retezec) retezec = null; continue; }
+    if (c === '\'' || c === '"' || c === '`') retezec = c;
+    else if ('([{'.includes(c)) hloubka++;
+    else if (')]}'.includes(c)) hloubka--;
+  }
+  return text.slice(od, i - 1);
+}
+
+/** Počet argumentů: čárky v nejvyšší úrovni (bez závorek a řetězců). */
+function pocetArgumentu(obsah) {
+  const s = obsah.replace(/\/\/[^\n]*/g, '').trim();
+  if (!s) return 0;
+  let n = 1; let hloubka = 0; let retezec = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (retezec) { if (c === '\\') i++; else if (c === retezec) retezec = null; continue; }
+    if (c === '\'' || c === '"' || c === '`') retezec = c;
+    else if ('([{'.includes(c)) hloubka++;
+    else if (')]}'.includes(c)) hloubka--;
+    else if (c === ',' && hloubka === 0) n++;
+  }
+  // Čárka za posledním argumentem (Kotlin i JS ji dovolí) argument nepřidává.
+  return /,\s*$/.test(s) ? n - 1 : n;
+}
+
+test('🚨 každá metoda mostu se z webu volá se SPRÁVNÝM POČTEM argumentů', () => {
+  // WebView hledá metodu podle jména I počtu argumentů. Jiný počet = „metoda
+  // neexistuje", výjimka v JS — a hlídání výstrah se TIŠE nezapne. Do 10. 10.
+  // 2026 se `hlidejVystrahy` rozšiřovala o bouřku (R37): bez tohohle testu
+  // by stačilo zapomenout na jednu stranu.
+  const most = KT('MostDoWebu.kt');
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const metody = [...most.matchAll(/@JavascriptInterface\s+fun (\w+)\(/g)];
+  assert.ok(metody.length >= 10, 'most nemá metody? hledač se rozbil');
+  let overeno = 0;
+  for (const m of metody) {
+    const jmeno = m[1];
+    const parametry = pocetArgumentu(vZavorce(most, m.index + m[0].length));
+    for (const v of app.matchAll(new RegExp(`\\.${jmeno}\\(`, 'g'))) {
+      const argumenty = pocetArgumentu(vZavorce(app, v.index + v[0].length));
+      assert.equal(argumenty, parametry, `${jmeno}: web posílá ${argumenty}, obal čeká ${parametry}`);
+      overeno++;
+    }
+  }
+  assert.ok(overeno >= 10, `ověřilo se jen ${overeno} volání — hledač volání se rozbil`);
+});
+
+test('počítadlo argumentů nepočítá čárky v závorkách, řetězcích ani tu poslední', () => {
+  assert.equal(pocetArgumentu(''), 0);
+  assert.equal(pocetArgumentu('a, tf(\'x\', { a: 1, b: 2 }), "c,d",'), 3);
+  assert.equal(pocetArgumentu('\n  lat: Double,\n  lon: Double,\n'), 2);
+});
+
+test('🚨 bouřka z radaru má vlastní id upozornění — nepřepíše výstrahu ani zprávy', () => {
+  const kt = KT('Vystrahy.kt');
+  const vystraha = /ID_VYSTRAHA\s*=\s*(\d+)/.exec(kt)?.[1];
+  const bourka = /ID_BOURKA\s*=\s*(\d+)/.exec(kt)?.[1];
+  assert.ok(vystraha && bourka);
+  assert.equal(vystraha, '1', 'id 1 patří výstrahám odjakživa');
+  assert.ok(!['1', '2', '3'].includes(bourka), '2 a 3 jsou ranní a večerní zpráva');
+});
+
+test('🚨 obal o bouřce NIC nerozhoduje — ptá se serveru a zvoní hotovou větou', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /api\/storm/);
+  assert.match(kt, /optString\("text"\)/, 'věta chodí ze serveru');
+  assert.match(kt, /optLong\("tichoMin"/, 'ticho po bouřce určuje server');
+  for (const zakazane of ['dBZ', 'PRAH', 'souvisl', 'nowcast']) {
+    assert.ok(!kt.includes(zakazane), `obal počítá radar sám: ${zakazane}`);
+  }
+});
+
+test('🚨 kontrola jde budíkem i v hlubokém spánku, budík se hned nasadí znovu', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /setAndAllowWhileIdle/, 'periodická práce sama se v Doze odkládá o hodinu i víc');
+  assert.ok(!kt.includes('setExactAndAllowWhileIdle'), 'přesný budík chce zvláštní oprávnění');
+  const prijemce = /class BudikVystrah[\s\S]*?\n\}/.exec(kt)?.[0] || '';
+  assert.match(prijemce, /zkontrolujHned\(/);
+  assert.match(prijemce, /naplanujBudik\(/, 'bez přeplánování by budík zazvonil jednou');
+  assert.match(KT('Zpravy.kt'), /class PoRestartu[\s\S]*Vystrahy\.naplanujBudik/,
+    'po restartu telefonu by řetěz kontrol nenavázal');
+  const manifest = readFileSync(MANIFEST, 'utf8');
+  assert.match(manifest, /<receiver android:name="\.BudikVystrah" android:exported="false"/);
+  // Play pouští REQUEST_IGNORE_BATTERY_OPTIMIZATIONS jen vybraným druhům
+  // appek. Do nastavení baterie vede tlačítko, ne žádost.
+  assert.ok(!manifest.includes('REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'));
+});
+
+test('🚨 „poslední kontrola" se zapíše jen tehdy, když došlo VŠECHNO hlídané', () => {
+  // Jinak by nastavení hlásilo „před chvílí", zatímco by se bouřka nehlídala.
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /val vsechnoDoslo = vystrahy != null && \(!co\.bourky \|\| bourka != null\)/);
+  assert.match(kt, /if \(vsechnoDoslo\) prefs\.edit\(\)\.putLong\(KLIC_KONTROLA/);
+});
+
+test('🚨 zpráva zapíše, PROČ nepřišla — budík, síť, prázdno, zákaz', () => {
+  const kt = bezKomentaru(KT('Zpravy.kt'));
+  const prijemce = /class BudikZprav[\s\S]*?\n\}/.exec(kt)?.[0] || '';
+  assert.match(prijemce, /zapisBudik\(/, 'bez času budíku nejde poznat, jestli vůbec zazvonil');
+  for (const v of ['"sit"', '"prazdne"', '"zakazano"', '"ok"']) assert.ok(kt.includes(v), v);
+  // A web pro každý důvod umí větu.
+  const cs = readFileSync(join(WEB, 'lib', 'lang', 'cs.js'), 'utf8');
+  for (const v of ['zakazano', 'prazdne', 'sit']) assert.match(cs, new RegExp(`${v}: '`), `chybí věta pro ${v}`);
+});
+
+/* ============================================================
    WIDGET NA PLOŠE (R29)
    ============================================================ */
 

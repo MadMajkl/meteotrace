@@ -132,7 +132,9 @@ tohle je jen shrnutí.**
 | Kdy přestane pršet | `clearSoon` ve `station.js`, protějšek `rainSoon`. 🚨 `prsiTed` rozlišuje „neprší" od „prší a nekončí to" — bez něj by se „nevíme" tvářilo jako „hned to přejde" |
 | Karta výstrah | při klidu se schová celá. 🚨 JEN ve stavu „nic nehrozí" — při výpadku a mimo pokrytí zůstane, jinak by appka mlčky tvrdila klid o něčem, o čem nic neví. Že je klid, říká tichý řádek u „aktualizováno" |
 | Výzva šipkou | `.brand-sipka` se každých 10 s dvakrát kývne dolů, aby bylo poznat, že značka je tlačítko. ⚠️ Bez časovače — prodleva je uvnitř animace; jen ve sbaleném stavu a jen do prvního použití (značka `data-nabidka-znama`, neukládá se) |
-| Upozornění na výstrahy (R17) | hlídá androidí obal (`Vystrahy.kt`, WorkManager, 15 min), web jen když běží. Rozhodování: server + `lib/severity.js` + `lib/warn-notify.js`; **obal jen porovnává řetězce**. Práh jde serveru jako `minSeverity`. Výchozí VYPNUTO, práh `Moderate` |
+| Upozornění na výstrahy (R17) | hlídá androidí obal (`Vystrahy.kt`), web jen když běží. Rozhodování: server + `lib/severity.js` + `lib/warn-notify.js`; **obal jen porovnává řetězce**. Práh jde serveru jako `minSeverity`. Výchozí VYPNUTO, práh `Moderate`. 🚨 Kontrola jde ŘETĚZEM BUDÍKŮ `setAndAllowWhileIdle` po 10 min (Android okno posune až o 75 % → 10–17,5 min) + periodická práce 15 min jako pojistka; kontrola mladší 8 min se neopakuje. Periodická práce sama se v Doze odkládá o hodinu i víc |
+| Bouřka z radaru (R37) | i když ČHMÚ výstrahu nevydá (8. 10. 2026 Horšovský Týn). Pozorování ČHMÚ (`maxz/png`) říká „je to bouřka" — souvislé jádro ≥ 48 dBZ do 50 km, viděné 2× po sobě; předpověď ČHMÚ (`fct_maxz/png`) říká „jde to sem" — ≥ 40 dBZ do 6 km do 60 min. Čisté `web/lib/storm-watch.js` + `png-index.js` (vlastní čtečka PNG), stavitel `server/chmi-storm.js` → `/api/storm`; podklad v cache je SPOLEČNÝ všem, místo a věta až za cache (`filterByPlace`). Obal zvoní hotovou větou, ticho 2 h od posledního hlášení posílá server (`tichoMin`). 🚨 Paleta se čte podle INDEXU (181–195), ne barvy — bílá je v ní dvakrát. Kalibrace (`tools/bourka-kalibrace.mjs`, měří produkční kód): 86 % bouřek ≥ 10 min předem, medián 38 min, v dešti bez bouřek 0 upozornění, 35 % upozornění bez jádra do 20 km. Přehrát minulost: `METEOTRACE_CAS=2026-10-08T13:27:00Z npm run dev` (jen dev server; ČHMÚ drží radar 7 dní). Skutečná bouřka je v `test/data/bourka-2026-10-08.json` |
+| Stav na pozadí (R37) | blok v ⚙ pod zprávami: poslední kontrola, poslední ranní/večerní zpráva, a když budík zazvonil a zpráva nepřišla, PROČ (zákaz upozornění / server bez předpovědi / síť), kanály, šetření baterie + tlačítko do nastavení appky. Fakta dává `StavNaPozadi.kt` (most `stavNaPozadi`), věty skládá web (`vypisStavNaPozadi`). Jen v obalu |
 | Most do obalu | `MostDoWebu.kt` / `window.MeteoTraceObal`. ⚠️ Zůstane úzký — je to jediné okno z webu do telefonu |
 | Widget na ploše (R29) | `/api/widget` = `web/lib/widget.js` nad `buildStationView()` (widget říká totéž co meteostanice) + `server/widget.js`; obal `PocasiWidget.kt` jen kreslí — i barvy oblohy chodí ze serveru. 4 rozvržení (4×2, 2×2, 4×1, 2×1) kvůli stohování se systémovým počasím. 🚨 Na prvek, který v rozvržení chybí, se nesmí nic nastavit — launcher pak ukáže „Widget nelze načíst"; hlídá `selftest-obal.mjs` nad `VARIANTY`. Náhled na emulátoru: `node tools/widget-vzorky.mjs` + `adb shell am start -n com.meteotrace/.NahledWidgetu --es vzorky 0,1` (jen ladicí sestavení) |
 | Písmo widgetu se MĚŘÍ | `PocasiWidget.meritko`: rozvržení se nafoukne ve skutečné velikosti od launcheru (Android 12+ má přesné rozvržení pro každou velikost) a půlením se najde největší písmo, při kterém nic nevyleze, neusekne, nezlomí ani nedostane tři tečky; pak ještě dorovnání ostatních textů mimo teplotu, s pořadím velikostí z XML. XML velikosti jsou jen POMĚRY. 🚨 Měří se na vlákně `Widget.prekresli`, ne na hlavním, a výška podle nakresleného písma, ne řádku. Ladicí výpis: `adb logcat -s MeteoTraceWidget` |
@@ -274,7 +276,15 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   z 30 px na 80. **Layoutová kontrola to najít nemohla** — měří v prohlížeči.
   Nahoru patří `inset-top`, dolů `inset-bottom` (ten je u `main`).
   Hlídá `selftest-obal.mjs` čtením CSS.
-- **⚠️ `web/style.css`, `index.html` a `lib/lang/*.js` mají CRLF.** Hledaný
+- **🚨 MOST HLEDÁ METODU PODLE JMÉNA I POČTU ARGUMENTŮ.** Volání z webu
+  s jiným počtem, než má `@JavascriptInterface` v `MostDoWebu.kt`, skončí
+  výjimkou „metoda neexistuje" — a hlídání výstrah se TIŠE nezapne. Hlídá
+  `selftest-obal.mjs` u všech metod mostu (10. 10. 2026, `hlidejVystrahy`
+  rostla z 5 na 7 parametrů).
+- **🚨 Nepřesný budík Android posune o 75 % zbývající doby.** `setAndAllowWhileIdle`
+  na +15 min měl v `dumpsys alarm` `window=+11m15s` — kontrola klidně po 26 min.
+  Proto se budík výstrah plánuje na +10 min. Měř `dumpsys alarm`, nehádej.
+- **⚠️ `index.html` a `lib/lang/*.js` mají CRLF** (`style.css` už ne — ověřeno 10. 10. 2026). Hledaný
   řetězec s `
 ` se v nich nenajde a skript mlčky „nic nenahradí" — vypadá to,
   že chyba je jinde. Konce řádků si v nahrazovacím skriptu zjisti.

@@ -347,6 +347,26 @@ export const UPSTREAMS = {
   },
 
   /**
+   * Bouřka z radaru ČHMÚ (`R37`) — pro upozornění z obalu.
+   *
+   * Stavitel stáhne pozorování (`maxz/png`) i předpověď (`fct_maxz/png`)
+   * a vrátí podklad SPOLEČNÝ VŠEM: bouřková jádra a stopu předpovědi.
+   * 🚨 Místo (`lat`, `lon`) a jazyk jsou proto v `local`, ne v `params` —
+   * kdyby byly v klíči cache, četly by se snímky pro každý telefon zvlášť.
+   * Výřez pro místo a věta se dělají až za cache (`filterByPlace`).
+   *
+   * ⚠️ Platnost 4 minuty jako u `nowcast`: snímky chodí po pěti.
+   */
+  storm: {
+    base: 'https://opendata.chmi.cz/meteorology/weather/radar/composite/',
+    params: [],
+    builder: 'chmiBourka',
+    normalize: 'storm',
+    local: ['lat', 'lon', 'lang'],
+    ttl: 4 * MINUTE,
+  },
+
+  /**
    * Ranní a večerní zpráva o počasí (`R25`).
    *
    * Vrací JEDNU HOTOVOU VĚTU v jazyce appky — obal ji jen zobrazí.

@@ -88,6 +88,9 @@ object Zpravy {
             .putInt("vecerMin", co.vecerMin)
             .putBoolean("zapnuto", true)
             .apply()
+        // Kanál hned, ne až při první zprávě: dokud neexistuje, nejde
+        // v Androidu najít ani vypnout a stav v nastavení appky by o něm lhal.
+        kanal(ctx)
         naplanuj(ctx)
     }
 
@@ -118,9 +121,14 @@ object Zpravy {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val budik = ctx.getSystemService(AlarmManager::class.java) ?: return
 
+        val zapis = p.edit()
         for ((druh, minuty) in listOf(RANO to p.getInt("ranoMin", 6 * 60 + 30), VECER to p.getInt("vecerMin", 20 * 60))) {
-            budik.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dalsi(minuty), zamer(ctx, druh))
+            val kdy = dalsi(minuty)
+            budik.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, kdy, zamer(ctx, druh))
+            // Pro stav v nastavení (`R37`): kdy má přijít další zpráva.
+            zapis.putLong("dalsi_$druh", kdy)
         }
+        zapis.apply()
     }
 
     /** Nejbližší okamžik, kdy bude `minuty` od půlnoci — dnes, nebo zítra. */
@@ -189,7 +197,10 @@ object Zpravy {
                 }
             } catch (e: Exception) {
                 null
-            } ?: return Result.retry()      // výpadek sítě není chyba appky
+            } ?: run {
+                zapisVysledek(ctx, druh, "sit")
+                return Result.retry()      // výpadek sítě není chyba appky
+            }
 
             // 🚨 `text: null` znamená „nemáme co říct" (chybí předpověď na ten
             // den). NEZVONÍ se: prázdná zpráva vypadá jako vada appky.
@@ -197,10 +208,18 @@ object Zpravy {
                 JSONObject(telo).optString("text").takeIf { it.isNotEmpty() && it != "null" }
             } catch (e: Exception) {
                 null
-            } ?: return Result.success()
+            } ?: run {
+                zapisVysledek(ctx, druh, "prazdne")
+                return Result.success()
+            }
 
             val nadpis = p.getString(if (druh == VECER) "nadpisVecer" else "nadpisRano", "") ?: ""
-            zazvon(ctx, if (druh == VECER) ID_VECER else ID_RANO, nadpis, text)
+            val poslano = zazvon(ctx, if (druh == VECER) ID_VECER else ID_RANO, nadpis, text)
+            // 🚨 Kdo zprávu nedostal, musí v nastavení vidět PROČ (`R37`).
+            // Dvakrát (23. 9. a 9. 10. 2026) nechodily a nedalo se zjistit,
+            // jestli zazvonil budík, jestli byla síť, nebo jestli Android
+            // upozornění zahodil.
+            zapisVysledek(ctx, druh, if (poslano) "ok" else "zakazano")
             return Result.success()
         }
     }
@@ -214,7 +233,7 @@ object Zpravy {
      * a nemá právo vyrušit zvukem přes celou obrazovku — od výstrah se
      * navíc musí dát odlišit, proto vlastní kanál, který jde vypnout zvlášť.
      */
-    private fun kanal(ctx: Context) {
+    fun kanal(ctx: Context) {
         val kanal = NotificationChannel(
             KANAL,
             ctx.getString(R.string.kanal_zpravy),
@@ -223,9 +242,10 @@ object Zpravy {
         ctx.getSystemService(NotificationManager::class.java)?.createNotificationChannel(kanal)
     }
 
-    private fun zazvon(ctx: Context, id: Int, nadpis: String, text: String) {
+    /** @return zda se upozornění opravdu poslalo */
+    private fun zazvon(ctx: Context, id: Int, nadpis: String, text: String): Boolean {
         kanal(ctx)
-        if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return
+        if (!NotificationManagerCompat.from(ctx).areNotificationsEnabled()) return false
 
         val otevri = PendingIntent.getActivity(
             ctx, id,
@@ -248,11 +268,48 @@ object Zpravy {
             .setContentIntent(otevri)
             .build()
 
-        try {
+        return try {
             NotificationManagerCompat.from(ctx).notify(id, zprava)
+            true
         } catch (e: SecurityException) {
             // Povolení mezitím odebrané. Není co dělat a spadnout se nesmí.
+            false
         }
+    }
+
+    /* ── stav pro nastavení appky (R37) ───────────────────────────────── */
+
+    /** Budík zazvonil. Volá příjemce, dřív než cokoli jiného. */
+    fun zapisBudik(ctx: Context, druh: String) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong("budik_$druh", System.currentTimeMillis()).apply()
+    }
+
+    /** Jak dopadl pokus o zprávu: `ok` · `zakazano` · `prazdne` · `sit`. */
+    private fun zapisVysledek(ctx: Context, druh: String, vysledek: String) {
+        val zapis = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("vysledek_$druh", vysledek)
+        if (vysledek == "ok") zapis.putLong("zprava_$druh", System.currentTimeMillis())
+        zapis.apply()
+    }
+
+    /**
+     * Stav zpráv pro nastavení appky. Časy v ms, 0 = ještě ne.
+     *
+     * ⚠️ Obal jen vypisuje, co zaznamenal. Co z toho říct člověku, rozhoduje
+     * web (`vypisStavNaPozadi`) — v jazyce appky.
+     */
+    fun stav(ctx: Context): JSONObject {
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val o = JSONObject().put("zapnuto", zapnuto(ctx))
+        for (druh in listOf(RANO, VECER)) {
+            o.put(druh, JSONObject()
+                .put("dalsi", p.getLong("dalsi_$druh", 0L))
+                .put("budik", p.getLong("budik_$druh", 0L))
+                .put("zprava", p.getLong("zprava_$druh", 0L))
+                .put("vysledek", p.getString("vysledek_$druh", "") ?: ""))
+        }
+        return o
     }
 }
 
@@ -265,6 +322,7 @@ object Zpravy {
 class BudikZprav : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val druh = intent.action ?: Zpravy.RANO
+        Zpravy.zapisBudik(ctx, druh)
         Zpravy.vyzvedni(ctx, druh)
         Zpravy.naplanuj(ctx)
     }
@@ -278,6 +336,10 @@ class BudikZprav : BroadcastReceiver() {
  */
 class PoRestartu : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) Zpravy.naplanuj(ctx)
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        Zpravy.naplanuj(ctx)
+        // A řetěz kontrol výstrah a bouřek (`R37`). Periodickou práci si
+        // WorkManager obnoví sám, budík ne.
+        Vystrahy.naplanujBudik(ctx)
     }
 }

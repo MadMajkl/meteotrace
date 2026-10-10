@@ -75,7 +75,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '0.27.0';
+const VERZE = '0.28.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -124,6 +124,10 @@ const state = {
   // sám; appka, která začne zvonit hned po instalaci, skončí s vypnutými
   // upozorněními — a pak nezvoní ani na bouřku.
   notify: '',
+  // Upozorňovat i na bouřku podle radaru (`R37`)? Platí jen se zapnutými
+  // upozorněními. ⚠️ Výchozí ANO: kdo upozornění zapne, chce vědět o bouřce —
+  // přesně tohle 8. 10. 2026 chybělo, když ČHMÚ výstrahu nevydal.
+  bourky: true,
   // O čem se už upozornilo, aby se o téže výstraze nezvonilo pořád dokola.
   oznameno: [],
   // Prošel už uvítáním? 🚨 Vlastní příznak, NE prázdnota seznamu míst —
@@ -168,6 +172,7 @@ function load() {
       state.primary = saved.primary;
     }
     if (typeof saved.notify === 'string') state.notify = saved.notify;
+    if (typeof saved.bourky === 'boolean') state.bourky = saved.bourky;
     // 🚨 Poloha se obnovuje, protože na ní stojí ranní a večerní zpráva:
     // bez ní by po restartu appky přestaly chodit, dokud by si člověk
     // znovu nesáhl na ⌖ — a nic by mu to neřeklo.
@@ -217,7 +222,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
-      notify: state.notify, oznameno: state.oznameno,
+      notify: state.notify, bourky: state.bourky, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
@@ -1011,6 +1016,10 @@ function openSettings() {
       value: s, text: t(`warnings.severity.${s.toLowerCase()}`, state.lang),
     })),
   ], state.notify || '');
+  fillOptions($('set-storm'), [
+    { value: 'on', text: t('notify.stormOn', state.lang) },
+    { value: 'off', text: t('notify.stormOff', state.lang) },
+  ], state.bourky ? 'on' : 'off');
   vypisStavUpozorneni();
 
   fillOptions($('set-briefs'), [
@@ -1020,6 +1029,8 @@ function openSettings() {
   $('set-brief-morning').value = state.zpravy?.rano || '06:30';
   $('set-brief-evening').value = state.zpravy?.vecer || '20:00';
   vypisStavZprav();
+  // Co se děje na pozadí (`R37`) — kontrola výstrah, zprávy, baterie.
+  vypisStavNaPozadi();
   // Poloha: stav a tlačítko podle toho, co teď platí (lib/location-access.js).
   vypisStavPolohy();
 
@@ -1175,11 +1186,17 @@ function vypisStavUpozorneni() {
   } else if (!state.place) {
     text = t('notify.watchingNone', state.lang);
   } else {
-    text = tf('notify.watching', { place: state.place.name }, state.lang);
+    // 🚨 Musí říct, CO se hlídá (`R37`). Bez bouřek z radaru to výslovně
+    // řekne, že na bouřku bez výstrahy ČHMÚ appka neupozorní.
+    text = tf(state.bourky ? 'notify.watching' : 'notify.watchingNoStorm', { place: state.place.name }, state.lang);
   }
 
   p.textContent = text;
   p.hidden = !text;
+  // Volba bouřek jen tam, kde má smysl: v obalu a se zapnutými upozorněními.
+  // V prohlížeči na pozadí nehlídá nic (`R17`), tak ať nic neslibuje.
+  const radek = $('storm-row');
+  if (radek) radek.hidden = !state.notify || !most;
 }
 
 /**
@@ -1205,7 +1222,12 @@ function zapisHlidani() {
     nove: [{ event: '' }], misto: state.place.name, lang: state.lang,
   }) || { nadpis: '' };
 
-  most.hlidejVystrahy(state.place.lat, state.place.lon, nadpis, state.lang, state.notify);
+  // 🚨 Sedm parametrů — musí sedět s `MostDoWebu.hlidejVystrahy`. Most hledá
+  // metodu podle jména i počtu a při neshodě hlídání tiše nezapne.
+  most.hlidejVystrahy(
+    state.place.lat, state.place.lon, nadpis, state.lang, state.notify,
+    tf('storm.title', { place: state.place.name }, state.lang), state.bourky === true,
+  );
 }
 
 /* ============================================================
@@ -1381,6 +1403,113 @@ function vypisStavZprav() {
   p.hidden = !text;
 }
 
+/* ============================================================
+   STAV NA POZADÍ (`R37`)
+
+   🚨 Ranní a večerní zprávy Michalovi dvakrát (23. 9. a 9. 10. 2026)
+   nechodily a nedalo se zjistit proč — řetěz na emulátoru jel, server
+   odpovídal, a co dělal telefon, nebylo vidět. Tichá porucha se od tiché
+   funkce nedá odlišit. Tady je odpověď na „funguje to?" v telefonu samotném.
+   Obal dodá fakta (`StavNaPozadi.kt`), věty skládá web v jazyce appky.
+   ============================================================ */
+
+/** Most pro stav na pozadí. `null` v prohlížeči i ve starším obalu. */
+function obalStav() {
+  const m = window.MeteoTraceObal;
+  return m && typeof m.umiStavNaPozadi === 'function' && m.umiStavNaPozadi() ? m : null;
+}
+
+/**
+ * Kdy se poslední kontrola řekne nahlas jako pozdní. Interval je 15 minut
+ * a Android ho smí o pár minut posunout; tři intervaly už nejsou náhoda.
+ */
+const KONTROLA_POZDE_MS = 45 * 60_000;
+
+/** Skupina podle používání, od které Android appku na pozadí omezuje. */
+const SKUPINA_OMEZENA = 45;
+
+/**
+ * Čas v pásmu TELEFONU: „10:42", „včera 20:05", „zítra 06:30", „8. 10. 06:30".
+ * ⚠️ Ne v pásmu místa: budíky i kontroly běží podle hodin telefonu.
+ */
+function kdyNaTelefonu(ms, ted = Date.now()) {
+  const pasmo = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const p = momentParts(ms, ted, pasmo, state.lang);
+  if (!p) return '—';
+  if (p.shift === 0) return p.time;
+  if (p.shift === 1) return tf('when.tomorrow', { time: p.time }, state.lang);
+  if (p.shift === -1) return tf('when.yesterday', { time: p.time }, state.lang);
+  return tf('when.date', { date: p.date, time: p.time }, state.lang);
+}
+
+/**
+ * Co se děje na pozadí — do nastavení.
+ *
+ * ⚠️ Ukazuje se jen v obalu a jen tehdy, když je co hlídat (upozornění nebo
+ * zprávy). Každý řádek je věta; varování navíc zvýrazní barva, ale NIKDY
+ * nenese údaj sama (`tile-tone.js`).
+ */
+function vypisStavNaPozadi() {
+  const blok = $('bg-status');
+  const seznam = $('bg-status-list');
+  const tlacitko = $('bg-status-settings');
+  if (!blok || !seznam) return;
+
+  const most = obalStav();
+  const zpravyZap = !!state.zpravy?.zapnuto;
+  let s = null;
+  if (most && (state.notify || zpravyZap)) {
+    try { s = JSON.parse(most.stavNaPozadi()); } catch { s = null; }
+  }
+  if (!s) { blok.hidden = true; return; }
+
+  const ted = Date.now();
+  const radky = [];   // [věta, je to varování?]
+  const rekni = (text, varovani = false) => radky.push([text, varovani]);
+
+  if (state.notify) {
+    if (!s.kontrolaMs) rekni(t('notify.noCheck', state.lang));
+    else if (ted - s.kontrolaMs > KONTROLA_POZDE_MS) rekni(tf('notify.lateCheck', { when: kdyNaTelefonu(s.kontrolaMs, ted) }, state.lang), true);
+    else rekni(tf('notify.lastCheck', { when: kdyNaTelefonu(s.kontrolaMs, ted) }, state.lang));
+  }
+
+  if (zpravyZap && s.zpravy) {
+    const druhy = [['morning', 'notify.briefLastMorning'], ['evening', 'notify.briefLastEvening']];
+    for (const [druh, klic] of druhy) {
+      const z = s.zpravy[druh] || {};
+      if (z.zprava) rekni(tf(klic, { when: kdyNaTelefonu(z.zprava, ted) }, state.lang));
+      // 🚨 Budík zazvonil a zpráva nepřišla — tohle je přesně ta tichá porucha.
+      if (z.budik > (z.zprava || 0) && z.vysledek && z.vysledek !== 'ok') {
+        rekni(tf('notify.briefFailed', {
+          when: kdyNaTelefonu(z.budik, ted), why: t(`notify.briefWhy.${z.vysledek}`, state.lang),
+        }, state.lang), true);
+      }
+    }
+    if (!druhy.some(([d]) => s.zpravy[d]?.zprava)) rekni(t('notify.briefNoneYet', state.lang));
+    const dalsi = druhy.map(([d]) => s.zpravy[d]?.dalsi).filter((ms) => ms > ted).sort((a, b) => a - b)[0];
+    if (dalsi) rekni(tf('notify.briefNext', { when: kdyNaTelefonu(dalsi, ted) }, state.lang));
+    else if (s.zpravy.zapnuto) rekni(t('notify.briefNotPlanned', state.lang), true);
+  }
+
+  for (const k of s.kanaly || []) {
+    const tyka = (k.id === 'vystrahy' && state.notify) || (k.id === 'zpravy' && zpravyZap);
+    if (tyka && !k.zapnuto) rekni(tf('notify.channelOff', { name: k.jmeno }, state.lang), true);
+  }
+  if (s.omezeno || s.skupina >= SKUPINA_OMEZENA) rekni(t('notify.batteryRestricted', state.lang), true);
+  else if (s.setreni) rekni(t('notify.batteryOptimized', state.lang));
+  else rekni(t('notify.batteryFree', state.lang));
+
+  seznam.replaceChildren(...radky.map(([text, varovani]) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (varovani) li.classList.add('bg-status-varovani');
+    return li;
+  }));
+  // Tlačítko jen tam, kde je co v telefonu přepnout.
+  if (tlacitko) tlacitko.hidden = !(s.setreni || radky.some(([, v]) => v));
+  blok.hidden = false;
+}
+
 /**
  * Zapnutí a vypnutí upozornění z nastavení.
  *
@@ -1405,8 +1534,9 @@ function zmenUpozorneni(hodnota) {
   zapisHlidani();
   // ⚠️ Android odpovídá na dialog až po chvíli a most výsledek nevrací —
   // stav se proto přečte znovu, ne odhadne.
-  setTimeout(vypisStavUpozorneni, 800);
+  setTimeout(() => { vypisStavUpozorneni(); vypisStavNaPozadi(); }, 800);
   vypisStavUpozorneni();
+  vypisStavNaPozadi();
 }
 
 /**
@@ -4581,6 +4711,13 @@ function init() {
     pouzijPoradi();
   });
   $('set-notify').addEventListener('change', (e) => zmenUpozorneni(e.target.value));
+  $('set-storm').addEventListener('change', (e) => {
+    state.bourky = e.target.value === 'on';
+    save();
+    zapisHlidani();
+    vypisStavUpozorneni();
+  });
+  $('bg-status-settings').addEventListener('click', () => obalStav()?.otevriNastaveniAppky());
 
   // Ranní a večerní zpráva (R25).
   // 🚨 Povolení se žádá AŽ při zapnutí, stejně jako u výstrah: dialog,
@@ -4595,6 +4732,7 @@ function init() {
     save();
     zapisZpravy();
     vypisStavZprav();
+    vypisStavNaPozadi();
   });
   for (const [id, klic, vychozi] of [
     ['set-brief-morning', 'rano', '06:30'],
@@ -4618,6 +4756,9 @@ function init() {
   $('btn-stats').addEventListener('click', prepniStatistiky);
   $('btn-location').addEventListener('click', povolPolohuZNastaveni);
   window.addEventListener('meteotrace:poloha', poZmenePovoleniPolohy);
+  // ⚠️ Obal zvoní touhle událostí při KAŽDÉM návratu do appky — typicky
+  // z nastavení telefonu, kde se právě přepnula baterie nebo upozornění.
+  window.addEventListener('meteotrace:poloha', () => { vypisStavUpozorneni(); vypisStavNaPozadi(); });
 
   // Značka rozbaluje a sbaluje nabídku.
   $('btn-menu').addEventListener('click', () => {

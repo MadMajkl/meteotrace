@@ -419,6 +419,12 @@
     <label for="set-notify" data-i18n="notify.setting"></label>
     <select id="set-notify"></select>
   </div>
+  <!-- Bouřky podle radaru (R37) — i když ČHMÚ výstrahu nevydá. Jen v obalu
+       a se zapnutými upozorněními: prohlížeč na pozadí nehlídá nic. -->
+  <div class="setting" id="storm-row" hidden>
+    <label for="set-storm" data-i18n="notify.storm"></label>
+    <select id="set-storm"></select>
+  </div>
   <!-- ⚠️ MUSÍ být poznat, CO se hlídá a jestli to vůbec může fungovat.
        Přepínač, který tvrdí „zapnuto", zatímco Android upozornění zahazuje,
        se od funkčního nedá odlišit — a přijde se na to až tím, že nedorazí
@@ -444,6 +450,15 @@
     <input id="set-brief-evening" type="time" step="900" value="20:00">
   </div>
   <p class="hint" id="brief-note" hidden></p>
+
+  <!-- Stav na pozadí (R37): kdy proběhla kontrola, kdy přišla zpráva a proč
+       ne, kanály a baterie. 🚨 Zprávy dvakrát nechodily a nedalo se zjistit
+       proč — tichá porucha se od tiché funkce nedá odlišit. Jen v obalu. -->
+  <div class="bg-status" id="bg-status" hidden>
+    <span class="bg-status-nadpis" data-i18n="notify.statusTitle"></span>
+    <ul id="bg-status-list"></ul>
+    <button id="bg-status-settings" class="primary setting-akce" type="button" data-i18n="notify.openAppSettings" hidden></button>
+  </div>
 
   <h3 data-i18n="settings.units"></h3>
   <p class="hint" data-i18n="settings.unitsNote"></p>

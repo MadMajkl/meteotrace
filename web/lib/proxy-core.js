@@ -19,6 +19,7 @@ import {
 import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 import { staciNa } from './severity.js';
 import { zpravaJeCerstva } from './cap.js';
+import { odpovedProMisto } from './storm-watch.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
 export const API_PREFIX = '/api/';
@@ -195,6 +196,11 @@ export function casVydani(body) {
  * @param {number} [opts.nowMs] čas pro vyhození prošlých výstrah
  */
 export function filterByPlace(service, body, params = {}, opts = {}) {
+  // Bouřka z radaru (`R37`): v cache leží podklad společný všem, místo
+  // a věta v jazyce appky se z něj dělají až tady — jako u výstrah.
+  if (UPSTREAMS[service]?.normalize === 'storm') {
+    return odpovedProMisto(body, params, Number.isFinite(opts.nowMs) ? opts.nowMs : 0);
+  }
   if (service !== 'warnings') return body;
 
   // 🚨 Feed nese i výstrahy, které dávno skončily — v odpovědi z 22. 8. jich

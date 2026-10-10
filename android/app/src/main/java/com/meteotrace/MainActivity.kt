@@ -316,6 +316,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 stavPolohyZActivity = { stavPolohy() },
                 povolPolohuVActivite = { runOnUiThread { povolPolohu() } },
+                otevriNastaveniAppkyVActivite = { runOnUiThread { otevriNastaveniAppky() } },
             ),
             "MeteoTraceObal",
         )

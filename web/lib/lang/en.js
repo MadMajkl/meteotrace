@@ -65,11 +65,51 @@ export default {
     setting: 'Warning notifications',
     off: 'Off',
     level: 'From severity',
-    watching: 'Watching {place}. Notifications arrive even when the app is closed.',
+    watching: 'Watching {place}: ČHMÚ warnings and thunderstorms on radar. Notifications arrive even when the app is closed.',
+    watchingNoStorm: 'Watching {place}, but only ČHMÚ warnings. A thunderstorm ČHMÚ issues no warning for will not be notified.',
+    storm: 'Thunderstorms on radar',
+    stormOn: 'Notify',
+    stormOff: 'Do not notify',
+    statusTitle: 'Background status',
+    lastCheck: 'Last check for warnings and storms: {when}.',
+    noCheck: 'No check for warnings yet — the first one comes within 15 minutes.',
+    lateCheck: 'Last check for warnings and storms: {when}. That is too long ago — Android is holding the app back.',
+    briefLastMorning: 'Last morning report: {when}.',
+    briefLastEvening: 'Last evening report: {when}.',
+    briefNoneYet: 'No morning or evening report has arrived yet.',
+    briefNext: 'Next report: {when}.',
+    briefFailed: 'The alarm went off {when}, but no report arrived: {why}.',
+    briefWhy: {
+      zakazano: 'Android blocked notifications',
+      prazdne: 'the server had no forecast for that day',
+      sit: 'there was no connection',
+    },
+    briefNotPlanned: 'No next report is scheduled — Android dropped the alarm. Open the app with location allowed and it will be scheduled again.',
+    batteryFree: 'Battery optimisation: unrestricted.',
+    batteryOptimized: 'Battery optimisation is on — Android may delay notifications and reports. Battery → Unrestricted in the app settings is more reliable.',
+    batteryRestricted: 'Android restricts the app in the background — notifications and reports may not arrive at all. In the app settings choose Battery → Unrestricted.',
+    channelOff: 'The “{name}” channel is turned off in Android — nothing will arrive from it.',
+    openAppSettings: 'App settings on the phone',
     watchingNone: 'Nothing to watch yet — pick a place first.',
     denied: 'Android has blocked notifications. You can allow them in system settings.',
     unsupported: 'This browser cannot show notifications. They work in the app from Play.',
     browserOnly: 'In the browser we can only notify while the app is open. The app from Play does it in the background.',
+  },
+
+  /* Thunderstorm from radar (R37). The server composes the sentence for the
+     wrapper, in the app language. Factual, and it says what to do. */
+  storm: {
+    title: 'Thunderstorm — {place}',
+    coming: 'A thunderstorm is coming from the {from}, due in about {min} min.',
+    soon: 'A thunderstorm is coming from the {from}, due within 10 minutes.',
+    here: 'The thunderstorm is here.',
+    strong: 'Severe, hail possible.',
+    advice: 'Bring pets and loose things inside.',
+    source: 'Based on ČHMÚ radar.',
+    from: {
+      n: 'north', ne: 'northeast', e: 'east', se: 'southeast',
+      s: 'south', sw: 'southwest', w: 'west', nw: 'northwest',
+    },
   },
 
   /* Pull down at the top of the page and the data reloads. Each state has
@@ -383,7 +423,7 @@ export default {
     briefsNoPlace: 'Nowhere to report from yet: reports use your last known location and the app does not have one. Tap ⌖ next to search.',
     briefsWeb: 'Reports do not work in a browser — they need the app from Google Play.',
     version: 'MeteoTrace {version}',
-    sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ, MeteoAlarm as backup. Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
+    sources: 'Forecast and pollen: Open-Meteo. Radar: RainViewer, precipitation nowcast by ČHMÚ (CC BY 4.0). Warnings: ČHMÚ, MeteoAlarm as backup. Thunderstorms: ČHMÚ radar (CC BY 4.0). Map: own tiles from OpenStreetMap data (ODbL). Routing and search: openrouteservice / HeiGIT. Boundaries: ČÚZK RÚIAN.',
   },
 
   /* Donations (R7).
@@ -434,6 +474,7 @@ export default {
      See `lib/when.js`. */
   when: {
     tomorrow: 'tomorrow {time}',
+    yesterday: 'yesterday {time}',
     date: '{date} {time}',
   },
 

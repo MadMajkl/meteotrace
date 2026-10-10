@@ -61,6 +61,13 @@
         <receiver android:name=".BudikZprav" android:exported="false" />
 
         <!--
+          Budík kontroly výstrah a bouřek z radaru (R37) — každých 15 minut,
+          i v hlubokém spánku telefonu. Neveřejný ze stejného důvodu jako
+          budík zpráv.
+        -->
+        <receiver android:name=".BudikVystrah" android:exported="false" />
+
+        <!--
           Po restartu telefonu se budíky ztrácejí — Android je nedrží.
           🚨 Bez tohohle by ranní zpráva po restartu tiše přestala chodit
           a od vady by se to nedalo odlišit. (`WorkManager` u výstrah si

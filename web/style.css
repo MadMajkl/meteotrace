@@ -1654,6 +1654,26 @@ main {
 .setting-akce { padding: 0 14px; font-size: 14px; }
 .setting-akce[hidden] { display: none; }
 
+/* Stav na pozadí (R37): fakta pod sebou, problém poznat na první pohled.
+   🚨 Barva NIKDY nenese údaj sama — varovná věta říká, co je špatně, barva
+   ji jen zvýrazní. */
+.bg-status {
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--line);
+}
+.bg-status[hidden] { display: none; }
+.bg-status-nadpis { display: block; margin-bottom: 4px; }
+.bg-status ul { margin: 0 0 8px; padding: 0; list-style: none; }
+.bg-status li { margin: 2px 0; font-size: 13px; color: var(--text-soft); }
+.bg-status li.bg-status-varovani {
+  padding: 6px 8px;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border-left: 3px solid var(--warn-line);
+  border-radius: 6px;
+}
+.bg-status .setting-akce { min-height: 36px; }
+
 .setting select {
   flex: none; max-width: 60%;
   padding: 8px 10px;

@@ -7,7 +7,7 @@
     <string name="app_name">MeteoTrace</string>
 
     <string name="kanal_vystrahy">Weather warnings</string>
-    <string name="kanal_vystrahy_popis">Warnings for the place you watch.</string>
+    <string name="kanal_vystrahy_popis">ČHMÚ warnings and radar thunderstorms for the place you watch.</string>
 
     <string name="kanal_zpravy">Morning and evening report</string>
     <string name="kanal_zpravy_popis">A short forecast for your last known location.</string>

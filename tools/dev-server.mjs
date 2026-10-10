@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { serveProxy } from '../server/proxy.js';
 import { stavNowcast } from '../server/chmi-nowcast.js';
+import { stavBourky } from '../server/chmi-storm.js';
 import { stavVystrahy } from '../server/chmi-warnings.js';
 import { stavZpravu } from '../server/brief.js';
 import { stavWidget } from '../server/widget.js';
@@ -48,6 +49,17 @@ const MIME = {
 };
 
 const cache = createCache({ maxEntries: 300 });
+
+/**
+ * Přehrávání minulosti (`R37`): `METEOTRACE_CAS=2026-10-08T13:20Z npm run dev`
+ * pustí server s hodinami posunutými do té chvíle (dál tikají normálně).
+ * Kvůli ověření upozornění na bouřku v emulátoru — ČHMÚ drží radar týden
+ * zpátky, takže skutečnou bouřku jde přehrát celou.
+ * ⚠️ JEN vývojový server. Na Netlify se čas nikdy nepřepisuje.
+ */
+const posunHodin = process.env.METEOTRACE_CAS ? Date.parse(process.env.METEOTRACE_CAS) - Date.now() : 0;
+if (!Number.isFinite(posunHodin)) throw new Error(`METEOTRACE_CAS není čas: ${process.env.METEOTRACE_CAS}`);
+const hodiny = () => Date.now() + posunHodin;
 const areas = unpackAreas(ORP_DATA);
 
 /** Vyřeší URL na soubor: /test/… míří do test/, zbytek do web/. */
@@ -77,8 +89,9 @@ const server = createServer(async (req, res) => {
     }, {
       cache,
       areas,
+      now: hodiny,
       // Služby, které si odpověď skládají samy (víc dotazů, archiv).
-      builders: { chmiNowcast: stavNowcast, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoWidget: stavWidget, meteoHistorie: stavHistorii, meteoKlima: stavKlima, meteoPosledni: stavPoslednich },
+      builders: { chmiNowcast: stavNowcast, chmiBourka: stavBourky, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoWidget: stavWidget, meteoHistorie: stavHistorii, meteoKlima: stavKlima, meteoPosledni: stavPoslednich },
       log: (msg, detail) => console.log(`  [proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
     });
     res.writeHead(status, headers).end(JSON.stringify(body, null, 2));
@@ -144,6 +157,7 @@ server.listen(PORT, () => {
     .map((n) => n.address);
 
   console.log('\nMeteoTrace — vývojový server\n');
+  if (posunHodin) console.log(`  ⏪ PŘEHRÁVÁ SE MINULOST: hodiny serveru začaly v ${new Date(hodiny()).toISOString()}\n`);
   console.log(`  appka:  http://localhost:${PORT}/`);
   console.log(`  měřič:  http://localhost:${PORT}/test/map-bench.html`);
   console.log(`  proxy:  http://localhost:${PORT}/api/radar`);

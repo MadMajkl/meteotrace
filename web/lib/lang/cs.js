@@ -72,11 +72,57 @@ export default {
     level: 'Od závažnosti',
     // ⚠️ Musí být poznat, že hlídané místo je JEDNO a které. Bez toho by
     // člověk čekal upozornění i tam, kam se zrovna chystá.
-    watching: 'Hlídá se {place}. Upozornění chodí, i když je appka zavřená.',
+    // 🚨 Musí říct, CO se hlídá. Do 10. 10. 2026 tu stálo jen „Hlídá se
+    // {place}" a Michal to četl jako hlídání bouřky — přitom šlo jen
+    // o výstrahy ČHMÚ, a ty 8. 10. pro Horšovský Týn nepřišly (R37).
+    watching: 'Hlídá se {place}: výstrahy ČHMÚ a bouřky podle radaru. Upozornění chodí, i když je appka zavřená.',
+    watchingNoStorm: 'Hlídá se {place}, ale jen výstrahy ČHMÚ. Na bouřku, ke které ČHMÚ výstrahu nevydá, appka neupozorní.',
+    storm: 'Bouřky podle radaru',
+    stormOn: 'Upozorňovat',
+    stormOff: 'Neupozorňovat',
+    // Stav na pozadí (R37). 🚨 Nic z toho nesmí mlčet: zprávy dvakrát
+    // nechodily a nedalo se zjistit proč — tichá porucha vypadá jako klid.
+    statusTitle: 'Stav na pozadí',
+    lastCheck: 'Poslední kontrola výstrah a bouřek: {when}.',
+    noCheck: 'Kontrola výstrah zatím neproběhla — první přijde do 15 minut.',
+    lateCheck: 'Poslední kontrola výstrah a bouřek: {when}. To je dlouho — Android appku na pozadí brzdí.',
+    briefLastMorning: 'Ranní zpráva naposledy: {when}.',
+    briefLastEvening: 'Večerní zpráva naposledy: {when}.',
+    briefNoneYet: 'Ranní ani večerní zpráva zatím nepřišla.',
+    briefNext: 'Další zpráva: {when}.',
+    briefFailed: 'Budík zazvonil {when}, ale zpráva nepřišla: {why}.',
+    briefWhy: {
+      zakazano: 'Android upozornění zakázal',
+      prazdne: 'server na ten den neměl předpověď',
+      sit: 'nebyla síť',
+    },
+    briefNotPlanned: 'Další zpráva není naplánovaná — Android budík zahodil. Otevři appku s povolenou polohou a naplánuje se znovu.',
+    batteryFree: 'Šetření baterie: bez omezení.',
+    batteryOptimized: 'Šetření baterie je zapnuté — Android smí upozornění i zprávy zdržet. Spolehlivější je v nastavení appky Baterie → Bez omezení.',
+    batteryRestricted: 'Android appku na pozadí omezuje — upozornění ani zprávy nemusí přijít vůbec. V nastavení appky zvol Baterie → Bez omezení.',
+    channelOff: 'V Androidu je vypnutý kanál „{name}" — z něj nic nepřijde.',
+    openAppSettings: 'Nastavení appky v telefonu',
     watchingNone: 'Zatím není co hlídat — vyber si místo.',
     denied: 'Android upozornění zakázal. Povolit se dá v nastavení systému.',
     unsupported: 'Tenhle prohlížeč upozornění neumí. V appce z Play fungují.',
     browserOnly: 'V prohlížeči upozorníme, jen když je appka otevřená. Na pozadí to umí appka z Play.',
+  },
+
+  /* Bouřka podle radaru (R37). Větu skládá server pro obal, v jazyce appky.
+     ⚠️ Věcně a s radou, co dělat — u nebezpečí se nežertuje (26. 8. 2026).
+     ⚠️ Místo nejmenuje: to je v nadpisu, který skládá web. */
+  storm: {
+    title: 'Bouřka — {place}',
+    coming: 'Od {from} se blíží bouřka, dorazí asi za {min} min.',
+    soon: 'Od {from} se blíží bouřka, dorazí do 10 minut.',
+    here: 'Bouřka už je tady.',
+    strong: 'Silná, možné kroupy.',
+    advice: 'Zvířata a věci z venku dovnitř.',
+    source: 'Podle radaru ČHMÚ.',
+    from: {
+      n: 'severu', ne: 'severovýchodu', e: 'východu', se: 'jihovýchodu',
+      s: 'jihu', sw: 'jihozápadu', w: 'západu', nw: 'severozápadu',
+    },
   },
 
   /* Potažení dolů nahoře na stránce data natáhne znovu. Každý stav má svoje
@@ -449,7 +495,7 @@ export default {
     briefsNoPlace: 'Zatím není odkud: zprávy chodí pro poslední zjištěnou polohu, a tu appka ještě nemá. Klepni na ⌖ u hledání.',
     briefsWeb: 'V prohlížeči zprávy chodit neumí — potřebují appku z Google Play.',
     version: 'MeteoTrace {version}',
-    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ, záloha MeteoAlarm. Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
+    sources: 'Předpověď a pyl: Open-Meteo. Radar: RainViewer, předpověď srážek ČHMÚ (CC BY 4.0). Výstrahy: ČHMÚ, záloha MeteoAlarm. Bouřky: radar ČHMÚ (CC BY 4.0). Mapa: vlastní dlaždice z dat OpenStreetMap (ODbL). Trasy a hledání: openrouteservice / HeiGIT. Hranice území: ČÚZK RÚIAN.',
   },
 
   /* Dary (R7).
@@ -499,6 +545,7 @@ export default {
      dnes večer. Viz `lib/when.js`. */
   when: {
     tomorrow: 'zítra {time}',
+    yesterday: 'včera {time}',
     date: '{date} {time}',
   },
 

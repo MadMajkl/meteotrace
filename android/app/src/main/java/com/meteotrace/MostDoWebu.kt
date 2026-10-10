@@ -41,6 +41,8 @@ class MostDoWebu(
     private val stavPolohyZActivity: () -> String,
     /** Vyřídí povolení polohy podle stavu — dialog, nebo nastavení. Na UI vlákně. */
     private val povolPolohuVActivite: () -> Unit,
+    /** Otevře nastavení appky v telefonu (baterie, upozornění). Na UI vlákně. */
+    private val otevriNastaveniAppkyVActivite: () -> Unit,
 ) {
 
     /** Umí tenhle obal hlídat výstrahy? Web se ptá, aby věděl, co nabídnout. */
@@ -48,14 +50,26 @@ class MostDoWebu(
     fun umiUpozorneni(): Boolean = true
 
     /**
-     * Zapne hlídání jednoho místa.
+     * Zapne hlídání jednoho místa: výstrahy a (když `bourky`) bouřky z radaru.
      *
-     * ⚠️ `nadpis` chodí HOTOVÝ z webu, protože jazyk appky je volba uživatele,
+     * ⚠️ Nadpisy chodí HOTOVÉ z webu, protože jazyk appky je volba uživatele,
      * kdežto `strings.xml` se řídí jazykem systému. Viz `Vystrahy.Hlidane`.
+     *
+     * 🚨 Počet parametrů MUSÍ sedět s voláním v `app.js` (`zapisHlidani`).
+     * Most hledá metodu podle jména I počtu — jiný počet znamená „metoda
+     * neexistuje" a hlídání by se tiše nezapnulo. Hlídá `selftest-obal.mjs`.
      */
     @JavascriptInterface
-    fun hlidejVystrahy(lat: Double, lon: Double, nadpis: String, lang: String, prah: String) {
-        Vystrahy.hlidej(ctx, Vystrahy.Hlidane(lat, lon, nadpis, lang, prah))
+    fun hlidejVystrahy(
+        lat: Double,
+        lon: Double,
+        nadpis: String,
+        lang: String,
+        prah: String,
+        nadpisBourka: String,
+        bourky: Boolean,
+    ) {
+        Vystrahy.hlidej(ctx, Vystrahy.Hlidane(lat, lon, nadpis, lang, prah, nadpisBourka, bourky))
     }
 
     /** Vypne hlídání a zapomene, o čem se už zvonilo. */
@@ -161,6 +175,28 @@ class MostDoWebu(
      */
     @JavascriptInterface
     fun zpravyZapnuty(): Boolean = Zpravy.zapnuto(ctx)
+
+    /* ── stav na pozadí (R37) ─────────────────────────────────────────── */
+
+    /** Umí tenhle obal říct, co se děje na pozadí? Starší obal ne. */
+    @JavascriptInterface
+    fun umiStavNaPozadi(): Boolean = true
+
+    /**
+     * Fakta o upozorněních a zprávách na pozadí jako JSON (`StavNaPozadi`):
+     * kdy proběhla kontrola, kdy přišla zpráva a proč ne, kanály, baterie.
+     *
+     * 🚨 Bez tohohle se tichá porucha nedá odlišit od tiché funkce — zprávy
+     * dvakrát nechodily a nedalo se zjistit proč.
+     */
+    @JavascriptInterface
+    fun stavNaPozadi(): String = StavNaPozadi.json(ctx)
+
+    /** Otevře nastavení appky v telefonu — tam je Baterie i Upozornění. */
+    @JavascriptInterface
+    fun otevriNastaveniAppky() {
+        otevriNastaveniAppkyVActivite()
+    }
 
     /* ── widget na ploše (R29) ────────────────────────────────────────── */
 
