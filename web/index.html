@@ -494,11 +494,8 @@
        taky NAPÍŠE: nabídka platby v jinak bezplatné appce jinak vypadá jako
        past na peníze a člověk ji radši obejde.
 
-       🚨 DONATE-COMEBACK (R27): v ANDROIDÍM OBALU je tenhle oddíl i mince
-       v hlavičce SCHOVANÝ, dokud appku Google neschválí do produkce.
-       Schovává to `schovejDarVObalu()` v `app.js`, ne CSS — hledej tam
-       tutéž značku. Na webu zůstává dar beze změny.
-       ⚠️ AŽ BUDE APPKA V PRODUKCI, DAR SE DO ANDROIDU VRACÍ. -->
+       Od 1.0.1 je oddíl i mince v hlavičce zpátky i v androidím obalu
+       (`R27` skončil přístupem k ostré verzi 10. 10. 2026). -->
   <div id="donate-section">
   <h3 data-i18n="donate.title"></h3>
   <p class="hint" data-i18n="donate.nothing"></p>
@@ -538,7 +535,7 @@
     </svg>
     <span data-i18n="donate.open"></span>
   </button>
-  </div><!-- /#donate-section (DONATE-COMEBACK) -->
+  </div><!-- /#donate-section -->
 
   <!-- Hodnotit appku (vzor Gulpka, `#rate-section`).
        🚨 JEN V ANDROIDÍM OBALU — odkrývá ho `zapniHodnoceni()`. Na webu není

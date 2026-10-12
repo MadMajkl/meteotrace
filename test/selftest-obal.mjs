@@ -494,11 +494,11 @@ test('🚨 každá animace má cestu ven přes prefers-reduced-motion', () => {
 });
 
 /* ============================================================
-   DONATE-COMEBACK (R27) — dar se v obalu schovává do schválení na Play
+   OBRAZOVKY A DAR V OBALU
 
-   🚨 Je to DOČASNÉ opatření a přesně proto potřebuje hlídače: až se dar
-   vrátí, musí se smazat na všech místech najednou. A dokud platí, nesmí
-   se tiše rozbít — schovaný dar se totiž pozná jen tím, že tam něco NENÍ.
+   Dar byl v obalu do 1.0.0 schovaný (`R27`, značka DONATE-COMEBACK).
+   Od 1.0.1 je zpátky — a hlídá se opak: že ho nic neschová. Chybějící
+   dar se totiž pozná jen tím, že tam něco NENÍ.
    ============================================================ */
 
 test('🚨 domovská obrazovka: výchozí je MÍSTO, vlastní volba se pozná zvlášť (R30)', () => {
@@ -603,35 +603,41 @@ test('🚨 potažení dolů obnovuje TU obrazovku, na které jsem', () => {
   assert.ok(!/prepniObrazovku/.test(fn), 'obnovení nesmí přepínat obrazovku');
 });
 
-test('🚨 dar se v obalu schovává podle MOSTU, ne podle CSS ani userAgent', () => {
-  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
-  const fn = /function schovejDarVObalu\(\)\s*\{[\s\S]*?\n\}/.exec(app);
-  assert.ok(fn, 'funkce schovejDarVObalu() zmizela — dar by se v Androidu ukázal');
+test('🚨 dar je v obalu ZPĚT — mince ani oddíl se nikde neschovávají (R27 skončil)', () => {
+  // Miki 12. 10. 2026: *„zapomněls na základě dohody vrátit do appky
+  // do AAB donate page."* 1.0.0 odešla do produkce bez daru.
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  assert.doesNotMatch(app, /schovejDarVObalu/, 'schovávání daru v obalu se vrátilo');
 
-  assert.match(fn[0], /window\.MeteoTraceObal/,
-    'obal se poznává mostem; `userAgent` se dá přepsat a v prohlížeči na Androidu lže');
+  // Ať už by se schovávalo jakkoli: řádek kódu, který sahá na minci nebo
+  // oddíl daru, nesmí měnit viditelnost.
   for (const id of ['btn-donate-top', 'donate-section']) {
-    assert.ok(fn[0].includes(id), `schovat se musí i ${id}`);
+    for (const r of app.split('\n').filter((radek) => radek.includes(id))) {
+      assert.doesNotMatch(r, /hidden|display|remove\(\)/, `${id} se schovává: ${r.trim()}`);
+    }
   }
+  assert.match(app, /\$\('btn-donate-top'\)\.addEventListener\('click', openDonate\)/, 'mince nic neotevírá');
+  assert.match(app, /\$\('btn-donate'\)\.addEventListener\('click', openDonate\)/, 'tlačítko v nastavení nic neotevírá');
 
-  assert.match(app, /schovejDarVObalu\(\);/, 'funkce se nikde nevolá');
-
-  // Na webu dar zůstat MUSÍ — kdyby se schoval v šabloně nebo v CSS,
-  // zmizel by všem, i návštěvníkům meteotrace.com.
+  // Ani šablona, ani CSS — to by platilo všude.
   const html = readFileSync(join(WEB, 'index.html'), 'utf8');
-  assert.match(html, /<div id="donate-section">/, 'oddíl daru musí mít obálku, jinak není co schovat');
-  assert.doesNotMatch(html, /id="donate-section"[^>]*\shidden/, 'dar nesmí být schovaný rovnou v šabloně');
+  assert.match(html, /<div id="donate-section">/, 'oddíl daru zmizel ze šablony');
+  for (const id of ['btn-donate-top', 'donate-section']) {
+    assert.doesNotMatch(html, new RegExp(`id="${id}"[^>]*\\shidden`), `${id} je schovaný rovnou v šabloně`);
+  }
   const css = readFileSync(join(WEB, 'style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.doesNotMatch(css, /#donate-section\s*\{[^}]*display:\s*none/, 'dar nesmí schovávat CSS — platilo by i na webu');
+  assert.doesNotMatch(css, /(#donate-section|\.mince)\s*\{[^}]*display:\s*none/, 'dar schovává CSS');
 });
 
-test('DONATE-COMEBACK je značka, která se najde ve všech dotčených souborech', () => {
-  // Až přijde čas dar vrátit, hledá se jedno slovo — ne tři různé formulace.
+test('značka DONATE-COMEBACK zmizela ze všech souborů', () => {
+  // Po návratu daru by visící značka lákala „dodělat" úklid, který už proběhl.
   for (const [jmeno, cesta] of [
     ['app.js', join(WEB, 'app.js')],
     ['index.html', join(WEB, 'index.html')],
+    ['style.css', join(WEB, 'style.css')],
+    ['layout.html', join(WEB, '..', 'test', 'layout.html')],
   ]) {
-    assert.match(readFileSync(cesta, 'utf8'), /DONATE-COMEBACK/, `${jmeno} nenese značku DONATE-COMEBACK`);
+    assert.doesNotMatch(readFileSync(cesta, 'utf8'), /DONATE-COMEBACK/, `${jmeno} pořád nese značku DONATE-COMEBACK`);
   }
 });
 
@@ -958,13 +964,14 @@ test('🚨 web posílá widgetu POSLEDNÍ POLOHU i se jménem (R25)', () => {
   assert.match(fn, /nastavWidget\(bod\.lat, bod\.lon, bod\.name/, 'bez jména by widget nepoznal, pro jaké místo je');
 });
 
-test('🚨 značka DONATE-COMEBACK visí jen na daru, ne na zprávách', () => {
-  // Do 22. 9. 2026 byla omylem u `zapisZpravy()`: podle ní by se po návratu
-  // daru smazal řádek, bez kterého ranní zprávy po reinstalaci přestanou chodit.
-  const app = readFileSync(join(WEB, 'app.js'), 'utf8');
-  const kodove = app.split('\n').filter((r) => r.includes('DONATE-COMEBACK') && !/^\s*(\*|\/\/)/.test(r));
-  assert.ok(kodove.length > 0, 'značka z kódu zmizela úplně');
-  for (const r of kodove) assert.match(r, /schovejDarVObalu/, `značka na cizím řádku: ${r.trim()}`);
+test('🚨 po startu se obalu připomene nastavení zpráv i widgetu', () => {
+  // Značka DONATE-COMEBACK visela do 22. 9. 2026 omylem u `zapisZpravy()`:
+  // při návratu daru by se podle ní smazal řádek, bez kterého ranní zprávy
+  // po reinstalaci tiše přestanou chodit. Dar je zpátky — řádek musí zůstat.
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const start = /zapniHodnoceni\(\);[\s\S]*?\$\('btn-donate'\)/.exec(app)?.[0] || '';
+  assert.match(start, /^\s*zapisZpravy\(\);$/m, 'start nepřipomíná obalu ranní a večerní zprávy');
+  assert.match(start, /^\s*zapisWidget\(\);$/m, 'start nepřipomíná obalu widget');
 });
 
 /* ============================================================

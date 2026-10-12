@@ -541,15 +541,8 @@ async function run() {
       if (vedleSebe) vady.push(`Hlavička: ${vedleSebe}`);
       const nadZalozkami = ikonyNadZalozkami(doc);
       if (nadZalozkami) vady.push(`Hlavička: ${nadZalozkami}`);
-      // ⚠️ A ještě jednou bez mince — v androidím obalu je schovaná
-      // (DONATE-COMEBACK) a kolo se statistikami pak stojí nad záložkou samy.
-      const mince = doc.getElementById('btn-donate-top');
-      if (mince && !mince.hidden) {
-        mince.hidden = true;
-        const bezMince = ikonyNadZalozkami(doc);
-        if (bezMince) vady.push(`Hlavička bez mince (obal): ${bezMince}`);
-        mince.hidden = false;
-      }
+      // ⚠️ Do 1.0.0 se tu měřilo ještě jednou bez mince (v obalu byla
+      // schovaná, `R27`). Od 1.0.1 je mince všude, takže tohle měření stačí.
 
       // 2) ⚠️ A TAKY TRASA. Do 29. 8. 2026 se neměřila vůbec — a přesně tam
       //    se schovala volba „Vzdušnou čarou" pod tlačítko vedle sebe.

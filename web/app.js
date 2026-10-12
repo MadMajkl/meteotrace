@@ -76,7 +76,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.0.0';
+const VERZE = '1.0.1';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -738,33 +738,15 @@ function zapniHodnoceni() {
   sekce.hidden = false;
 }
 
-/**
- * 🚨 DONATE-COMEBACK (`R27`) — dar se v ANDROIDÍM OBALU schová.
+/*
+ * Dar je od 1.0.1 ZPĚT i v androidím obalu (`R27` skončil — Google
+ * 10. 10. 2026 udělil přístup k ostré verzi). Do té doby ho schovávala
+ * `schovejDarVObalu()`; po vzoru Gulpky (v1.4.25) se vrací celý, jak je.
  *
- * Michal 17. 9. 2026, po vzoru Gulpky. Pravidla Google Play o platbách
- * říkají jen tolik, že spropitné **tvůrci**, které nic neodemyká, se
- * považuje za platbu mezi lidmi a jejich systém nevyžaduje. O daru
- * **vývojáři appky** mlčí — a posuzovatel může QR platbu, Revolut
- * a PayPal uvnitř appky vyhodnotit jako obcházení Play Billingu.
- *
- * Sázka je nesouměrná: vydělá to pár stovek, ale prohřešek dopadne na
- * účet, na kterém je i Gulpka **v produkci**. Proto se dar v obalu do
- * schválení neukazuje — a **na webu zůstává**, tam žádná taková pravidla
- * neplatí.
- *
- * ⚠️ Schovává se TADY, ne v CSS: `display:none` v šabloně by platilo
- * i na webu a tlačítko by zmizelo všem.
- *
- * ⚠️ AŽ BUDE APPKA V PRODUKCI, TAHLE FUNKCE SE SMAŽE. Hledej značku
- * `DONATE-COMEBACK` (tady, v `index.html` a v `selftest-obal.mjs`).
+ * Splňuje výjimku Play pro spropitné: 100 % jde tvůrci a NIC neodemyká.
+ * 🚨 Dar NIKDY neprovázat s odemykáním čehokoli — z daru by se stala
+ * platba za digitální obsah a ta smí jen přes Play Billing.
  */
-function schovejDarVObalu() {
-  if (!window.MeteoTraceObal) return;
-  for (const id of ['btn-donate-top', 'donate-section']) {
-    const prvek = $(id);
-    if (prvek) prvek.hidden = true;
-  }
-}
 
 /**
  * Srovná špendlíky v mapě se stavem: na trase start a cíl, na meteostanici
@@ -4962,12 +4944,8 @@ function init() {
   vykresliZpusoby();
   vykresliMezibody();
   zapniHodnoceni();
-  schovejDarVObalu();   // DONATE-COMEBACK (R27) — smazat po schválení do produkce
   // Obal si nastavení zpráv sám nepamatuje napříč přeinstalováním —
   // web mu ho po startu připomene (R25).
-  // 🚨 Značka DONATE-COMEBACK byla do 22. 9. 2026 omylem TADY, u zpráv.
-  // Při návratu daru by se podle ní smazalo `zapisZpravy()` a ranní zprávy
-  // by po reinstalaci tiše přestaly chodit. Patří o řádek výš.
   zapisZpravy();
   zapisWidget();
   $('btn-donate').addEventListener('click', openDonate);

@@ -1609,8 +1609,8 @@ main {
 /* Ikony v liště drží při sobě (4 px místo 8). Třetí ikona vzala sbalenému
    řádku 52 px a „Místo · Horšovský Týn" se na 360 px nevešlo o 4 px;
    těsnější skupina je vrací. ⚠️ Jen mezi dvěma VIDITELNÝMI ikonami —
-   v obalu je mince schovaná a kontext je zarovnaný doprava, takže by
-   jinak dojel až k ikoně. */
+   u schované ikony (do 1.0.0 mince v obalu, `R27`) je kontext zarovnaný
+   doprava a jinak by dojel až k ikoně. */
 .brand > .icon-btn:not([hidden]) + .icon-btn { margin-left: -4px; }
 
 /* Na statistikách je ikona „zapnutá" — záložky jsou schované ve sbalené
