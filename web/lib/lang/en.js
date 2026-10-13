@@ -155,7 +155,8 @@ export default {
     full: 'The list was full, so the least used place made way.',
     readOnly: 'Saved places come from a newer version of the app, so they cannot be changed here. Reopening the app should sort it out.',
     alreadySaved: 'Already saved as “{name}”.',
-    manage: 'Manage saved places',
+    // ⚠️ Short — the chip is 190 px wide and the long one ended in „…".
+    manage: 'Manage places',
     manageTitle: 'Saved places',
     renameHint: 'The address is on the left; name the place on the right — Home, Work, Grandma.',
     // ⚠️ A prompt, not an example. The field is empty and it has to be
@@ -165,8 +166,12 @@ export default {
     nameCol: 'Name',
     close: 'Close',
     nameLabel: 'Name of the saved place',
-    removeOne: 'Remove',
-    confirmRemove: 'Really remove?',
+    // The bin in the manager — the same for places and routes.
+    removeOne: 'Remove “{name}”',
+    confirmRemove: 'Delete?',
+    confirmRemoveNamed: 'Really remove “{name}”?',
+    yes: 'Yes',
+    no: 'No',
     watchCol: 'Watch',
     watchStart: 'Watch {name} — warnings and storms even with the app closed',
     watchStop: 'Stop watching {name}',
@@ -190,11 +195,17 @@ export default {
     savedShort: 'Route saved',
     remove: 'Remove this route',
     empty: 'No routes yet. Work one out and the star will keep it.',
-    count: '{count} of {max} routes used.',
-    removed: 'Removed {name}.',
+    // ⚠️ The route manager speaks in the same sentences as the place one.
+    count: '{count} of {max} routes used',
+    removed: '“{name}” was removed.',
     full: 'Route list is full — the least used one was dropped.',
-    manage: 'Manage saved routes',
+    manage: 'Manage routes',
     title: 'Routes',
+    renameHint: 'The way is on the left; name it on the right — To work, To Grandma.',
+    routeCol: 'Way',
+    nameCol: 'Name',
+    nameLabel: 'Name of the saved route',
+    removeOne: 'Remove route “{name}”',
   },
 
   route: {

@@ -1141,6 +1141,14 @@ main {
 }
 .sheet::backdrop { background: rgba(8, 14, 22, .55); }
 
+/* Odpalcovaný list jede za prstem (posun nastavuje `zapojZavirani` v app.js)
+   a po puštění buď odjede doleva a zavře se, nebo se vrátí na místo. */
+.sheet.sheet-vraci { transition: transform .18s ease-out, opacity .18s ease-out; }
+.sheet.sheet-odjizdi { transition: transform .16s ease-in, opacity .16s ease-in; }
+@media (prefers-reduced-motion: reduce) {
+  .sheet.sheet-vraci, .sheet.sheet-odjizdi { transition: none; }
+}
+
 .sheet-head {
   display: flex;
   align-items: center;
@@ -1186,32 +1194,78 @@ main {
 }
 .manage-name:disabled { opacity: .6; }
 
+/* 🚨 KOŠ — TÝŽ VE SPRÁVĚ MÍST I TRAS. Miki 13. 10. 2026: *„u tras je ikona
+   koše a u míst je odebrat tlačítko… má to být prostě stejné všude,
+   konzistentní design!"* Rozměry a rámeček jako zvonek vedle (`.manage-zvonek`),
+   takže na konci řádku stojí řada stejných tlačítek. Kresba, ne emoji 🗑 —
+   ten si kreslí systém a do motivu se nepřebarví. */
 .manage-remove {
-  flex: none;
-  padding: 9px 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 38px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: transparent;
   color: var(--text-soft);
-  font: inherit;
-  font-size: 13px;
   cursor: pointer;
-  white-space: nowrap;
 }
+.manage-remove svg {
+  flex: none;
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.manage-remove:disabled { opacity: .6; cursor: default; }
 
-/* Druhé klepnutí maže. Musí to být vidět na první pohled — tlačítko, které
-   po prvním klepnutí vypadá stejně, svádí ke klepnutí naslepo. */
-.manage-remove.armed {
-  border-color: #b3261e;
-  color: #b3261e;
+/* 🚨 POTVRZENÍ ANO / NE (Miki 13. 10. 2026: *„nechal odsouhlasit Ano/Ne,
+   aby nezmizelo jen po jediném stisku"*). Otázka nastoupí do řádku místo
+   jména, zvonku a koše; adresa vlevo zůstane, ať je vidět, co se maže.
+
+   ⚠️ „Ne" je VPRAVO, přesně na místě koše, a je aspoň tak široké jako koš —
+   dvojklepnutí na koš tak trefí „Ne", nikdy „Ano". Hlídá `layout.html`. */
+.manage-row.potvrzuje > .manage-name,
+.manage-row.potvrzuje > .manage-zvonek,
+.manage-row.potvrzuje > .manage-zvonek-misto,
+.manage-row.potvrzuje > .manage-remove { display: none; }
+
+.manage-potvrzeni {
+  grid-column: 2 / -1;
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  min-width: 0;
+}
+.manage-potvrzeni[hidden] { display: none; }
+.manage-potvrzeni-text {
+  flex: 1; min-width: 0;
+  text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; font-weight: 600; color: #b3261e;
+}
+.manage-ano, .manage-ne {
+  flex: none;
+  min-width: 44px; height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: inherit; font-size: 14px;
+  cursor: pointer;
+}
+/* „Ano" maže — plné a červené, jinak by vypadalo jako „Ne". */
+.manage-ano {
+  border: 1px solid #b3261e;
+  background: #b3261e;
+  color: #fff;
   font-weight: 600;
 }
+.manage-ne {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+}
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+  :root:not([data-theme]) .manage-potvrzeni-text { color: #e0736a; }
 }
 
 /* Vynucený tmavý režim z nastavení — tytéž hodnoty, jiná podmínka. */
-:root:is([data-theme="dark"], [data-theme="pink-dark"]) .manage-remove.armed { border-color: #e0736a; color: #e0736a; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .manage-potvrzeni-text { color: #e0736a; }
 
 
 /* Nápověda pod mapou. Tlumená — je to pobídka, ne sdělení. */
@@ -1951,11 +2005,65 @@ main {
 /* Poslední řádek rozbaleného seznamu: správa. Vypadá jinak než uložené věci
    nad ním — jinak by na něj člověk klepl omylem místo na místo. */
 .chip-sprava {
-  color: var(--text-soft);
+  --sprava-barva: var(--text-soft);
+  color: var(--sprava-barva);
   background: none;
   border-style: dashed;
 }
-.chip-sprava:hover { color: var(--text); background: var(--surface-2); }
+.chip-sprava:hover { --sprava-barva: var(--text); background: var(--surface-2); }
+
+/* 🚨 PO PÍSMENECH OBČAS PŘEBĚHNE SVĚTELNÁ VLNA.
+
+   Miki 13. 10. 2026: *„editace uložených míst je strašně špatně vidět, musí
+   se hledat… stejně jako pulsuje šipečka v liště, proběhla jednou za čas
+   po písmenech taky světelná vlna (jako u těch blinkrů LED)."*
+
+   Opsané od šipky u značky (`sipka-vlnka`): světlo přejede dvakrát za sebou
+   a zbytek desetivteřinové smyčky je klid. Tady jde ZLEVA DOPRAVA, po směru
+   čtení, a v barvě akce — písmena se postupně rozsvěcují jako LED blinkr.
+   Prodleva je uvnitř animace, žádný časovač.
+
+   ⚠️ Smyčka začíná s otevřením nabídky (schovaný prvek animaci nehraje,
+   ukázaný ji pustí od začátku) — vlna přijde 0,4 s po rozbalení, kdy oko
+   ještě hledá.
+
+   ⚠️ Jen do prvního použití, stejně jako šipka: kdo správu jednou otevřel,
+   ví, kde je (`data-sprava-znama`, neukládá se). */
+.chip-sprava-text { animation: sprava-vlna 10s linear infinite; }
+
+/* Pozice 100 % = vidět je pravá třetina přechodu (jednolitá barva), 0 % =
+   levá třetina; mezi tím pás světla přejede přes písmena zleva doprava. */
+@keyframes sprava-vlna {
+  0%, 4%       { background-position: 100% 0; }
+  11%          { background-position: 0% 0; }
+  11.01%       { background-position: 100% 0; }
+  18%          { background-position: 0% 0; }
+  18.01%, 100% { background-position: 100% 0; }
+}
+
+/* ⚠️ Přebarvení písmen přechodem JEN tam, kde ho prohlížeč umí — bez
+   `background-clip: text` by průhledná výplň znamenala neviditelný text. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .chip-sprava-text {
+    background-image: linear-gradient(to right,
+      var(--sprava-barva) 0%, var(--sprava-barva) 34%,
+      var(--accent) 41%, var(--accent) 47%,
+      var(--sprava-barva) 54%, var(--sprava-barva) 100%);
+    background-size: 300% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
+:root[data-sprava-znama] .chip-sprava-text { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-sprava-text { animation: none; }
+}
 
 /* 🚨 Předěl dne v hodinovém pruhu. Osmačtyřicet dlaždic s časy 0–23 a znovu
    0–23 je bez něj bludiště: „v 8:00" se dá číst jako dnes i zítra. */
@@ -2134,16 +2242,13 @@ main {
 .manage-list.s-hlidanim .manage-row,
 .manage-hlavicka.s-hlidanim { column-gap: 6px; }
 
-/* Neviditelná kopie tlačítka Odebrat: tytéž rozměry písma a okrajů, takže
-   poslední sloupec záhlaví je stejně široký jako v řádcích. */
-.manage-hlavicka-odebrat {
-  visibility: hidden;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  font-size: 13px; font-weight: 400;
-  letter-spacing: normal; text-transform: none;
-  white-space: nowrap;
-}
+/* Místo pro sloupec koše: tak široké jako koš v řádcích (`.manage-remove`),
+   takže poslední sloupec záhlaví sedí nad tím v řádcích. */
+.manage-hlavicka-kos { width: 36px; }
+
+/* U tras zůstává sloupec zvonku prázdný (trasy se nehlídají) — buňka jen
+   drží místo, aby jména a koše stály pod těmi u míst. */
+.manage-zvonek-misto { width: 36px; }
 
 .manage-zvonek {
   display: grid; place-items: center;

@@ -44,6 +44,7 @@ import {
 import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
+import { createSwipe } from './lib/sheet-swipe.js';
 import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
 import { hlidanaMista, prepniHlidani, jeHlidane, vycistiKlice, MAX_HLIDANYCH } from './lib/watched-places.js';
 import { kamMiri, coRict } from './lib/drift.js';
@@ -61,7 +62,8 @@ import { formatDistance, formatElevation } from './lib/units.js';
 import {
   parseStore, serializeStore, emptyStore, savePlace, forgetPlace, touchPlace,
   saveRoute, forgetRoute, touchRoute, routeKey, renameRoute, savedShortcuts,
-  findNearby, savedAs, renamePlace, placeAddress, MAX_PLACES, MAX_NAME, MAX_ROUTES,
+  findNearby, savedAs, renamePlace, placeAddress, routeAutoName, routeDescription,
+  MAX_PLACES, MAX_NAME, MAX_ROUTES,
 } from './lib/places.js';
 // Mapa se natahuje líně — MapLibre je skoro megabajt a kdo radar neotevře,
 // nemá ho proč platit. (Zvyk převzatý z Gulpky, kde se takhle načítá Tone.js.)
@@ -76,7 +78,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.0.1';
+const VERZE = '1.0.2';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -354,7 +356,7 @@ function renderSaved() {
     panel: 'routes-panel',
     polozky: state.places.routes.map((r) => ({ kind: 'route', item: r, name: r.name })),
     current: najdiUlozenouTrasu(),
-    // ⚠️ U tras „Spravovat uložené trasy", i když dialog je společný.
+    // ⚠️ U tras „Spravovat trasy", i když dialog je společný.
     // Popisek má říkat, na co se člověk zrovna dívá — ne kam ho to
     // technicky zavede.
     spravaKlic: 'routes.manage',
@@ -407,12 +409,27 @@ function vykresliSkupinu({ box, radek, panel, polozky, current, spravaKlic }) {
  *
  * ⚠️ Je to jiná věc než štítky nad ním, takže vypadá jinak — kdyby to byl
  * další štítek v řadě, klepl by na něj člověk omylem místo na místo.
+ *
+ * 🚨 Občas po něm přeběhne světelná vlna. Miki 13. 10. 2026: *„editace
+ * uložených míst je strašně špatně vidět, musí se hledat… jako pulsuje
+ * šipečka v liště, proběhla jednou za čas po písmenech taky světelná vlna."*
+ * Text je proto ve vlastním `<span>`: přechod přes písmena (`background-clip:
+ * text`) by na tlačítku samém ořízl i jeho pozadí.
  */
 function radekSpravy(klic = 'places.manage') {
   const li = document.createElement('li');
-  const btn = el('button', 'chip chip-sprava', `⋯ ${t(klic, state.lang)}`);
+  const btn = el('button', 'chip chip-sprava', [
+    el('span', 'chip-sprava-text', `⋯ ${t(klic, state.lang)}`),
+  ]);
   btn.type = 'button';
-  btn.addEventListener('click', () => { zavriPanely(); openPlaces(); });
+  btn.addEventListener('click', () => {
+    // Vlna splnila úkol, stejně jako šipka u značky: kdo správu jednou
+    // otevřel, ví, kde je. Značka se NEUKLÁDÁ — po příštím spuštění appky
+    // vlna běží znovu.
+    document.documentElement.dataset.spravaZnama = '1';
+    zavriPanely();
+    openPlaces();
+  });
   li.append(btn);
   return li;
 }
@@ -868,7 +885,13 @@ function pouzijTrasu(r) {
   loadRoute();
 }
 
-/** Seznam tras pro správu v dialogu. */
+/**
+ * Seznam tras pro správu v dialogu.
+ *
+ * 🚨 STEJNĚ JAKO MÍSTA (`radekSpravyPolozky`): cesta vlevo jako pevný text,
+ * jméno vpravo, koš s potvrzením Ano / Ne. Do 13. 10. 2026 tu bylo jen pole se
+ * jménem a koš z emoji, který mazal na jedno klepnutí.
+ */
 function renderManageRoutes() {
   const list = state.places.routes;
   const note = $('routes-note');
@@ -878,57 +901,31 @@ function renderManageRoutes() {
   else if (!list.length) note.textContent = t('routes.empty', state.lang);
   else note.textContent = tf('routes.count', { count: list.length, max: MAX_ROUTES }, state.lang);
   note.hidden = false;
+  $('routes-hlavicka').hidden = !list.length;
 
-  fill($('routes-manage'), list, (r) => {
-    const li = document.createElement('li');
-    li.className = 'manage-row';
+  // ⚠️ Sloupec zvonku i tady, jen prázdný: jména a koše tras pak stojí
+  // přesně pod těmi u míst, jako jedna tabulka.
+  const sHlidanim = spravaSHlidanim();
+  $('routes-manage').classList.toggle('s-hlidanim', sHlidanim);
+  $('routes-hlavicka').classList.toggle('s-hlidanim', sHlidanim);
 
+  fill($('routes-manage'), list, (r) => radekSpravyPolozky({
     // Trasa se jmenuje „Praha → Brno", ale lidsky je to „do práce".
-    // Přejmenovat jde stejně jako místo — jinak by to byla dvojí logika
-    // pro dvě věci, které uživatel vnímá jako jednu.
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'manage-name';
-    input.value = r.name;
-    input.maxLength = MAX_NAME;
-    input.disabled = state.places.readOnly;
-    input.setAttribute('aria-label', t('places.nameLabel', state.lang));
-    input.placeholder = `${r.from.name} → ${r.to.name}`;
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') { input.value = r.name; input.blur(); }
-    });
-    input.addEventListener('blur', () => {
-      const nove = input.value.trim();
-      if (nove === r.name) return;
-      if (!nove) {
-        // Prázdné jméno sklad nemění — a musí být poznat, že se nic nestalo.
-        input.value = r.name;
-        notice(t('places.nameEmpty', state.lang));
-        return;
-      }
-      state.places = renameRoute(state.places, r.key, nove);
-      persistPlaces();
-      renderRoutes();
-      notice(tf('places.renamed', { name: nove }, state.lang));
-    });
-    li.append(input);
-
-    const del = el('button', 'icon-btn', '🗑');
-    del.type = 'button';
-    del.disabled = state.places.readOnly;
-    del.title = t('routes.remove', state.lang);
-    del.setAttribute('aria-label', `${t('routes.remove', state.lang)}: ${r.name}`);
-    del.addEventListener('click', () => {
+    popis: routeDescription(r),
+    jmeno: r.name,
+    vychozi: routeAutoName(r),
+    popisekPole: t('routes.nameLabel', state.lang),
+    prejmenuj: (input) => commitRenameRoute(r, input),
+    kosKlic: 'routes.removeOne',
+    smaz: () => {
       state.places = forgetRoute(state.places, r.key);
       persistPlaces();
       renderManageRoutes();
       renderRoutes();
       notice(tf('routes.removed', { name: r.name }, state.lang));
-    });
-    li.append(del);
-    return li;
-  });
+    },
+    sHlidanim,
+  }));
 }
 
 
@@ -1711,74 +1708,167 @@ function renderManage() {
   // Záhlaví jen když je co popisovat.
   $('places-hlavicka').hidden = !list.length;
 
-  // Zvonek „hlídat" (`R38`) jen tam, kde hlídání na pozadí opravdu běží:
-  // v obalu a se zapnutými upozorněními. V prohlížeči by sliboval něco,
-  // co prohlížeč na pozadí neumí (`R17`).
-  const sHlidanim = !!obal() && !!state.notify && !state.places.readOnly;
+  const sHlidanim = spravaSHlidanim();
   $('places-manage').classList.toggle('s-hlidanim', sHlidanim);
   $('places-hlavicka').classList.toggle('s-hlidanim', sHlidanim);
 
-  fill($('places-manage'), list, (p) => {
-    const li = document.createElement('li');
-    li.className = 'manage-row';
-
-    // 🚨 ADRESA VLEVO JAKO PEVNÝ TEXT, jméno vpravo jako pole. Michal
-    // 30. 8. 2026: *„je divné přepisovat názvem adresu… levý sloupec adresa
-    // (jako nepřepisovatelné pole) a pravý sloupec Název místa."*
-    //
-    // Do té doby se jméno psalo PŘES adresu, takže po přejmenování zbylo
-    // v seznamu pět řádků „Domov, Práce, Babička" bez jediné stopy, kde
-    // vlastně jsou. Adresa je od 30. 8. vlastní pole ve `places.js`
-    // a přejmenování na ni nesahá.
-    const adresa = el('span', 'manage-adresa', placeAddress(p));
-    adresa.title = placeAddress(p);
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'manage-name';
-    // ⚠️ Pole je PRÁZDNÉ, dokud si člověk jméno nedal — a placeholder říká,
-    // co se od něj čeká. Předvyplněná adresa vypadala jako hotová hodnota,
-    // takže ji nikdo nepřepisoval; prázdné pole s „Zadej název" je výzva.
-    input.value = p.name === placeAddress(p) ? '' : p.name;
-    // Strop délky je vidět rovnou v poli — ořezat jméno až při ukládání
-    // a nic neříct by vypadalo jako chyba.
-    input.maxLength = MAX_NAME;
-    input.disabled = state.places.readOnly;
-    input.setAttribute('aria-label', t('places.nameLabel', state.lang));
-    input.placeholder = t('places.namePlaceholder', state.lang);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') { input.value = p.name; input.blur(); }
-    });
-    input.addEventListener('blur', () => commitRename(p, input));
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'manage-remove';
-    del.disabled = state.places.readOnly;
-    setRemoveLabel(del, false);
-    // ⚠️ Uložená místa appka neumí znovu získat, takže mazání má dvě klepnutí.
-    // Ne dialogem — ten se odklikává naslepo. Tlačítko samo řekne, co udělá.
-    del.addEventListener('click', () => {
-      if (del.dataset.armed !== '1') {
-        for (const jiny of $('places-manage').querySelectorAll('.manage-remove')) {
-          setRemoveLabel(jiny, false);
-        }
-        setRemoveLabel(del, true);
-        return;
-      }
+  // 🚨 ADRESA VLEVO JAKO PEVNÝ TEXT, jméno vpravo jako pole. Michal
+  // 30. 8. 2026: *„je divné přepisovat názvem adresu… levý sloupec adresa
+  // (jako nepřepisovatelné pole) a pravý sloupec Název místa."*
+  //
+  // Do té doby se jméno psalo PŘES adresu, takže po přejmenování zbylo
+  // v seznamu pět řádků „Domov, Práce, Babička" bez jediné stopy, kde
+  // vlastně jsou. Adresa je od 30. 8. vlastní pole ve `places.js`
+  // a přejmenování na ni nesahá.
+  fill($('places-manage'), list, (p) => radekSpravyPolozky({
+    popis: placeAddress(p),
+    jmeno: p.name,
+    vychozi: placeAddress(p),
+    popisekPole: t('places.nameLabel', state.lang),
+    prejmenuj: (input) => commitRename(p, input),
+    kosKlic: 'places.removeOne',
+    smaz: () => {
       state.places = forgetPlace(state.places, p.key);
       persistPlaces();
       notice(tf('places.removed', { name: p.name }, state.lang));
       renderManage();
       renderSaved();
       poZmeneHlidanych();
-    });
+    },
+    sHlidanim,
+    zvonek: sHlidanim ? zvonekMista(p) : null,
+  }));
+}
 
-    if (sHlidanim) li.append(adresa, input, zvonekMista(p), del);
-    else li.append(adresa, input, del);
-    return li;
+/**
+ * Zvonek „hlídat" (`R38`) jen tam, kde hlídání na pozadí opravdu běží:
+ * v obalu a se zapnutými upozorněními. V prohlížeči by sliboval něco,
+ * co prohlížeč na pozadí neumí (`R17`).
+ *
+ * ⚠️ Ptají se na to místa i trasy — trasy kvůli prázdnému sloupci, aby
+ * jejich jména a koše stály pod těmi u míst.
+ */
+function spravaSHlidanim() {
+  return !!obal() && !!state.notify && !state.places.readOnly;
+}
+
+/**
+ * 🚨 ŘÁDEK SPRÁVY — JEDEN PRO MÍSTA I PRO TRASY.
+ *
+ * Miki 13. 10. 2026: *„každý pes jiná ves… u tras je ikona koše a u míst
+ * je odebrat tlačítko… má to být prostě stejné všude, konzistentní
+ * design!"* Do té doby měla místa adresu vlevo, jméno vpravo a textové
+ * „Odebrat" na dvě klepnutí; trasy jen pole se jménem a koš z emoji, který
+ * mazal na jedno klepnutí. Dvě správy téhož „co mám uložené" tak vypadaly
+ * i chovaly se každá jinak.
+ *
+ * Teď je jeden řádek: pevný popis vlevo (adresa, nebo cesta) · jméno
+ * vpravo · zvonek (jen místa, `R38`) · koš.
+ */
+function radekSpravyPolozky({ popis, jmeno, vychozi, popisekPole, prejmenuj, kosKlic, smaz, sHlidanim, zvonek }) {
+  const li = document.createElement('li');
+  li.className = 'manage-row';
+
+  // Popis je TEXT, ne pole. ⚠️ Nesmí vypadat jako něco, do čeho se dá psát.
+  const vlevo = el('span', 'manage-adresa', popis);
+  vlevo.title = popis;
+
+  // ⚠️ Pole je PRÁZDNÉ, dokud si člověk jméno nedal — a placeholder říká,
+  // co se od něj čeká. Předvyplněná adresa vypadala jako hotová hodnota,
+  // takže ji nikdo nepřepisoval; prázdné pole s „Zadej název" je výzva.
+  const zobrazene = jmeno === vychozi ? '' : jmeno;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'manage-name';
+  input.value = zobrazene;
+  // Strop délky je vidět rovnou v poli — ořezat jméno až při ukládání
+  // a nic neříct by vypadalo jako chyba.
+  input.maxLength = MAX_NAME;
+  input.disabled = state.places.readOnly;
+  input.setAttribute('aria-label', popisekPole);
+  input.placeholder = t('places.namePlaceholder', state.lang);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = zobrazene; input.blur(); }
   });
+  input.addEventListener('blur', () => prejmenuj(input));
+
+  li.append(vlevo, input);
+  // Sloupec zvonku: u míst zvonek, u tras prázdná buňka téže šířky.
+  if (sHlidanim) li.append(zvonek || el('span', 'manage-zvonek-misto'));
+  li.append(...tlacitkoKose(jmeno, kosKlic, smaz));
+  return li;
+}
+
+/** Koš — kresba, ne emoji: emoji si kreslí systém a motivu se nepodřídí. */
+const KOS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+  + '<path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.5h5v2"/>'
+  + '<path d="M6.6 6.5l.9 13h9l.9-13"/><path d="M10.2 10v6M13.8 10v6"/></svg>';
+
+/**
+ * Koš ve správě míst i tras — a k němu potvrzení Ano / Ne.
+ *
+ * 🚨 MAZÁNÍ SE POTVRZUJE ANO / NE, ne druhým klepnutím na koš. Miki
+ * 13. 10. 2026: *„smazání místa bych nechal odsouhlasit Ano/Ne, aby
+ * nezmizelo jako teď jen po jediném stisku."* Druhé klepnutí na TOTÉŽ místo
+ * se udělá samo — dvojklepnutím nebo zakolísáním prstu — a místo zmizí,
+ * aniž by si člověk přečetl, na co se ho appka ptá. Uložená místa appka
+ * neumí znovu získat.
+ *
+ * Proto ⚠️ „Ne" stojí PŘESNĚ tam, kde byl koš, a „Ano" vlevo od něj:
+ * dvojklepnutí na koš trefí „Ne" a nestane se nic. Hlídá `layout.html`.
+ *
+ * Otázka nastoupí do řádku místo jména, zvonku a koše; adresa (nebo cesta)
+ * vlevo zůstane, aby bylo vidět, CO se maže. Ne samostatným dialogem —
+ * nad dialogem správy by byl druhý a odklikával by se naslepo.
+ *
+ * Otevřené potvrzení smí být jen jedno v celém dialogu, místa i trasy
+ * dohromady.
+ *
+ * @returns {HTMLElement[]} koš a schované potvrzení — obojí do řádku
+ */
+function tlacitkoKose(jmeno, popisKlic, smaz) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'manage-remove';
+  btn.disabled = state.places.readOnly;
+  btn.innerHTML = KOS_SVG;
+  const popis = tf(popisKlic, { name: jmeno }, state.lang);
+  btn.title = popis;
+  btn.setAttribute('aria-label', popis);
+
+  const ano = el('button', 'manage-ano', t('places.yes', state.lang));
+  const ne = el('button', 'manage-ne', t('places.no', state.lang));
+  ano.type = 'button';
+  ne.type = 'button';
+  // ⚠️ Pořadí: otázka, Ano, Ne — „Ne" je vpravo, na místě koše.
+  const dotaz = el('div', 'manage-potvrzeni', [
+    el('span', 'manage-potvrzeni-text', t('places.confirmRemove', state.lang)), ano, ne,
+  ]);
+  dotaz.setAttribute('role', 'group');
+  dotaz.setAttribute('aria-label', tf('places.confirmRemoveNamed', { name: jmeno }, state.lang));
+  dotaz.hidden = true;
+
+  const zavri = (vratitOhnisko) => {
+    dotaz.hidden = true;
+    btn.closest('.manage-row')?.classList.remove('potvrzuje');
+    if (vratitOhnisko) btn.focus();
+  };
+  dotaz.addEventListener('manage:zavrit', () => zavri(false));
+
+  btn.addEventListener('click', () => {
+    for (const jiny of $('places-dialog').querySelectorAll('.manage-potvrzeni:not([hidden])')) {
+      jiny.dispatchEvent(new Event('manage:zavrit'));
+    }
+    btn.closest('.manage-row')?.classList.add('potvrzuje');
+    dotaz.hidden = false;
+    // Ohnisko na „Ne" — Enter omylem nic nesmaže.
+    ne.focus();
+  });
+  ne.addEventListener('click', () => zavri(true));
+  ano.addEventListener('click', () => smaz());
+
+  return [btn, dotaz];
 }
 
 /** Obrys zvonku; zapnutý se vyplní (CSS). Kresba, ne emoji — viz domeček. */
@@ -1823,14 +1913,6 @@ function zvonekMista(p) {
   return btn;
 }
 
-function setRemoveLabel(btn, armed) {
-  btn.dataset.armed = armed ? '1' : '0';
-  btn.textContent = armed
-    ? t('places.confirmRemove', state.lang)
-    : t('places.removeOne', state.lang);
-  btn.classList.toggle('armed', armed);
-}
-
 function commitRename(place, input) {
   const nove = input.value.trim();
   const adresa = placeAddress(place);
@@ -1854,11 +1936,31 @@ function commitRename(place, input) {
     return;
   }
   persistPlaces();
-  notice(tf('places.renamed', { name: input.value.trim() }, state.lang));
+  // ⚠️ `cil`, ne obsah pole: vyprázdněné pole vrací místu adresu a hláška
+  // do 13. 10. 2026 oznamovala „Přejmenováno na „“".
+  notice(tf('places.renamed', { name: cil }, state.lang));
   renderManage();
   renderSaved();
   // Nadpisy upozornění nesou jméno místa — obal musí dostat nové.
   poZmeneHlidanych();
+}
+
+/**
+ * Přejmenování trasy — tatáž pravidla jako u místa (`commitRename`).
+ *
+ * ⚠️ Prázdné pole vrací trase složené jméno „Praha → Brno", stejně jako
+ * místu adresu. Do 13. 10. 2026 se vyprázdněné pole vracelo s hláškou
+ * „Jméno nemůže být prázdné" — u místa přitom totéž znamenalo „bez
+ * vlastního jména". Jedno gesto, dva významy.
+ */
+function commitRenameRoute(route, input) {
+  const cil = input.value.trim() || routeAutoName(route);
+  if (cil === route.name) return;
+  state.places = renameRoute(state.places, route.key, cil);
+  persistPlaces();
+  notice(tf('places.renamed', { name: cil }, state.lang));
+  renderManageRoutes();
+  renderRoutes();
 }
 
 /* ============================================================
@@ -3457,6 +3559,102 @@ function zapojPotazeni() {
   document.addEventListener('touchcancel', () => { pull.zrus(); if (!nacitamZGesta) vykresliPruh(0, 'off'); });
 }
 
+/* ============================================================
+   ZAVÍRÁNÍ LISTŮ: KLEPNUTÍ VEDLE A ODPALCOVÁNÍ ZPRAVA DOLEVA
+
+   Miki 13. 10. 2026: *„klepnutí palcem vedle nastavení (ne, jen do
+   křížku) by ho taky asi mělo zavřít, ne? A odpalcování zprava doleva?"*
+   Do té doby šly listy zavřít jen křížkem a Escapem.
+
+   🚨 Pro VŠECHNY listy najednou (`dialog.sheet`): nastavení, správa míst
+   i dar se zavírají stejně. Kdyby to dostalo jen nastavení, byl by to zase
+   „každý pes jiná ves" (`R39`). Rozhodování gesta je v `lib/sheet-swipe.js`
+   a má vlastní samotest; tady zbývá dotyk a DOM.
+   ============================================================ */
+
+function zapojZavirani() {
+  const bezPohybu = matchMedia('(prefers-reduced-motion: reduce)');
+
+  for (const d of document.querySelectorAll('dialog.sheet')) {
+    // Klepnutí vedle = na ztmavený podklad. Událost patří samotnému dialogu
+    // (`::backdrop` je jeho součást), poznat se dá jen podle souřadnic MIMO
+    // jeho obdélník — klepnutí do okraje listu má týž cíl, ale je uvnitř.
+    //
+    // ⚠️ Mimo musí dotyk ZAČÍT i SKONČIT. Tah, který začne uvnitř (výběr
+    // textu v poli) a skončí na podkladu, dá klik na dialog — a list by se
+    // zavřel pod rukama i s rozepsaným jménem.
+    const vedle = (e) => {
+      const r = d.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    let zacalVedle = false;
+    d.addEventListener('pointerdown', (e) => { zacalVedle = e.target === d && vedle(e); });
+    d.addEventListener('click', (e) => {
+      if (zacalVedle && e.target === d && vedle(e)) d.close();
+      zacalVedle = false;
+    });
+
+    // Odpalcování: list jede za prstem doleva; po puštění buď odjede
+    // a zavře se, nebo se vrátí na místo.
+    const g = createSwipe();
+    const vrat = () => {
+      d.classList.add('sheet-vraci');
+      d.style.transform = '';
+      d.style.opacity = '';
+    };
+    d.addEventListener('touchstart', (e) => {
+      d.classList.remove('sheet-vraci');
+      const p = e.touches[0];
+      g.start(p?.clientX, p?.clientY, e.timeStamp, {
+        sirka: d.getBoundingClientRect().width,
+        prstu: e.touches.length,
+        nelze: dotykSiBereSam(e.target, d),
+      });
+    }, { passive: true });
+    // ⚠️ NENÍ pasivní: když list jede za prstem, nesmí se pod ním zároveň
+    // rolovat jeho obsah.
+    d.addEventListener('touchmove', (e) => {
+      const p = e.touches[0];
+      const posun = g.move(p?.clientX, p?.clientY, e.timeStamp, { prstu: e.touches.length });
+      if (posun === null || !g.tahne) return;
+      if (e.cancelable) e.preventDefault();
+      d.style.transform = `translateX(${posun}px)`;
+      d.style.opacity = String(1 - Math.min(0.6, -posun / (d.offsetWidth || 1)));
+    }, { passive: false });
+    d.addEventListener('touchend', () => {
+      if (!g.end()) { vrat(); return; }
+      if (bezPohybu.matches) { d.close(); return; }
+      d.classList.add('sheet-odjizdi');
+      d.style.transform = 'translateX(-110%)';
+      d.style.opacity = '0';
+      // ⚠️ Časovač, ne `transitionend`: ten nepřijde, když se přechod
+      // nespustí (list už je venku), a list by zůstal viset neviditelný
+      // a zamčený nad appkou.
+      setTimeout(() => d.close(), 170);
+    });
+    // Systém umí dotyk zrušit (hovor, gesto zpět) — list se vrátí.
+    d.addEventListener('touchcancel', () => { g.zrus(); vrat(); });
+    // Zavřený list se uklidí: příště se musí otevřít na svém místě.
+    d.addEventListener('close', () => {
+      d.classList.remove('sheet-vraci', 'sheet-odjizdi');
+      d.style.transform = '';
+      d.style.opacity = '';
+    });
+  }
+}
+
+/**
+ * Dotyk, který si vodorovný pohyb bere sám: pole (posun kurzoru, výběr
+ * textu), výběr, posuvník a cokoli, co se roluje do strany.
+ */
+function dotykSiBereSam(cil, d) {
+  if (cil?.closest?.('input, textarea, select, [contenteditable]')) return true;
+  for (let el = cil; el && el !== d; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+  }
+  return false;
+}
+
 /**
  * Mapa s radarem. Načte se až teď, ne při startu appky.
  * Selhání mapy nesmí shodit zbytek obrazovky — počasí je důležitější.
@@ -4864,6 +5062,7 @@ function init() {
     if (!e.target.closest('.top') && nabidkaOtevrena()) sbalNabidkuKObsahu();
   });
   zapojPotazeni();
+  zapojZavirani();
   $('route-go').addEventListener('click', loadRoute);
   // Klepnutí na sbalený řádek vrátí formulář. ⚠️ Zaostří se rovnou pole
   // startu — kdo formulář otvírá, chce něco změnit, ne se na něj dívat.

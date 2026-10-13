@@ -1037,3 +1037,85 @@ test('web posílá obalu hlídaná místa (zvonek) a obal je čte týmiž jmény
     assert.match(kt, new RegExp(`opt(String|Double|Boolean|JSONArray)\\("${k}"`), `obal nečte ${k}`);
   }
 });
+
+/* ============================================================
+   SPRÁVA MÍST A TRAS — JEDNA PODOBA
+
+   Miki 13. 10. 2026: *„každý pes jiná ves… u tras je ikona koše a u míst
+   je odebrat tlačítko… má to být prostě stejné všude, konzistentní
+   design!"* Dvě správy téhož „co mám uložené" se rozešly tiše: každá měla
+   vlastní kód, takže změna v jedné druhou minula. Hlídá se proto, že obě
+   stojí na TÝCHŽ stavebních kusech.
+   ============================================================ */
+
+test('🚨 místa i trasy se spravují týmž řádkem a týmž košem', () => {
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  for (const jmeno of ['renderManage', 'renderManageRoutes']) {
+    const fn = new RegExp(`function ${jmeno}\\(\\)[\\s\\S]*?\\n\\}`).exec(app)?.[0] || '';
+    assert.ok(fn, `${jmeno} nenalezena`);
+    assert.match(fn, /radekSpravyPolozky\(\{/, `${jmeno} si staví řádek po svém`);
+    assert.doesNotMatch(fn, /createElement\('button'\)|el\('button'/,
+      `${jmeno} si staví vlastní tlačítko — koš má být společný`);
+  }
+  // Koš vzniká na JEDNOM místě a je to kresba, ne emoji.
+  assert.equal(app.match(/'manage-remove'/g)?.length, 1, 'tlačítko koše vzniká víc než jednou');
+  const radek = /function radekSpravyPolozky\([\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(radek, /tlacitkoKose\(/, 'řádek správy nemá koš');
+  assert.ok(!app.includes('🗑'), 'koš z emoji si kreslí systém a do motivu se nepřebarví');
+});
+
+test('🚨 mazání se potvrzuje Ano / Ne — koš sám nemaže, u míst ani u tras', () => {
+  // Miki 13. 10. 2026: *„smazání místa bych nechal odsouhlasit Ano/Ne, aby
+  // nezmizelo jen po jediném stisku."* Druhé klepnutí na TOTÉŽ místo se
+  // udělá i samo (dvojklepnutí) — proto ne „klepni ještě jednou".
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const kos = /function tlacitkoKose\([\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.ok(kos, 'tlacitkoKose nenalezena');
+
+  // Koš jen otevře otázku; smaže teprve „Ano".
+  const naKos = /btn\.addEventListener\('click', \(\) => \{[\s\S]*?\n {2}\}\);/.exec(kos)?.[0] || '';
+  assert.ok(naKos, 'koš nemá obsluhu klepnutí');
+  assert.doesNotMatch(naKos, /smaz\(/, 'koš maže sám, bez Ano / Ne');
+  assert.match(kos, /ano\.addEventListener\('click', \(\) => smaz\(\)\)/, 'maže něco jiného než „Ano"');
+  assert.equal(kos.match(/smaz\(/g)?.length, 1, 'smazat smí jen jedna cesta — „Ano"');
+
+  // ⚠️ „Ne" je poslední, tedy vpravo na místě koše (měří `layout.html`).
+  assert.match(kos, /el\('div', 'manage-potvrzeni', \[[\s\S]*?, ano, ne,?\s*\]\)/,
+    'pořadí v otázce musí být Ano, pak Ne — Ne na místě koše');
+  // Ohnisko na „Ne": Enter omylem nic nesmaže.
+  assert.match(naKos, /ne\.focus\(\)/, 'ohnisko po otevření otázky není na „Ne"');
+  // Otevřená otázka smí být jen jedna v celém dialogu.
+  assert.match(naKos, /\$\('places-dialog'\)\.querySelectorAll\('\.manage-potvrzeni:not\(\[hidden\]\)'\)/,
+    'zavírají se otázky jen v části dialogu');
+});
+
+test('🚨 každý list se zavírá i klepnutím vedle a odpalcováním — ne jen křížkem', () => {
+  // Miki 13. 10. 2026: *„klepnutí palcem vedle nastavení… by ho taky asi
+  // mělo zavřít, ne? A odpalcování zprava doleva?"* — a stejně u všech
+  // listů, jinak je to zase každý pes jiná ves.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const dialogy = [...html.matchAll(/<dialog\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(dialogy.length >= 3, 'dialogy nenalezeny');
+  for (const d of dialogy) {
+    assert.match(d, /class="sheet"/, `${d} není list — zavírání by ho minulo`);
+  }
+
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const fn = /function zapojZavirani\(\)[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /document\.querySelectorAll\('dialog\.sheet'\)/, 'zavírání nejde přes všechny listy');
+  assert.match(fn, /createSwipe\(\)/, 'odpalcování nestojí na `lib/sheet-swipe.js`');
+  // ⚠️ Vedle musí dotyk ZAČÍT i skončit — tah z pole na podklad nesmí zavřít.
+  assert.match(fn, /if \(zacalVedle && e\.target === d && vedle\(e\)\) d\.close\(\);/,
+    'klepnutí vedle se nehlídá od začátku dotyku');
+  assert.match(app, /\n {2}zapojZavirani\(\);/, 'zavírání se při startu nezapojí');
+});
+
+test('záhlaví sloupců mají místa i trasy, se stejnými sloupci', () => {
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const sloupce = (id) => {
+    const blok = new RegExp(`<div class="manage-hlavicka" id="${id}"[\\s\\S]*?</div>`).exec(html)?.[0] || '';
+    return [...blok.matchAll(/<span( class="([^"]*)")?/g)].map((m) => m[2] || 'popisek');
+  };
+  assert.deepEqual(sloupce('places-hlavicka'), ['popisek', 'popisek', 'manage-hlavicka-hlidat', 'manage-hlavicka-kos']);
+  assert.deepEqual(sloupce('routes-hlavicka'), sloupce('places-hlavicka'));
+});

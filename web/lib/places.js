@@ -119,6 +119,28 @@ export function routeKey(route) {
   return `${from}>${pres ? `${pres}>` : ''}${to}@${route?.profile || 'car'}`;
 }
 
+/**
+ * Jméno, které trasa dostane, dokud si ji člověk nepojmenuje: „Praha → Brno".
+ *
+ * ⚠️ Bez mezibodů — tak se trasám říkalo odjakživa a uložené trasy ho mají
+ * zapsané. Kdyby se sem mezibody přidaly, žádná stará trasa by se už
+ * nepoznala jako nepojmenovaná a ve správě by z ní zbylo vyplněné pole.
+ */
+export function routeAutoName(route) {
+  return `${route?.from?.name || ''} → ${route?.to?.name || ''}`;
+}
+
+/**
+ * Celá cesta i se zastávkami: „Domov → Školka → Plzeň". Ve správě tras
+ * stojí vlevo jako pevný text — protějšek adresy u míst.
+ */
+export function routeDescription(route) {
+  return [route?.from, ...(route?.via || []), route?.to]
+    .filter(Boolean)
+    .map((p) => p.name)
+    .join(' → ');
+}
+
 /* ============================================================
    OČIŠTĚNÍ VSTUPU
    ============================================================ */
@@ -318,7 +340,7 @@ function readRoute(item) {
   const key = routeKey({ from, to, via, profile });
   return {
     key, from, to, via, profile,
-    name: cleanName(item?.name) || `${from.name} → ${to.name}`,
+    name: cleanName(item?.name) || routeAutoName({ from, to }),
     savedAt: time(item?.savedAt),
     usedAt: time(item?.usedAt),
   };

@@ -179,7 +179,9 @@ export default {
     full: 'Seznam byl plný, tak vypadlo místo, které používáš nejmíň.',
     readOnly: 'Uložená místa pocházejí z novější verze appky, tady se měnit nedají. Po zavření a otevření appky by to mělo být v pořádku.',
     alreadySaved: 'Uložené už jako „{name}“.',
-    manage: 'Spravovat uložená místa',
+    // ⚠️ Krátce. „Spravovat uložená místa" se do štítku (190 px) nevešlo
+    // a končilo „Spravovat uložená mí…" (Miki 13. 10. 2026: zkrátit).
+    manage: 'Spravovat místa',
     manageTitle: 'Uložená místa',
     renameHint: 'Vlevo je adresa, vpravo si místo pojmenuj — Domov, Práce, Babička.',
     // ⚠️ Výzva, ne příklad. Pole je prázdné a musí být jasné, že se do něj
@@ -189,8 +191,13 @@ export default {
     nameCol: 'Název místa',
     close: 'Zavřít',
     nameLabel: 'Jméno uloženého místa',
-    removeOne: 'Odebrat',
-    confirmRemove: 'Opravdu odebrat?',
+    // Koš ve správě — týž u míst i u tras. Popis pro čtečku a bublinu;
+    // vidět je jen kresba. Po klepnutí se v řádku zeptá „Smazat? Ano / Ne".
+    removeOne: 'Odebrat „{name}“',
+    confirmRemove: 'Smazat?',
+    confirmRemoveNamed: 'Opravdu odebrat „{name}“?',
+    yes: 'Ano',
+    no: 'Ne',
     // Hlídání uloženého místa (R38) — zvonek ve správě míst.
     watchCol: 'Hlídat',
     watchStart: 'Hlídat {name} — výstrahy a bouřky i se zavřenou appkou',
@@ -215,11 +222,17 @@ export default {
     savedShort: 'Trasa uložena',
     remove: 'Odebrat tuhle trasu',
     empty: 'Zatím žádná trasa. Spočítej ji a hvězdička ji podrží.',
-    count: 'Využito {count} z {max} tras.',
-    removed: 'Odebráno: {name}.',
+    // ⚠️ Správa tras mluví týmiž větami jako správa míst — viz `places`.
+    count: 'Využito {count} z {max} tras',
+    removed: 'Trasa „{name}“ je odebraná.',
     full: 'Seznam tras je plný — vypadla nejméně používaná.',
-    manage: 'Spravovat uložené trasy',
+    manage: 'Spravovat trasy',
     title: 'Trasy',
+    renameHint: 'Vlevo je cesta, vpravo si ji pojmenuj — Do práce, K babičce.',
+    routeCol: 'Cesta',
+    nameCol: 'Název trasy',
+    nameLabel: 'Jméno uložené trasy',
+    removeOne: 'Odebrat trasu „{name}“',
   },
 
   route: {

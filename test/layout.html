@@ -322,6 +322,173 @@ function dialogPreteceni(doc, id) {
 }
 
 /**
+ * 🚨 SPRÁVA MÍST A TRAS — ŠTÍTEK, DIALOG, JEDNA ŘADA KOŠŮ.
+ *
+ * Štítek „⋯ Spravovat uložená místa" končil useknutý „…mí…" a dialog
+ * správy se tu neotevíral vůbec, takže to nikdo neměřil. A obě tabulky
+ * (místa, trasy) se do 13. 10. 2026 rozešly tak, že každá vypadala jinak
+ * (Miki: *„každý pes jiná ves"*). Měří se:
+ *   – štítek správy v obou panelech je celý,
+ *   – dialog nepřetéká, ani s otevřenou otázkou „Smazat? Ano / Ne",
+ *   – jména i koše míst a tras stojí pod sebou v jedné svislé řadě,
+ *   – 🚨 „Ne" stojí přesně na místě koše a „Ano" do jeho plochy nezasahuje.
+ *     Dvojklepnutí na koš tak trefí „Ne" — jinak by potvrzení Ano / Ne bylo
+ *     jen pomalejší jedno klepnutí (Miki: *„aby nezmizelo jen po jediném
+ *     stisku"*).
+ *
+ * Vrací seznam vad.
+ */
+async function spravaMistATras(doc) {
+  const nalezy = [];
+  rozbalNabidku(doc);
+  for (const [tlacitko, panel] of [['places-toggle', 'places-panel'], ['routes-toggle', 'routes-panel']]) {
+    doc.getElementById(tlacitko).click();
+    await new Promise((r) => setTimeout(r, 100));
+    const stitek = doc.querySelector(`#${panel} .chip-sprava`);
+    if (!stitek || stitek.getBoundingClientRect().width === 0) {
+      nalezy.push(`v rozbaleném #${panel} není štítek správy`);
+      continue;
+    }
+    if (stitek.scrollWidth > stitek.clientWidth + 1) {
+      nalezy.push(`štítek „${stitek.textContent}" je useknutý (potřebuje ${stitek.scrollWidth} px, má ${stitek.clientWidth})`);
+    }
+  }
+
+  // Otevřený zůstal panel tras — jeho štítek otevře dialog.
+  doc.querySelector('#routes-panel .chip-sprava')?.click();
+  const dialog = doc.getElementById('places-dialog');
+  if (!dialog.open) return [...nalezy, 'dialog správy se po klepnutí na štítek neotevřel'];
+
+  const p = dialogPreteceni(doc, 'places-dialog');
+  if (p) nalezy.push(p);
+
+  const sloupec = (sel, co) => {
+    const r = [...dialog.querySelectorAll(sel)].map((e) => e.getBoundingClientRect());
+    if (r.length < 2 || !dialog.querySelector(`#routes-manage ${sel}`) || !dialog.querySelector(`#places-manage ${sel}`)) {
+      nalezy.push(`${co}: chybí u míst nebo u tras — není co srovnat`);
+    } else if (r.some((x) => Math.abs(x.left - r[0].left) > 1 || Math.abs(x.width - r[0].width) > 1)) {
+      nalezy.push(`${co} míst a tras nestojí pod sebou v jedné řadě`);
+    }
+  };
+  sloupec('.manage-remove', 'koše');
+  sloupec('.manage-name', 'jména');
+
+  // Otázka Ano / Ne — u místa (se zvonkem nejtěsnější řádek) i u trasy.
+  for (const seznam of ['places-manage', 'routes-manage']) {
+    const kos = dialog.querySelector(`#${seznam} .manage-remove`);
+    if (!kos) continue;
+    const k = kos.getBoundingClientRect();
+    kos.click();
+    const radek = kos.closest('.manage-row');
+    const ano = radek.querySelector('.manage-ano');
+    const ne = radek.querySelector('.manage-ne');
+    const a = ano?.getBoundingClientRect();
+    const n = ne?.getBoundingClientRect();
+    if (!a || !n || a.width === 0 || n.width === 0) {
+      nalezy.push(`#${seznam}: po klepnutí na koš se neukázalo Ano / Ne`);
+      continue;
+    }
+    if (Math.abs(n.right - k.right) > 1 || n.left > k.left + 1) {
+      nalezy.push(`#${seznam}: „Ne" nepokrývá místo koše (Ne ${Math.round(n.left)}–${Math.round(n.right)}, koš ${Math.round(k.left)}–${Math.round(k.right)} px)`);
+    }
+    if (a.right > k.left - 1 && a.left < k.right + 1 && a.bottom > k.top && a.top < k.bottom) {
+      nalezy.push(`#${seznam}: „Ano" zasahuje na místo koše — dvojklepnutí by smazalo`);
+    }
+    const p2 = dialogPreteceni(doc, 'places-dialog');
+    if (p2) nalezy.push(`s otázkou Ano / Ne: ${p2}`);
+    // „Ne" vrací řádek zpátky — a nic nesmaže.
+    const pocet = dialog.querySelectorAll(`#${seznam} .manage-row`).length;
+    ne.click();
+    if (!radek.querySelector('.manage-potvrzeni').hidden || kos.getBoundingClientRect().width === 0) {
+      nalezy.push(`#${seznam}: „Ne" otázku nezavřelo`);
+    }
+    if (dialog.querySelectorAll(`#${seznam} .manage-row`).length !== pocet) {
+      nalezy.push(`#${seznam}: „Ne" něco smazalo`);
+    }
+  }
+  dialog.close();
+  return nalezy;
+}
+
+/**
+ * 🚨 LIST SE ZAVŘE KLEPNUTÍM VEDLE A ODPALCOVÁNÍM ZPRAVA DOLEVA — A JEN TAK.
+ *
+ * Miki 13. 10. 2026: *„klepnutí palcem vedle nastavení… by ho taky asi mělo
+ * zavřít, ne? A odpalcování zprava doleva?"* Měří se skutečné chování
+ * nastavení, ne zdroják: klepnutí na podklad zavře, klepnutí do okraje
+ * listu ne, tah z listu na podklad ne (výběr textu), dlouhý tah doleva
+ * zavře, svislý (rolování) a krátký ne — a vrácený list stojí na místě.
+ *
+ * Vrací seznam vad.
+ */
+async function zaviraniListu(doc, win) {
+  const nalezy = [];
+  const d = doc.getElementById('settings-dialog');
+  const pockej = (ms) => new Promise((r) => setTimeout(r, ms));
+  const otevri = () => { if (d.open) d.close(); doc.getElementById('btn-settings').click(); };
+  const klik = (cil, x, y, dolu = cil) => {
+    dolu.dispatchEvent(new win.PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
+    cil.dispatchEvent(new win.MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+  };
+  const tah = async (cil, body, prodleva) => {
+    const dotyk = (x, y) => new win.Touch({ identifier: 1, target: cil, clientX: x, clientY: y });
+    const posli = (typ, x, y) => {
+      const t = dotyk(x, y);
+      cil.dispatchEvent(new win.TouchEvent(typ, {
+        bubbles: true, cancelable: true,
+        touches: typ === 'touchend' ? [] : [t], targetTouches: typ === 'touchend' ? [] : [t], changedTouches: [t],
+      }));
+    };
+    posli('touchstart', ...body[0]);
+    for (const b of body.slice(1)) { await pockej(prodleva); posli('touchmove', ...b); }
+    posli('touchend', ...body[body.length - 1]);
+  };
+
+  // Klepnutí na podklad.
+  otevri();
+  klik(d, 2, 2);
+  if (d.open) nalezy.push('klepnutí vedle listu ho nezavřelo');
+
+  // Klepnutí do okraje listu (týž cíl — dialog — ale uvnitř).
+  otevri();
+  let r = d.getBoundingClientRect();
+  klik(d, r.left + 4, r.top + 4);
+  if (!d.open) nalezy.push('klepnutí do okraje listu ho zavřelo');
+
+  // Tah z pole uvnitř listu na podklad (výběr textu) nesmí zavřít.
+  const pole = d.querySelector('select, input');
+  klik(d, 2, 2, pole);
+  if (!d.open) nalezy.push('tah z listu na podklad ho zavřel');
+
+  // Svislý tah = rolování: list stojí.
+  r = d.getBoundingClientRect();
+  const stred = r.top + r.height / 2;
+  const nadpis = d.querySelector('h2');
+  await tah(nadpis, [[r.left + 100, stred], [r.left + 98, stred - 30], [r.left + 96, stred - 80]], 16);
+  await pockej(250);
+  if (!d.open) nalezy.push('svislý tah (rolování) list zavřel');
+
+  // Krátký pomalý tah doleva: list se vrátí.
+  await tah(nadpis, [[r.right - 20, stred], [r.right - 32, stred], [r.right - 44, stred], [r.right - 50, stred]], 60);
+  await pockej(250);
+  if (!d.open) nalezy.push('krátký tah doleva list zavřel');
+  else if (d.style.transform) nalezy.push(`list se po krátkém tahu nevrátil (${d.style.transform})`);
+
+  // Dlouhý tah doleva (60 % šířky): list odjede a zavře se.
+  const kroky = [];
+  for (let i = 0; i <= 8; i++) kroky.push([r.right - 20 - (r.width * 0.6 * i) / 8, stred + i]);
+  await tah(nadpis, kroky, 16);
+  await pockej(300);
+  if (d.open) nalezy.push('dlouhý tah zprava doleva list nezavřel');
+
+  // Znovu otevřený list stojí na svém místě.
+  otevri();
+  if (d.style.transform || d.style.opacity) nalezy.push('znovu otevřený list nestojí na místě');
+  d.close();
+  return nalezy;
+}
+
+/**
  * 🚨 DRŽÍ HLAVIČKA TÝŽ SLOUPEC JAKO OBSAH?
  *
  * Podklad lišty jde schválně přes celé okno, ale její OBSAH (značka,
@@ -644,6 +811,12 @@ async function run() {
       const vDaru = dialogPreteceni(doc, 'donate-dialog');
       if (vDaru) vady.push(`Dar: ${vDaru}`);
       doc.getElementById('donate-dialog').close();
+
+      // 4) Správa míst a tras (13. 10. 2026).
+      for (const v of await spravaMistATras(doc)) vady.push(`Správa: ${v}`);
+
+      // 5) Zavírání listů klepnutím vedle a odpalcováním (13. 10. 2026).
+      for (const v of await zaviraniListu(doc, f.contentWindow)) vady.push(`Zavírání: ${v}`);
     } catch (e) {
       vady.push('nešlo změřit: ' + e.message);
     }

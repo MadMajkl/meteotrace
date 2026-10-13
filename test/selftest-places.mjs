@@ -14,11 +14,13 @@ import {
   emptyStore, parseStore, serializeStore,
   savePlace, saveRoute, forgetPlace, forgetRoute,
   renamePlace, renameRoute, touchPlace, isSaved, findPlace, findRoute, findNearby, savedAs,
-  savedShortcuts, placeAddress, SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
+  savedShortcuts, placeAddress, routeAutoName, routeDescription,
+  SCHEMA_VERSION, MAX_PLACES, MAX_ROUTES, MAX_NAME,
 } from '../web/lib/places.js';
 
 const PRAHA = { name: 'Praha', country: 'Czechia', lat: 50.0755, lon: 14.4378 };
 const BRNO = { name: 'Brno', country: 'Czechia', lat: 49.1951, lon: 16.6068 };
+const PLZEN = { name: 'Plzeň', country: 'Czechia', lat: 49.7475, lon: 13.3776 };
 
 /* ============================================================
    IDENTITA MÍSTA
@@ -287,6 +289,32 @@ test('trasa: vlastní jméno má přednost před složeným', () => {
     from: PRAHA, to: BRNO, profile: 'car', name: 'Do práce',
   }, 1000);
   assert.equal(route.name, 'Do práce');
+});
+
+/* Správa tras stojí na týchž dvou údajích jako správa míst: pevný popis
+   vlevo (u místa adresa) a jméno vpravo, prázdné, dokud si ho člověk nedal. */
+
+test('🚨 trasa: nepojmenovaná se pozná podle složeného jména — i ta stará', () => {
+  // Jméno, které appka zapsala trasám uloženým před správou ve sloupcích.
+  const stara = parseStore(JSON.stringify({ version: SCHEMA_VERSION, places: [], routes: [
+    { from: PRAHA, to: BRNO, profile: 'car', name: 'Praha → Brno' },
+  ] })).routes[0];
+  assert.equal(routeAutoName(stara), stara.name);
+
+  const { route } = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'car' }, 1000);
+  assert.equal(routeAutoName(route), route.name);
+
+  // ⚠️ I s mezibody je složené jméno jen start → cíl, jinak by se trasa
+  // se zastávkou nikdy nepoznala jako nepojmenovaná.
+  const pres = saveRoute(emptyStore(), { from: PRAHA, via: [PLZEN], to: BRNO, profile: 'car' }, 1000).route;
+  assert.equal(routeAutoName(pres), pres.name);
+});
+
+test('trasa: popis vlevo vypíše i zastávky', () => {
+  const pres = saveRoute(emptyStore(), { from: PRAHA, via: [PLZEN], to: BRNO, profile: 'car' }, 1000).route;
+  assert.equal(routeDescription(pres), 'Praha → Plzeň → Brno');
+  const prima = saveRoute(emptyStore(), { from: PRAHA, to: BRNO, profile: 'car' }, 1000).route;
+  assert.equal(routeDescription(prima), 'Praha → Brno');
 });
 
 test('trasa: neúplná se neuloží', () => {

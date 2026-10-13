@@ -108,6 +108,7 @@
 <link rel="modulepreload" href="lib/great-circle.js">
 <link rel="modulepreload" href="lib/fit-row.js">
 <link rel="modulepreload" href="lib/pull-refresh.js">
+<link rel="modulepreload" href="lib/sheet-swipe.js">
 <link rel="modulepreload" href="lib/warn-notify.js">
 <link rel="modulepreload" href="lib/watched-places.js">
 <link rel="modulepreload" href="lib/drift.js">
@@ -350,19 +351,30 @@
     <span data-i18n="places.addressCol"></span>
     <span data-i18n="places.nameCol"></span>
     <!-- Sloupec zvonku (R38). Jen se zapnutými upozorněními v obalu
-         (`.s-hlidanim`), jinak by visel nad tlačítkem Odebrat. -->
+         (`.s-hlidanim`), jinak by visel nad košem. -->
     <span class="manage-hlavicka-hlidat" data-i18n="places.watchCol"></span>
-    <!-- ⚠️ Neviditelná kopie tlačítka Odebrat. Záhlaví je vlastní mřížka:
-         bez stejně širokého posledního sloupce vyjdou sloupce nad řádky
-         jinak široké a popisky stojí mimo pole pod sebou. -->
-    <span class="manage-hlavicka-odebrat" data-i18n="places.removeOne"></span>
+    <!-- ⚠️ Místo pro sloupec koše. Záhlaví je vlastní mřížka: bez stejně
+         širokého posledního sloupce vyjdou sloupce nad řádky jinak široké
+         a popisky stojí mimo pole pod sebou. -->
+    <span class="manage-hlavicka-kos"></span>
   </div>
   <ul id="places-manage" class="manage-list"></ul>
 
-  <!-- Trasy ve stejném dialogu jako místa: je to jedno „co mám uložené".
-       Přejmenovat je nejdou — jméno „Praha → Brno" si appka drží sama. -->
+  <!-- 🚨 Trasy ve stejném dialogu a STEJNĚ jako místa: pevný popis vlevo,
+       jméno vpravo, koš. Miki 13. 10. 2026: *„každý pes jiná ves… má to
+       být prostě stejné všude, konzistentní design!"* Do té doby měly
+       trasy jen pole se jménem a koš z emoji, který mazal na jedno klepnutí. -->
   <h3 data-i18n="routes.title"></h3>
+  <p class="hint" data-i18n="routes.renameHint"></p>
   <p id="routes-note" class="hint" hidden></p>
+  <!-- Sloupec zvonku zůstává prázdný — trasy se nehlídají, ale jména
+       a koše stojí pod těmi u míst v jedné svislé řadě. -->
+  <div class="manage-hlavicka" id="routes-hlavicka" hidden aria-hidden="true">
+    <span data-i18n="routes.routeCol"></span>
+    <span data-i18n="routes.nameCol"></span>
+    <span class="manage-hlavicka-hlidat"></span>
+    <span class="manage-hlavicka-kos"></span>
+  </div>
   <ul id="routes-manage" class="manage-list"></ul>
 </dialog>
 
