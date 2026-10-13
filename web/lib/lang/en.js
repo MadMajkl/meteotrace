@@ -117,6 +117,38 @@ export default {
     },
   },
 
+  // Best window for a ride, run or walk (R43) — the "When to go out" card.
+  bestWindow: {
+    title: 'When to go out',
+    kolo: 'Ride',
+    beh: 'Run',
+    prochazka: 'Walk',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    later: 'Day after tomorrow',
+    line: '{day} {from}–{to} · {what}',
+    dry: 'dry',
+    rainChance: 'rain {p}%',
+    feels: 'feels {range}',
+    wind: 'wind up to {w}',
+    quality: { skvele: 'Great', dobre: 'Good', snesitelne: 'Fair' },
+    none: {
+      dest: 'No dry window until the day after tomorrow — rain all along.',
+      jev: 'Nothing until the day after tomorrow — storms, snow or fog.',
+      zima: 'Too cold for this until the day after tomorrow.',
+      horko: 'Too hot for this until the day after tomorrow.',
+      vitr: 'Too windy for this until the day after tomorrow.',
+      tma: 'No daylight window until the day after tomorrow.',
+      data: 'The hourly forecast is missing, so no window can be worked out.',
+    },
+    note: 'In daylight over the next 48 hours, by feels-like temperature, wind and rain.',
+  },
+
+  // Temperature range: "4 to 7 °C", but "5 °C" when it is one number.
+  tempRange: {
+    range: '{min} to {max}',
+  },
+
   // Rain starting, from radar (R42). Not a danger — a lighter tone is fine,
   // but the sentence says what to do. The source comes from `storm.source`.
   rain: {
@@ -523,8 +555,8 @@ export default {
   // settings. ⚠️ The SERVER composes the sentences (`lib/route-watch.js`).
   routeWatch: {
     title: 'Route “{name}”',
-    calm: 'Leaving at {time}: dry all the way, {min} to {max}.',
-    rain: 'Leaving at {time}: rain at {n} of {total} points on the way, {min} to {max}.',
+    calm: 'Leaving at {time}: dry all the way, {range}.',
+    rain: 'Leaving at {time}: rain at {n} of {total} points on the way, {range}.',
     hazard: 'Leaving at {time}: {what} around {at} ({temp}).',
     wind: 'Leaving at {time}: strong wind on the way, up to {wind}.',
     better: ' Leave at {time} and you’ll miss it.',

@@ -98,7 +98,7 @@ test('klid: „po celé cestě sucho" s rozsahem teplot', () => {
   const r = textCesty({ forecast: predpoved(v.length, () => ({})), vzorky: v, odjezdMs: ODJEZD,
     nowMs: TED, lang: 'cs', units: METRIC });
   assert.equal(r.hrozba, false);
-  assert.match(r.text, /^Odjezd v 07:15: po celé cestě sucho, 5 až 5 °C\.$/);
+  assert.match(r.text, /^Odjezd v 07:15: po celé cestě sucho, 5 °C\.$/);
   assert.equal(r.lepsiMs, null);
 });
 
@@ -146,7 +146,7 @@ test('déšť: počet míst po cestě a rozsah teplot', () => {
   const v = vzorkyCesty(TRASA);
   const fc = predpoved(v.length, (b) => (b === 0 ? { pst: 70, kod: 61 } : {}));
   const r = textCesty({ forecast: fc, vzorky: v, odjezdMs: ODJEZD, nowMs: TED, lang: 'cs', units: METRIC });
-  assert.match(r.text, new RegExp(`^Odjezd v 07:15: déšť na 1 z ${v.length} míst po cestě, 5 až 5 °C\\.`));
+  assert.match(r.text, new RegExp(`^Odjezd v 07:15: déšť na 1 z ${v.length} míst po cestě, 5 °C\\.`));
 });
 
 test('silný vítr bez jevu se hlásí jako vítr', () => {

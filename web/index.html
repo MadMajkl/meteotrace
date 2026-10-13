@@ -110,6 +110,7 @@
 <link rel="modulepreload" href="lib/pull-refresh.js">
 <link rel="modulepreload" href="lib/sheet-swipe.js">
 <link rel="modulepreload" href="lib/route-watch.js">
+<link rel="modulepreload" href="lib/best-window.js">
 <link rel="modulepreload" href="lib/warn-notify.js">
 <link rel="modulepreload" href="lib/watched-places.js">
 <link rel="modulepreload" href="lib/drift.js">
@@ -890,6 +891,19 @@
     <div class="hours-box" id="hours-box">
       <div class="hours" id="hours"></div>
     </div>
+  </section>
+
+  <!-- Kdy ven (R43): nejlepší okno na kolo, běh, procházku — z téže hodinové
+       předpovědi, žádný dotaz navíc. Vedle hodinového pruhu, protože odpovídá
+       na otázku, kterou si člověk nad ním klade. -->
+  <section class="card" id="window-card" hidden aria-labelledby="h-window">
+    <h2 id="h-window" data-i18n="bestWindow.title"></h2>
+    <div class="window-acts" id="window-acts" role="group" aria-labelledby="h-window"></div>
+    <p class="window-result" role="status" aria-live="polite">
+      <span class="window-quality" id="window-quality"></span>
+      <span class="window-text" id="window-text"></span>
+    </p>
+    <p class="hint window-note" data-i18n="bestWindow.note"></p>
   </section>
 
   <section class="card" aria-labelledby="h-daily">

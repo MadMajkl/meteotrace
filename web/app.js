@@ -48,6 +48,7 @@ import { createSwipe } from './lib/sheet-swipe.js';
 import {
   vzorkyCesty, bodyDoDotazu, cistaCesta, platneCesty, dnyText, DNY_VYCHOZI,
 } from './lib/route-watch.js';
+import { AKTIVITY, VYCHOZI, hodinyZPredpovedi, nejlepsiOkno, kvalita, textOkna } from './lib/best-window.js';
 import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
 import { hlidanaMista, prepniHlidani, jeHlidane, vycistiKlice, MAX_HLIDANYCH } from './lib/watched-places.js';
 import { kamMiri, coRict } from './lib/drift.js';
@@ -81,7 +82,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.2.0';
+const VERZE = '1.3.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -138,6 +139,8 @@ const state = {
   // zvonek u místa je vědomá volba „ozvi se mi" a déšť je přesně to, kvůli
   // čemu vznikl (pes na zahradě). Vypnout jde zvlášť od bouřek.
   dest: true,
+  // Kdy ven (`R43`): vybraná aktivita — kolo, běh, procházka.
+  aktivita: VYCHOZI,
   // Uložená místa, která obal hlídá (klíče, `R38`). Prázdné = hlídá se místo
   // otevřené na meteostanici, tak jako do 0.28.0.
   hlidana: [],
@@ -191,6 +194,7 @@ function load() {
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     if (typeof saved.bourky === 'boolean') state.bourky = saved.bourky;
     if (typeof saved.dest === 'boolean') state.dest = saved.dest;
+    if (AKTIVITY[saved.aktivita]) state.aktivita = saved.aktivita;
     // ⚠️ Klíče se tu jen převezmou; proti skladu míst se čistí až při
     // použití (`vycistiKlice`) — místa se načítají zvlášť a později.
     if (Array.isArray(saved.hlidana)) state.hlidana = saved.hlidana.filter((k) => typeof k === 'string');
@@ -246,7 +250,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
-      notify: state.notify, bourky: state.bourky, dest: state.dest, hlidana: state.hlidana, cesty: state.cesty, oznameno: state.oznameno,
+      notify: state.notify, bourky: state.bourky, dest: state.dest, aktivita: state.aktivita, hlidana: state.hlidana, cesty: state.cesty, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
@@ -3090,6 +3094,49 @@ function renderWarnings(payload) {
   }
 }
 
+/* ============================================================
+   KDY VEN (`R43`)
+
+   Nejlepší okno na kolo, běh nebo procházku v příštích 48 hodinách.
+   Počítá čistá `lib/best-window.js` z hodinové předpovědi meteostanice.
+   ============================================================ */
+
+/** Poslední předpověď meteostanice — přepnutí aktivity se nemusí ptát znovu. */
+let posledniPredpoved = null;
+
+function vykresliOkno() {
+  const karta = $('window-card');
+  if (!karta) return;
+  const fc = posledniPredpoved;
+  karta.hidden = !fc;
+  if (!fc) return;
+
+  const volby = $('window-acts');
+  volby.replaceChildren(...Object.keys(AKTIVITY).map((a) => {
+    const b = el('button', 'chip window-act', t(`bestWindow.${a}`, state.lang));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(a === state.aktivita));
+    b.addEventListener('click', () => {
+      if (a === state.aktivita) return;
+      state.aktivita = a;
+      save();
+      vykresliOkno();
+    });
+    return b;
+  }));
+
+  const ted = Date.now();
+  const okno = nejlepsiOkno(hodinyZPredpovedi(fc), state.aktivita, ted);
+  const q = $('window-quality');
+  // ⚠️ Kvalita slovem I tvarem (štítek), ne jen barvou (`tile-tone.js`).
+  q.hidden = !!okno.nic;
+  q.textContent = okno.nic ? '' : t(`bestWindow.quality.${kvalita(okno.skore)}`, state.lang);
+  q.dataset.kvalita = okno.nic ? '' : kvalita(okno.skore);
+  $('window-text').textContent = textOkna(okno, {
+    lang: state.lang, units: state.units, timeZone: fc.timezone || 'UTC', nowMs: ted,
+  });
+}
+
 /**
  * Horní dlaždice, mapa a předpověď po hodinách a dnech — všechno z jedné
  * odpovědi. Pyly se kreslí zvlášť, až dorazí (`loadStation`).
@@ -3235,6 +3282,9 @@ function render(forecast) {
   if (state.place) ukazOkoli(state.place, c, view);
 
   hlidejRolovani();
+  // Kdy ven (`R43`) z téže odpovědi — žádný dotaz navíc.
+  posledniPredpoved = forecast;
+  vykresliOkno();
   fill($('hours'), view.hourly, (h) => {
     const bunka = el('div', 'hour', [
       el('div', 't', h.time),

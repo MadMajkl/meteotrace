@@ -32,7 +32,7 @@ export const STORE_KEY = 'meteotrace.v1';
 
 export const FORECAST_PARAMS = {
   current: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation,pressure_msl,surface_pressure',
-  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
+  hourly: 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,cloud_cover_low,cloud_cover_mid,cloud_cover_high,direct_radiation,shortwave_radiation',
   daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
   timezone: 'auto',
   forecast_days: '7',

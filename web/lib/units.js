@@ -131,6 +131,18 @@ function num(value, locale, digits) {
  * @param {string} locale
  * @param {number} [digits=0]
  */
+/**
+ * Rozsah teplot: „4 až 7 °C", nebo „5 °C", když se zaokrouhlené hodnoty
+ * shodují. ⚠️ Jednotka jen u druhého čísla (jako ranní zpráva) a shoda se
+ * posuzuje až PO převodu jednotek — 4,6 a 5,2 °C jsou obě „5 °C".
+ */
+export function formatTempRange(minC, maxC, units, lang, tfn) {
+  const min = Math.round(convert.temp(minC, units.temp));
+  const max = Math.round(convert.temp(maxC, units.temp));
+  if (min === max) return formatTemp(maxC, units, lang);
+  return tfn('tempRange.range', { min, max: formatTemp(maxC, units, lang) }, lang);
+}
+
 export function formatTemp(celsius, units, locale, digits = 0) {
   const v = convert.temp(celsius, units.temp);
   // Prázdná hodnota se NIKDY nemá tvářit jako nula — ta je v zimě věrohodná

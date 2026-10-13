@@ -2701,3 +2701,21 @@ main {
 .stats-bod-hodnoty { grid-column: 1 / -1; font-size: 14px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
 
 .stats-source { margin: 4px 4px 0; font-size: 12px; line-height: 1.45; color: var(--text-soft); }
+
+/* ── Kdy ven (R43) ───────────────────────────────────────────────────────
+   Volba aktivity jako štítky, pod ní věta s oknem a štítek kvality.
+   ⚠️ Kvalita se píše SLOVEM, barva ji jen doprovází (`tile-tone.js`). */
+.window-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.window-act[aria-pressed="true"] {
+  color: var(--accent); font-weight: 600;
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.window-result { margin: 0 0 6px; font-size: 15px; line-height: 1.45; }
+.window-quality {
+  display: inline-block; margin-right: 6px; padding: 1px 9px;
+  border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent);
+}
+.window-quality[hidden] { display: none; }
+.window-quality[data-kvalita="snesitelne"] { background: var(--surface-2); color: var(--text-soft); }
+.window-note { margin: 0; }

@@ -699,6 +699,17 @@ async function run() {
       if (vKontextuMisto) vady.push(`Místo: ${vKontextuMisto}`);
       const vSloupciMisto = sloupecHlavicky(doc);
       if (vSloupciMisto) vady.push(`Místo: ${vSloupciMisto}`);
+      // Kdy ven (R43): karta je vidět a něco říká — okno, nebo proč žádné.
+      // A tři volby aktivity stojí v jednom řádku (na 320 px se nesmí lámat).
+      const okno = doc.getElementById('window-card');
+      if (!okno || okno.hidden || !doc.getElementById('window-text').textContent.trim()) {
+        vady.push('Místo: karta „Kdy ven" chybí nebo je prázdná');
+      } else {
+        const volby = [...doc.querySelectorAll('#window-acts .window-act')].map((b) => b.getBoundingClientRect());
+        if (volby.length !== 3 || volby.some((r) => Math.abs(r.top - volby[0].top) > 1)) {
+          vady.push('Místo: volby „Kdy ven" se nevešly do jednoho řádku');
+        }
+      }
       rozbalNabidku(doc);
       // ⚠️ Počkat, až appka štítky přeměří (ResizeObserver po rozbalení).
       // Ve sbalené nabídce mají nulovou šířku a jsou schované VŠECHNY —

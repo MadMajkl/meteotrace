@@ -133,6 +133,40 @@ export default {
     },
   },
 
+  // Nejlepší okno na kolo, běh, procházku (R43) — karta „Kdy ven".
+  bestWindow: {
+    title: 'Kdy ven',
+    kolo: 'Kolo',
+    beh: 'Běh',
+    prochazka: 'Procházka',
+    today: 'Dnes',
+    tomorrow: 'Zítra',
+    later: 'Pozítří',
+    line: '{day} {from}–{to} · {what}',
+    dry: 'sucho',
+    rainChance: 'déšť {p} %',
+    feels: 'pocitově {range}',
+    wind: 'vítr do {w}',
+    quality: { skvele: 'Skvělé', dobre: 'Dobré', snesitelne: 'Dá se' },
+    // ⚠️ „Nic" vždycky s důvodem — prázdná karta vypadá jako rozbitá.
+    none: {
+      dest: 'Do pozítří suché okno nevychází — pořád prší nebo hrozí déšť.',
+      jev: 'Do pozítří nic — bouřky, sníh nebo mlha.',
+      zima: 'Do pozítří je na tohle venku moc zima.',
+      horko: 'Do pozítří je na tohle venku moc horko.',
+      vitr: 'Do pozítří na tohle moc fouká.',
+      tma: 'Za světla se do pozítří okno nenajde.',
+      data: 'Předpověď po hodinách chybí, okno nejde spočítat.',
+    },
+    note: 'Za světla v příštích 48 hodinách, podle pocitové teploty, větru a deště.',
+  },
+
+  // Rozsah teplot: „4 až 7 °C", ale „5 °C", když je to jedno číslo —
+  // „5 až 5 °C" čte člověk jako chybu (Kdy ven, hlídaná cesta).
+  tempRange: {
+    range: '{min} až {max}',
+  },
+
   // Začátek deště z radaru (R42). ⚠️ Déšť není nebezpečí — tón smí být
   // lehčí, ale věta říká, co dělat. Zdroj se přidává z `storm.source`.
   rain: {
@@ -607,8 +641,8 @@ export default {
   // appky; obal je jen zobrazí.
   routeWatch: {
     title: 'Cesta „{name}“',
-    calm: 'Odjezd v {time}: po celé cestě sucho, {min} až {max}.',
-    rain: 'Odjezd v {time}: déšť na {n} z {total} míst po cestě, {min} až {max}.',
+    calm: 'Odjezd v {time}: po celé cestě sucho, {range}.',
+    rain: 'Odjezd v {time}: déšť na {n} z {total} míst po cestě, {range}.',
     hazard: 'Odjezd v {time}: kolem {at} {what} ({temp}).',
     wind: 'Odjezd v {time}: silný vítr po cestě, až {wind}.',
     better: ' Vyjeď v {time} a mineš to.',

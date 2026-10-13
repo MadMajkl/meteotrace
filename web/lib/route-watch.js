@@ -32,7 +32,7 @@ import { t, tf } from './i18n.js';
 import { sampleRoute, durationToDistance, hourIndexFor } from './eta.js';
 import { buildRouteView, compareDepartures, ROUTE_FORECAST_PARAMS } from './route-view.js';
 import { asLocationList, hoursToMs } from './route-adapter.js';
-import { formatTemp, formatWind, convert } from './units.js';
+import { formatTempRange, formatWind } from './units.js';
 import { isUsablePoint } from './geo-query.js';
 import { clock } from './when.js';
 
@@ -219,8 +219,7 @@ export function textCesty({ forecast, vzorky, odjezdMs, nowMs, lang = 'en', unit
   if (!hrozba && jenHrozba) return { text: null, hrozba: false, lepsiMs: null, duvod: 'klid' };
 
   const teploty = znamo.map((p) => p.tempC).filter(Number.isFinite);
-  const min = Math.round(convert.temp(Math.min(...teploty), units.temp));
-  const max = formatTemp(Math.max(...teploty), units, lang);
+  const range = formatTempRange(Math.min(...teploty), Math.max(...teploty), units, lang, tf);
   const kdy = cas(odjezdMs);
 
   let text;
@@ -234,9 +233,9 @@ export function textCesty({ forecast, vzorky, odjezdMs, nowMs, lang = 'en', unit
     const naraz = Math.max(...znamo.map((p) => Math.max(p.windKmh || 0, p.gustKmh || 0)));
     text = tf('routeWatch.wind', { time: kdy, wind: formatWind(naraz, units, lang) }, lang);
   } else if (s.rainCount > 0) {
-    text = tf('routeWatch.rain', { time: kdy, n: s.rainCount, total: s.total, min, max }, lang);
+    text = tf('routeWatch.rain', { time: kdy, n: s.rainCount, total: s.total, range }, lang);
   } else {
-    text = tf('routeWatch.calm', { time: kdy, min, max }, lang);
+    text = tf('routeWatch.calm', { time: kdy, range }, lang);
   }
 
   let lepsiMs = null;
