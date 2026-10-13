@@ -832,10 +832,18 @@ test('🚨 každé hlídané místo má vlastní id upozornění — výstraha, 
   // Id z KLÍČE místa, ne z pořadí: přidané místo nesmí posunout ostatní.
   const fn = /fun idUpozorneni[\s\S]*?\n {4}\}/.exec(kt)?.[0] || '';
   assert.match(fn, /klicMista\(m\)\.hashCode\(\)/);
-  assert.match(fn, /\* 2/, 'sudé id = výstraha, liché (+1) = bouřka');
-  assert.match(fn, /while \(id in pouzite\) id \+= 2/, 'srážka dvou míst se rozstrčí');
+  // Po trojicích (`R42`): výstraha, bouřka (+1), začátek deště (+2).
+  assert.match(fn, /\* 3/, 'id po trojicích: výstraha, bouřka +1, déšť +2');
+  assert.match(fn, /while \(id in pouzite\) id \+= 3/, 'srážka dvou míst se rozstrčí');
   assert.match(kt, /zpracujVystrahy\(ctx, m, id\[i\], it\)/);
   assert.match(kt, /zpracujBourku\(ctx, m, id\[i\] \+ 1, it, ted\)/);
+  assert.match(kt, /zpracujDest\(ctx, m, id\[i\] \+ 2,/);
+  // 🚨 Hlídané cesty (`R41`) mají id POD rozsahem míst — jinak by upozornění
+  // cesty přepsalo výstrahu místa se stejným číslem.
+  const cesty = bezKomentaru(KT('Cesty.kt'));
+  const zaklad = Number(/ID_ZAKLAD\s*=\s*(\d+)/.exec(cesty)?.[1]);
+  const max = Number(/MAX_CEST\s*=\s*(\d+)/.exec(cesty)?.[1]);
+  assert.ok(zaklad > 4 && zaklad + max <= od, `id cest ${zaklad}…${zaklad + max} zasahují do míst od ${od}`);
   assert.ok(!/ID_VYSTRAHA|ID_BOURKA/.test(kt), 'společné id pro všechna místa by přepisovalo jedno místo druhým');
 });
 
@@ -868,7 +876,9 @@ test('🚨 kontrola jde budíkem i v hlubokém spánku, budík se hned nasadí z
 test('🚨 „poslední kontrola" se zapíše jen tehdy, když došlo VŠECHNO hlídané', () => {
   // Jinak by nastavení hlásilo „před chvílí", zatímco by se bouřka nehlídala.
   const kt = bezKomentaru(KT('Vystrahy.kt'));
-  assert.match(kt, /val vsechnoDoslo = vystrahy != null && \(!co\.bourky \|\| bourky != null\)/);
+  // Radar = bouřky NEBO začátek deště (`R42`) — chodí v téže odpovědi.
+  assert.match(kt, /val radar = co\.bourky \|\| co\.dest/);
+  assert.match(kt, /val vsechnoDoslo = vystrahy != null && \(!radar \|\| bourky != null\)/);
   assert.match(kt, /if \(vsechnoDoslo\) prefs\.edit\(\)\.putLong\(KLIC_KONTROLA/);
 });
 
@@ -1167,5 +1177,49 @@ test('obal se ptá na tutéž službu, kterou server zná', async () => {
   for (const p of ['body', 'odjezd', 'lang', 'units', 'jen', 'posun']) {
     assert.ok(UPSTREAMS.cesta.params.includes(p), `server nepřijímá ${p}`);
     assert.match(kt, new RegExp(`[?&]${p}=`), `obal neposílá ${p}`);
+  }
+});
+
+/* ============================================================
+   ZAČÁTEK DEŠTĚ (R42)
+   ============================================================ */
+
+test('🌧 web posílá obalu volbu deště a nadpis, obal je čte týmiž jmény', () => {
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const fn = /function zapisHlidani\(\)[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /dest: state\.dest === true/);
+  assert.match(fn, /nadpisDest: tf\('rain\.title'/);
+  const kt = KT('Vystrahy.kt');
+  assert.match(kt, /optBoolean\("dest"/);
+  assert.match(kt, /optString\("nadpisDest"\)/);
+});
+
+test('🚨 změněné hlídání se zkontroluje HNED — stejné zadání kontrolu nespouští', () => {
+  // Emulátor 13. 10. 2026: zapnutý déšť čekal na další budík (10–17 min)
+  // a „začne pršet za 15 minut" by přišlo, až by pršelo.
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  const hlidej = /fun hlidej\(ctx: Context, co: Hlidane\)[\s\S]*?\n {4}\}/.exec(kt)?.[0] || '';
+  assert.match(hlidej, /val zmena = nove != prefs\.getString\(KLIC_HLIDANI, null\)/);
+  assert.match(hlidej, /if \(zmena\) zkontrolujHned\(ctx\)/);
+  assert.ok(!/^\s*zkontrolujHned\(ctx\)\s*$/m.test(hlidej), 'kontrola bez podmínky by běžela při každém načtení stanice');
+  // A čerstvá kontrola z doby PŘED změnou ji nezablokuje.
+  assert.match(kt, /posledni >= zmena\) \{\s*return Result\.success\(\)/);
+});
+
+test('🌧 déšť má vlastní kanál s nižší důležitostí a mlčí, když u místa hlásí bouřku', () => {
+  const kt = bezKomentaru(KT('Vystrahy.kt'));
+  assert.match(kt, /KANAL_DEST = "dest"/);
+  assert.match(kt, /KANAL_DEST,\s*ctx\.getString\(R\.string\.kanal_dest\),\s*NotificationManager\.IMPORTANCE_DEFAULT/);
+  const fn = /private fun zpracujDest[\s\S]*?\n {8}\}/.exec(kt)?.[0] || '';
+  assert.match(fn, /if \(stav != "dest" \|\| bourka \|\| ted - naposledy <= ticho\) return/,
+    'déšť se hlásí jen jednou za ticho a ne vedle bouřky');
+  // Paměť deště se počítá i z „prsi" — v přeháňkách by jinak zvonilo pořád.
+  assert.match(fn, /if \(stav != "dest" && stav != "prsi"\) return/);
+  // A zvoní OPRAVDU na kanál deště, ne na kanál výstrah s vysokou důležitostí.
+  assert.match(fn, /zazvon\(ctx, id, m\.nadpisDest\.ifBlank \{ m\.nadpis \}, text, KANAL_DEST\)/,
+    'déšť zvoní kanálem výstrah — vyrušil by jako bouřka a nedal by se vypnout zvlášť');
+  for (const soubor of ['values/strings.xml', 'values-en/strings.xml']) {
+    const xml = readFileSync(join(RES, soubor), 'utf8');
+    assert.match(xml, /name="kanal_dest"/, `${soubor}: chybí jméno kanálu deště`);
   }
 });

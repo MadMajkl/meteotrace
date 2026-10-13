@@ -23,6 +23,11 @@
     <string name="kanal_cesty">Hlídané cesty</string>
     <string name="kanal_cesty_popis">Hodinu před odjezdem: co čeká po cestě a kdy vyrazit líp.</string>
 
+    <!-- Začátek deště z radaru (R42). Vlastní kanál s nižší důležitostí než
+         výstrahy: déšť není nebezpečí a v přeháňkách je častý. -->
+    <string name="kanal_dest">Začátek deště</string>
+    <string name="kanal_dest_popis">Kdy u hlídaného místa začne pršet, podle radaru ČHMÚ.</string>
+
     <!--
         Widget na ploše (R29). Tyhle texty ukazuje VÝBĚR WIDGETŮ, tedy systém —
         proto jazyk systému. Co je ve widgetu, když už má data, posílá server

@@ -84,6 +84,8 @@ export default {
     phoneWatches: 'Telefon hlídá: {places}.',
     phoneWatchesNothing: 'Telefon zatím nic nehlídá, přestože jsou upozornění zapnutá. Zavři appku a otevři ji znovu.',
     storm: 'Bouřky podle radaru',
+    // Začátek deště (R42) — u hlídaných míst, z téhož radaru.
+    rain: 'Začátek deště podle radaru',
     stormOn: 'Upozorňovat',
     stormOff: 'Neupozorňovat',
     // Stav na pozadí (R37). 🚨 Nic z toho nesmí mlčet: zprávy dvakrát
@@ -129,6 +131,15 @@ export default {
       n: 'severu', ne: 'severovýchodu', e: 'východu', se: 'jihovýchodu',
       s: 'jihu', sw: 'jihozápadu', w: 'západu', nw: 'severozápadu',
     },
+  },
+
+  // Začátek deště z radaru (R42). ⚠️ Déšť není nebezpečí — tón smí být
+  // lehčí, ale věta říká, co dělat. Zdroj se přidává z `storm.source`.
+  rain: {
+    title: 'Déšť — {place}',
+    coming: 'Asi za {min} min tu začne pršet.',
+    soon: 'Do 10 minut tu začne pršet.',
+    advice: 'Prádlo a zvířata pod střechu.',
   },
 
   /* Potažení dolů nahoře na stránce data natáhne znovu. Každý stav má svoje

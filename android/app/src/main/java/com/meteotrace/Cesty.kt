@@ -55,10 +55,13 @@ object Cesty {
     const val MAX_CEST = 10
 
     /**
-     * Id upozornění a budíků: 3000 + pořadí. (1 výstrahy, 2–3 zprávy,
-     * od 1000 hlídaná místa — viz `Vystrahy`.)
+     * Id upozornění a budíků: 200 + pořadí. (1 a 4 staré výstrahy, 2–3
+     * zprávy, od 1000 hlídaná místa — viz `Vystrahy`.)
+     *
+     * 🚨 POD 1000, ne 3000: místa mají id 1000 + 3 × (0…16 383) — upozornění
+     * cesty se stejným číslem by v liště přepsalo výstrahu nějakého místa.
      */
-    private const val ID_ZAKLAD = 3000
+    private const val ID_ZAKLAD = 200
 
     data class Cesta(
         /** Klíč uložené trasy — podle něj se drží stav, ne podle pořadí. */

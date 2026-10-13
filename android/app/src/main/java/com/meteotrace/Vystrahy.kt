@@ -57,6 +57,13 @@ import kotlin.math.abs
 object Vystrahy {
 
     private const val KANAL = "vystrahy"
+
+    /**
+     * Začátek deště (`R42`) má VLASTNÍ kanál s nižší důležitostí: déšť není
+     * nebezpečí, nemá právo vyrušit jako bouřka — a kdo ho nechce, vypne ho
+     * v Androidu zvlášť, aniž by přišel o výstrahy.
+     */
+    private const val KANAL_DEST = "dest"
     private const val PRACE = "meteotrace-vystrahy"
     private const val PRACE_HNED = "meteotrace-vystrahy-hned"
     private const val PREFS = "meteotrace-hlidani"
@@ -86,12 +93,15 @@ object Vystrahy {
        uvidí v nastavení, se nesmí počítat jinde než tady. */
     private const val KLIC_HLIDANI = "hlidani"
     private const val KLIC_KONTROLA = "kontrolaMs"
+    /** Kdy se naposledy ZMĚNILO, co se hlídá — viz `hlidej` a `Kontrola`. */
+    private const val KLIC_ZMENA = "zadaniZmenenoMs"
     private const val KLIC_BOURKA_OHLASENA = "bourkaOhlasenaMs"
 
     /* Paměť KAŽDÉHO MÍSTA zvlášť: `oznamene@49.530,12.944`. Výstraha
        ohlášená pro domov není ohlášená pro Plzeň. */
     private const val PAMET_VYSTRAH = "oznamene@"
     private const val PAMET_BOURKY = "bourkaVidenaMs@"
+    private const val PAMET_DESTE = "destVidenMs@"
 
     /**
      * Jak často se kontroluje.
@@ -145,6 +155,8 @@ object Vystrahy {
         val nadpis: String,
         /** Nadpis upozornění na bouřku z radaru — taky hotový z webu (`R37`). */
         val nadpisBourka: String,
+        /** Nadpis upozornění na začátek deště — hotový z webu (`R42`). */
+        val nadpisDest: String = "",
     )
 
     /** Co se hlídá. `null` = nic; pak se práce vůbec neplánuje. */
@@ -155,6 +167,8 @@ object Vystrahy {
         val prah: String,
         /** Hlídat i bouřky z radaru? Vypnout jde zvlášť od výstrah (`R37`). */
         val bourky: Boolean,
+        /** Hlídat i začátek deště z radaru (`R42`)? Vypnout jde zvlášť. */
+        val dest: Boolean = false,
     )
 
     /**
@@ -179,6 +193,7 @@ object Vystrahy {
                 jmeno = m.optString("jmeno"),
                 nadpis = m.optString("nadpis"),
                 nadpisBourka = m.optString("nadpisBourka"),
+                nadpisDest = m.optString("nadpisDest"),
             )
             if (mista.size >= MAX_MIST) break
         }
@@ -190,6 +205,9 @@ object Vystrahy {
             // ⚠️ Výchozí ANO: kdo zapnul upozornění ve starší verzi, chtěl
             // upozornění na bouřku — jen je appka neuměla (`R37`).
             bourky = o.optBoolean("bourky", true),
+            // ⚠️ Výchozí NE: zadání ze starší verze o dešti nevědělo a web
+            // ho po prvním otevření pošle znovu — už s volbou uživatele.
+            dest = o.optBoolean("dest", false),
         )
     }
 
@@ -197,10 +215,12 @@ object Vystrahy {
         .put("lang", co.lang)
         .put("prah", co.prah)
         .put("bourky", co.bourky)
+        .put("dest", co.dest)
         .put("mista", JSONArray().apply {
             for (m in co.mista) put(JSONObject()
                 .put("lat", m.lat).put("lon", m.lon).put("jmeno", m.jmeno)
-                .put("nadpis", m.nadpis).put("nadpisBourka", m.nadpisBourka))
+                .put("nadpis", m.nadpis).put("nadpisBourka", m.nadpisBourka)
+                .put("nadpisDest", m.nadpisDest))
         })
         .toString()
 
@@ -212,7 +232,7 @@ object Vystrahy {
         String.format(Locale.ROOT, "%.3f,%.3f", m.lat, m.lon)
 
     /**
-     * Id upozornění pro každé místo (výstraha; bouřka = +1).
+     * Id upozornění pro každé místo (výstraha; bouřka = +1; déšť = +2, `R42`).
      *
      * Odvozené z klíče místa, ne z pořadí: kdyby se bralo pořadí, přidání
      * nového místa by posunulo ostatní a upozornění jednoho místa by
@@ -221,8 +241,8 @@ object Vystrahy {
     internal fun idUpozorneni(mista: List<Misto>): List<Int> {
         val pouzite = mutableSetOf<Int>()
         return mista.map { m ->
-            var id = ID_MISTA_OD + (klicMista(m).hashCode() and 0x3fff) * 2
-            while (id in pouzite) id += 2
+            var id = ID_MISTA_OD + (klicMista(m).hashCode() and 0x3fff) * 3
+            while (id in pouzite) id += 3
             pouzite += id
             id
         }
@@ -240,7 +260,15 @@ object Vystrahy {
     fun hlidej(ctx: Context, co: Hlidane) {
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prevedStare(prefs)
-        val e = prefs.edit().putString(KLIC_HLIDANI, doJson(co))
+        val nove = doJson(co)
+        val zmena = nove != prefs.getString(KLIC_HLIDANI, null)
+        val e = prefs.edit().putString(KLIC_HLIDANI, nove)
+        // 🚨 Nové zadání = nová otázka (zvonek u dalšího místa, zapnutý déšť).
+        // Do 1.2.0 se na ni odpovědělo až s dalším budíkem, tedy za 10–17 min,
+        // a „začne pršet za 15 minut" by přišlo, až by pršelo (emulátor
+        // 13. 10. 2026). Web posílá zadání při každém načtení stanice — stejné
+        // zadání proto kontrolu NESPOUŠTÍ, jen změněné.
+        if (zmena) e.putLong(KLIC_ZMENA, System.currentTimeMillis())
         // Paměť míst, která se už nehlídají, se zahodí. Nehlídané místo,
         // které se zase zapne, je nová situace — platná výstraha se ohlásí.
         val klice = co.mista.map(::klicMista).toSet()
@@ -248,6 +276,7 @@ object Vystrahy {
             val misto = when {
                 k.startsWith(PAMET_VYSTRAH) -> k.removePrefix(PAMET_VYSTRAH)
                 k.startsWith(PAMET_BOURKY) -> k.removePrefix(PAMET_BOURKY)
+                k.startsWith(PAMET_DESTE) -> k.removePrefix(PAMET_DESTE)
                 else -> continue
             }
             if (misto !in klice) e.remove(k)
@@ -268,6 +297,7 @@ object Vystrahy {
             .enqueueUniquePeriodicWork(PRACE, ExistingPeriodicWorkPolicy.UPDATE, prace)
 
         naplanujBudik(ctx)
+        if (zmena) zkontrolujHned(ctx)
     }
 
     /** Vypne hlídání. Zapomene se i to, o čem už se zvonilo. */
@@ -389,7 +419,11 @@ object Vystrahy {
             val co = hlidane(ctx) ?: return Result.success()
             val ted = System.currentTimeMillis()
 
-            if (ted - posledniKontrola(ctx) in 0 until TimeUnit.MINUTES.toMillis(NEJMENSI_ODSTUP_MIN)) {
+            // ⚠️ Odstup platí jen pro TOTÉŽ zadání. Kontrola z doby před změnou
+            // na novou otázku neodpověděla (`KLIC_ZMENA`, viz `hlidej`).
+            val posledni = posledniKontrola(ctx)
+            val zmena = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KLIC_ZMENA, 0L)
+            if (ted - posledni in 0 until TimeUnit.MINUTES.toMillis(NEJMENSI_ODSTUP_MIN) && posledni >= zmena) {
                 return Result.success()
             }
 
@@ -399,15 +433,23 @@ object Vystrahy {
             // minut v každém telefonu; server čte radar i výstrahy stejně
             // jednou pro všechny.
             val vystrahy = odpovediMist(stahni(adresaVystrah(co)), co.mista.size)
-            val bourky = if (co.bourky) odpovediMist(stahni(adresaBourky(co)), co.mista.size) else null
-            val vsechnoDoslo = vystrahy != null && (!co.bourky || bourky != null)
+            // Bouřka i začátek deště (`R42`) chodí v TÉŽE odpovědi radaru.
+            val radar = co.bourky || co.dest
+            val bourky = if (radar) odpovediMist(stahni(adresaBourky(co)), co.mista.size) else null
+            val vsechnoDoslo = vystrahy != null && (!radar || bourky != null)
 
             synchronized(ZAMEK) {
                 val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 val id = idUpozorneni(co.mista)
                 co.mista.forEachIndexed { i, m ->
                     vystrahy?.optJSONObject(i)?.let { zpracujVystrahy(ctx, m, id[i], it) }
-                    bourky?.optJSONObject(i)?.let { zpracujBourku(ctx, m, id[i] + 1, it, ted) }
+                    bourky?.optJSONObject(i)?.let {
+                        if (co.bourky) zpracujBourku(ctx, m, id[i] + 1, it, ted)
+                        // ⚠️ Když se u místa hlásí bouřka, déšť mlčí — bouřka
+                        // je totéž a víc; dvě upozornění by byla šum.
+                        if (co.dest) zpracujDest(ctx, m, id[i] + 2, it.optJSONObject("dest"),
+                            co.bourky && it.optString("stav") == "bourka", ted)
+                    }
                 }
                 // 🚨 Čas kontroly se zapíše, jen když dorazilo VŠECHNO, co se
                 // hlídá. Kdyby stačila půlka, ukazovalo by nastavení „poslední
@@ -495,6 +537,31 @@ object Vystrahy {
             }
         }
 
+        /**
+         * Začátek deště z radaru (`R42`).
+         *
+         * 🚨 JEDEN DÉŠŤ = JEDNO UPOZORNĚNÍ. Ticho se počítá od POSLEDNÍHO
+         * deště viděného u místa — teď (`prsi`) i v předpovědi (`dest`) —
+         * ne od zazvonění. V přeháňkách by se jinak ozvalo každou čtvrthodinu.
+         * Hodnotu `tichoMin` posílá server; obal jen porovná čas.
+         *
+         * ⚠️ Kde už prší, se nezvoní: déšť je tady a člověk ho vidí.
+         */
+        private fun zpracujDest(ctx: Context, m: Misto, id: Int, o: JSONObject?, bourka: Boolean, ted: Long) {
+            val stav = o?.optString("stav") ?: return
+            if (stav != "dest" && stav != "prsi") return
+            val ticho = TimeUnit.MINUTES.toMillis(o.optLong("tichoMin", 90L).coerceIn(0L, 24 * 60L))
+
+            val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val pamet = PAMET_DESTE + klicMista(m)
+            val naposledy = prefs.getLong(pamet, 0L)
+            prefs.edit().putLong(pamet, ted).apply()
+            if (stav != "dest" || bourka || ted - naposledy <= ticho) return
+
+            val text = o.optString("text").takeIf { it.isNotEmpty() && it != "null" } ?: return
+            zazvon(ctx, id, m.nadpisDest.ifBlank { m.nadpis }, text, KANAL_DEST)
+        }
+
         /** `49.5302,12.9441;49.7384,13.3736` — tvar čte `mistaZDotazu` na serveru. */
         private fun mista(co: Hlidane): String = URLEncoder.encode(
             co.mista.joinToString(";") { String.format(Locale.ROOT, "%.4f,%.4f", it.lat, it.lon) },
@@ -549,12 +616,21 @@ object Vystrahy {
             // schovala do tichého seznamu, kam se člověk podívá pozdě.
             NotificationManager.IMPORTANCE_HIGH,
         ).apply { description = ctx.getString(R.string.kanal_vystrahy_popis) }
+        // Začátek deště (`R42`): DEFAULT — upozorní, ale nevyruší jako bouřka.
+        val dest = NotificationChannel(
+            KANAL_DEST,
+            ctx.getString(R.string.kanal_dest),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply { description = ctx.getString(R.string.kanal_dest_popis) }
 
-        ctx.getSystemService(NotificationManager::class.java)?.createNotificationChannel(kanal)
+        ctx.getSystemService(NotificationManager::class.java)?.let {
+            it.createNotificationChannel(kanal)
+            it.createNotificationChannel(dest)
+        }
     }
 
     /** @return zda se upozornění opravdu poslalo */
-    private fun zazvon(ctx: Context, id: Int, nadpis: String, text: String): Boolean {
+    private fun zazvon(ctx: Context, id: Int, nadpis: String, text: String, kanalId: String = KANAL): Boolean {
         kanal(ctx)
 
         // ⚠️ Bez povolení se nic neposílá. Od Androidu 13 ho uživatel dává
@@ -569,15 +645,16 @@ object Vystrahy {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        val zprava = NotificationCompat.Builder(ctx, KANAL)
-            .setSmallIcon(android.R.drawable.stat_notify_error)
+        val dest = kanalId == KANAL_DEST
+        val zprava = NotificationCompat.Builder(ctx, kanalId)
+            .setSmallIcon(if (dest) android.R.drawable.ic_menu_compass else android.R.drawable.stat_notify_error)
             .setContentTitle(nadpis)
             .setContentText(text)
             // Dlouhý název jevu se do jednoho řádku nevejde a uřízlá výstraha
             // je k ničemu — rozbalená se přečte celá.
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(if (dest) NotificationCompat.PRIORITY_DEFAULT else NotificationCompat.PRIORITY_HIGH)
+            .setCategory(if (dest) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(otevri)
             .build()

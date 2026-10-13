@@ -35,7 +35,7 @@ object StavNaPozadi {
         // zapnutý — vypnout ho člověk nemohl.
         val kanaly = JSONArray()
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        for ((id, jmeno) in listOf("vystrahy" to R.string.kanal_vystrahy, "zpravy" to R.string.kanal_zpravy, "cesty" to R.string.kanal_cesty)) {
+        for ((id, jmeno) in listOf("vystrahy" to R.string.kanal_vystrahy, "zpravy" to R.string.kanal_zpravy, "cesty" to R.string.kanal_cesty, "dest" to R.string.kanal_dest)) {
             val zapnuto = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 nm?.getNotificationChannel(id)?.importance != NotificationManager.IMPORTANCE_NONE
             } else {

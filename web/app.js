@@ -81,7 +81,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.1.0';
+const VERZE = '1.2.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -134,6 +134,10 @@ const state = {
   // upozorněními. ⚠️ Výchozí ANO: kdo upozornění zapne, chce vědět o bouřce —
   // přesně tohle 8. 10. 2026 chybělo, když ČHMÚ výstrahu nevydal.
   bourky: true,
+  // Upozorňovat na začátek deště u hlídaných míst (`R42`)? ⚠️ Výchozí ANO:
+  // zvonek u místa je vědomá volba „ozvi se mi" a déšť je přesně to, kvůli
+  // čemu vznikl (pes na zahradě). Vypnout jde zvlášť od bouřek.
+  dest: true,
   // Uložená místa, která obal hlídá (klíče, `R38`). Prázdné = hlídá se místo
   // otevřené na meteostanici, tak jako do 0.28.0.
   hlidana: [],
@@ -186,6 +190,7 @@ function load() {
     }
     if (typeof saved.notify === 'string') state.notify = saved.notify;
     if (typeof saved.bourky === 'boolean') state.bourky = saved.bourky;
+    if (typeof saved.dest === 'boolean') state.dest = saved.dest;
     // ⚠️ Klíče se tu jen převezmou; proti skladu míst se čistí až při
     // použití (`vycistiKlice`) — místa se načítají zvlášť a později.
     if (Array.isArray(saved.hlidana)) state.hlidana = saved.hlidana.filter((k) => typeof k === 'string');
@@ -241,7 +246,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
-      notify: state.notify, bourky: state.bourky, hlidana: state.hlidana, cesty: state.cesty, oznameno: state.oznameno,
+      notify: state.notify, bourky: state.bourky, dest: state.dest, hlidana: state.hlidana, cesty: state.cesty, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
@@ -1026,6 +1031,10 @@ function openSettings() {
     { value: 'on', text: t('notify.stormOn', state.lang) },
     { value: 'off', text: t('notify.stormOff', state.lang) },
   ], state.bourky ? 'on' : 'off');
+  fillOptions($('set-rain'), [
+    { value: 'on', text: t('notify.stormOn', state.lang) },
+    { value: 'off', text: t('notify.stormOff', state.lang) },
+  ], state.dest ? 'on' : 'off');
   vypisStavUpozorneni();
 
   fillOptions($('set-briefs'), [
@@ -1210,6 +1219,9 @@ function vypisStavUpozorneni() {
   // V prohlížeči na pozadí nehlídá nic (`R17`), tak ať nic neslibuje.
   const radek = $('storm-row');
   if (radek) radek.hidden = !state.notify || !most;
+  // Déšť (`R42`) jako bouřka: jen v obalu a se zapnutými upozorněními.
+  const radekDeste = $('rain-row');
+  if (radekDeste) radekDeste.hidden = !state.notify || !most;
 }
 
 /**
@@ -1251,12 +1263,14 @@ function zapisHlidani() {
     lang: state.lang,
     prah: state.notify,
     bourky: state.bourky === true,
+    dest: state.dest === true,
     mista: mista.map((m) => ({
       lat: m.lat,
       lon: m.lon,
       jmeno: m.name,
       nadpis: (textUpozorneni({ nove: [{ event: '' }], misto: m.name, lang: state.lang }) || { nadpis: '' }).nadpis,
       nadpisBourka: tf('storm.title', { place: m.name }, state.lang),
+      nadpisDest: tf('rain.title', { place: m.name }, state.lang),
     })),
   }));
 }
@@ -5284,6 +5298,12 @@ function init() {
   $('set-notify').addEventListener('change', (e) => zmenUpozorneni(e.target.value));
   $('set-storm').addEventListener('change', (e) => {
     state.bourky = e.target.value === 'on';
+    save();
+    zapisHlidani();
+    vypisStavUpozorneni();
+  });
+  $('set-rain').addEventListener('change', (e) => {
+    state.dest = e.target.value === 'on';
     save();
     zapisHlidani();
     vypisStavUpozorneni();

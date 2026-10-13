@@ -72,6 +72,7 @@ export default {
     phoneWatches: 'The phone is watching: {places}.',
     phoneWatchesNothing: 'The phone is not watching anything yet, although notifications are on. Close the app and open it again.',
     storm: 'Thunderstorms on radar',
+    rain: 'Rain starting, from radar',
     stormOn: 'Notify',
     stormOff: 'Do not notify',
     statusTitle: 'Background status',
@@ -114,6 +115,15 @@ export default {
       n: 'north', ne: 'northeast', e: 'east', se: 'southeast',
       s: 'south', sw: 'southwest', w: 'west', nw: 'northwest',
     },
+  },
+
+  // Rain starting, from radar (R42). Not a danger — a lighter tone is fine,
+  // but the sentence says what to do. The source comes from `storm.source`.
+  rain: {
+    title: 'Rain — {place}',
+    coming: 'Rain will start here in about {min} min.',
+    soon: 'Rain will start here within 10 minutes.',
+    advice: 'Bring the laundry and pets inside.',
   },
 
   /* Pull down at the top of the page and the data reloads. Each state has

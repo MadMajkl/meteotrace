@@ -27,6 +27,7 @@ import {
   tabulkaOdrazivosti, souvislaJadra, stopaPredpovedi, nazevSnimku, ZDROJ, LICENCE, SIRKA, VYSKA,
 } from '../web/lib/storm-watch.js';
 import { kandidatiBehu, nazevBehu, rozbalTar, snimkyZArchivu, VYREZ } from '../web/lib/nowcast.js';
+import { mrizkaDeste, zhusti } from '../web/lib/rain-watch.js';
 
 /** Podsložky v adresáři kompozitů ČHMÚ (`base` z katalogu). */
 const POZOROVANI = 'maxz/png/';
@@ -85,6 +86,7 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
   // 2) Předpověď: nejnovější běh, po řadě zpátky (jako `stavNowcast`).
   let beh = null;
   let stopa = null;
+  let dest = null;
   for (const kandidat of kandidatiBehu(nowMs, POKUSU)) {
     const tar = await stahni(fetchImpl, base + PREDPOVED + nazevBehu(kandidat));
     if (!tar) continue;
@@ -98,6 +100,10 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
     if (!snimky.length) continue;
     const prectene = snimky.map((s) => ({ minut: s.minut, ...precti(s.data) }));
     stopa = stopaPredpovedi(prectene.map(({ minut, pixely }) => ({ minut, pixely })), prectene[0].dbz);
+    // Začátek deště (`R42`): mřížka po ~2 km, kde prší teď a kdy kde začne.
+    // Z TÝCHŽ snímků — žádné stahování navíc.
+    dest = zhusti(mrizkaDeste(ted.pixely, ted.dbz,
+      prectene.map(({ minut, pixely }) => ({ minut, pixely })), prectene[0].dbz));
     beh = kandidat;
     break;
   }
@@ -115,6 +121,7 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
     jadra: souvislaJadra(ted.pixely, ted.dbz),
     jadraPredtim: souvislaJadra(predtim.pixely, predtim.dbz),
     stopa,
+    dest,
   };
   log('bouřka: radar přečten', {
     pozorovano: new Date(vysledek.pozorovanoMs).toISOString(),

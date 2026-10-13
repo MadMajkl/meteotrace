@@ -20,6 +20,7 @@ import { findArea, matchWarningAreas, areaGeoJSON } from './orp.js';
 import { staciNa } from './severity.js';
 import { zpravaJeCerstva } from './cap.js';
 import { odpovedProMisto } from './storm-watch.js';
+import { odpovedDeste } from './rain-watch.js';
 import { mistaZDotazu } from './watched-places.js';
 
 /** Předpona, pod kterou proxy poslouchá. */
@@ -220,8 +221,10 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
 
   // Bouřka z radaru (`R37`): v cache leží podklad společný všem, místo
   // a věta v jazyce appky se z něj dělají až tady — jako u výstrah.
+  // Začátek deště (`R42`) z téhož podkladu — mřížka v něm leží vedle jader.
   if (UPSTREAMS[service]?.normalize === 'storm') {
-    return odpovedProMisto(body, params, Number.isFinite(opts.nowMs) ? opts.nowMs : 0);
+    const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : 0;
+    return { ...odpovedProMisto(body, params, nowMs), dest: odpovedDeste(body, params, nowMs) };
   }
   if (service !== 'warnings') return body;
 

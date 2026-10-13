@@ -400,6 +400,28 @@ test('stavitel: nejnovější snímek, k němu předchozí a nejnovější běh 
   assert.equal(bourkaProMisto(d, { ...BOD, nowMs: NOW }).stav, 'bourka');
 });
 
+test('🌧 stavitel přidá mřížku deště z TÝCHŽ snímků — a místo z ní dostane „začne pršet" (R42)', async () => {
+  const volane = [];
+  const d = await stavBourky({
+    fetchImpl: cizinaCHMU({
+      pozorovani: { 'z_max3d.20261008.1325.0.png': ted(), 'z_max3d.20261008.1320.0.png': predtim() },
+      behy: { 'fct_z_max.20261008.1320.ft60s10.tar': beh() },
+      volane,
+    }),
+    base: BASE, nowMs: NOW,
+  });
+  assert.ok(Array.isArray(d.dest) && d.dest.length, 'mřížka deště chybí');
+  assert.equal(volane.length, new Set(volane).size, 'kvůli dešti se nic nestahuje dvakrát');
+  // Předpověď má u Týna 40 dBZ v minutě 40 běhu 13:20 → za ~32 min.
+  const o = filterByPlace('storm', d, { lat: String(BOD.lat), lon: String(BOD.lon), lang: 'cs' }, { nowMs: NOW });
+  assert.equal(o.dest.stav, 'dest');
+  assert.ok(o.dest.za >= 30 && o.dest.za <= 33, `za ${o.dest.za}`);
+  assert.match(o.dest.text, /začne pršet/);
+  // Bouřka 30 km západně PRŠÍ — tam je „prsi", ne „dest".
+  const zapadne = filterByPlace('storm', d, { lat: String(BOD.lat), lon: String(BOD.lon - 0.42), lang: 'cs' }, { nowMs: NOW });
+  assert.equal(zapadne.dest.stav, 'prsi');
+});
+
 test('stavitel: chybí-li snímek před 5 min, vezme se ten před 10 min', async () => {
   const d = await stavBourky({
     fetchImpl: cizinaCHMU({

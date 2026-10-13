@@ -446,6 +446,12 @@
     <label for="set-storm" data-i18n="notify.storm"></label>
     <select id="set-storm"></select>
   </div>
+  <!-- Začátek deště podle radaru (R42) — u hlídaných míst, z téhož radaru.
+       Vypnout jde zvlášť od bouřek: déšť je méně vážný a v přeháňkách častý. -->
+  <div class="setting" id="rain-row" hidden>
+    <label for="set-rain" data-i18n="notify.rain"></label>
+    <select id="set-rain"></select>
+  </div>
   <!-- ⚠️ MUSÍ být poznat, CO se hlídá a jestli to vůbec může fungovat.
        Přepínač, který tvrdí „zapnuto", zatímco Android upozornění zahazuje,
        se od funkčního nedá odlišit — a přijde se na to až tím, že nedorazí
