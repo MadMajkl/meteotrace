@@ -1095,7 +1095,7 @@ test('🚨 mazání se potvrzuje Ano / Ne — koš sám nemaže, u míst ani u t
   // Ohnisko na „Ne": Enter omylem nic nesmaže.
   assert.match(naKos, /ne\.focus\(\)/, 'ohnisko po otevření otázky není na „Ne"');
   // Otevřená otázka smí být jen jedna v celém dialogu.
-  assert.match(naKos, /\$\('places-dialog'\)\.querySelectorAll\('\.manage-potvrzeni:not\(\[hidden\]\)'\)/,
+  assert.match(naKos, /\(btn\.closest\('dialog'\) \|\| document\)\.querySelectorAll\('\.manage-potvrzeni:not\(\[hidden\]\)'\)/,
     'zavírají se otázky jen v části dialogu');
 });
 
@@ -1192,6 +1192,30 @@ test('🌧 web posílá obalu volbu deště a nadpis, obal je čte týmiž jmén
   const kt = KT('Vystrahy.kt');
   assert.match(kt, /optBoolean\("dest"/);
   assert.match(kt, /optString\("nadpisDest"\)/);
+});
+
+test('🗺 offline mapa: protokol se dívá do telefonu DŘÍV než na síť, bez sítě vrátí uložený popis archivu', () => {
+  const map = bezKomentaru(readFileSync(join(WEB, 'map.js'), 'utf8'));
+  const proto = /maplibregl\.addProtocol\('pmtiles', async \(params, abort\) => \{[\s\S]*?\n {6}\}\);/.exec(map)?.[0] || '';
+  assert.ok(proto, 'protokol pmtiles není obalený');
+  const iUloz = proto.indexOf('offline.najdiDlazdici(');
+  const iSit = proto.indexOf('zaklad.tilev4(');
+  assert.ok(iUloz > 0 && iSit > iUloz, 'uložená dlaždice se musí hledat PŘED sítí');
+  assert.match(proto, /catch \(e\) \{[\s\S]*?offline\.najdiTileJson\(u\.url\)/,
+    'bez sítě nepřijde popis archivu — a bez něj ani dlaždice, které telefon má');
+});
+
+test('🗺 nepovedené nebo zrušené stahování po sobě uklidí — napůl stažená oblast se neuloží', () => {
+  const st = bezKomentaru(readFileSync(join(WEB, 'offline-store.js'), 'utf8'));
+  const fn = /export async function stahni\([\s\S]*?\n\}/.exec(st)?.[0] || '';
+  // Oblast se zapíše až po posledním `zapis()`, a chyba vede na úklid.
+  assert.ok(fn.lastIndexOf("tx('oblasti', 'readwrite'") > fn.lastIndexOf('await zapis();'),
+    'oblast se nesmí zapsat dřív, než je staženo všechno');
+  assert.match(fn, /catch \(e\) \{[\s\S]*?await uklid\(klice\.filter\(\(k\) => !jinde\.has\(k\)\)\)/,
+    'chyba musí uklidit, co nepatří jiné oblasti');
+  // Stahování se ptá Ano / Ne — „Ne" vpravo jako u mazání (`R39`).
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  assert.match(app, /volby\.replaceChildren\(ano, ne\)/);
 });
 
 test('🚨 změněné hlídání se zkontroluje HNED — stejné zadání kontrolu nespouští', () => {

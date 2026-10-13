@@ -25,8 +25,9 @@ import {
   radarSource, TILE_SIZE, MAX_ZOOM,
 } from './lib/radar.js';
 import { apiGet } from './lib/api.js';
-import { buildStyle, fontsUrlFrom, labelLayerIds } from './lib/map-style.js';
+import { buildStyle, fontsUrlFrom, labelLayerIds, DETAIL_OD_ZOOMU } from './lib/map-style.js';
 import { tilesUrl, moreTilesUrls, worldTilesUrl } from './lib/tiles-config.js';
+import { rozeberAdresu, vyberZoomu, ODHAD_BAJTU } from './lib/offline-map.js';
 import { placeFromMap } from './lib/map-pick.js';
 import { spojOsu, jeVeVyrezu, rohy as vyrezRohy } from './lib/nowcast.js';
 
@@ -97,6 +98,8 @@ let map = null;
 const PRIBLIZENI_MISTA = 9;
 
 let protokolZapsan = false;
+/** Úložiště offline oblastí (`offline-store.js`), `null` = nejde nebo ještě není. */
+let offline = null;
 /** Poslední vykreslená trasa — po přebarvení mapy se kreslí znovu. */
 let trasaData = null;
 /**
@@ -280,7 +283,29 @@ export async function showMap({ lat, lon, lang: language, timeZone: tz, onPick, 
     // Protokol `pmtiles://` se musí zaregistrovat DŘÍV, než mapa vznikne —
     // jinak si o dlaždice řekne a nikdo jí neodpoví.
     if (!protokolZapsan) {
-      maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
+      // Offline mapa oblasti (`R44`): protokol se nejdřív podívá do
+      // stažených dlaždic, teprve pak na síť. Úložiště se načítá líně —
+      // a když nejde (soukromé okno), mapa jede jako dřív.
+      try { offline = await import('./offline-store.js'); await offline.obnovStav(); } catch { offline = null; }
+      const zaklad = new pmtiles.Protocol();
+      maplibregl.addProtocol('pmtiles', async (params, abort) => {
+        const u = rozeberAdresu(params.url);
+        if (offline?.aktivni && u && !u.json) {
+          const ulozena = await offline.najdiDlazdici(u.url, u.z, u.x, u.y);
+          if (ulozena) return { data: new Uint8Array(ulozena) };
+        }
+        try {
+          return await zaklad.tilev4(params, abort);
+        } catch (e) {
+          // 🚨 Bez sítě nepřijde ani popis archivu — a bez něj mapa
+          // nenačte ani dlaždice, které v telefonu má. Proto uložený.
+          if (offline?.aktivni && u?.json) {
+            const json = await offline.najdiTileJson(u.url);
+            if (json) return { data: json };
+          }
+          throw e;
+        }
+      });
       protokolZapsan = true;
     }
 
@@ -731,6 +756,32 @@ export function mapState() {
     maTrasu: !!map.getLayer(ROUTE_LINE),
     vyrez: (() => { const bb = map.getBounds(); return { jih: +bb.getSouth().toFixed(4), sever: +bb.getNorth().toFixed(4), zapad: +bb.getWest().toFixed(4), vychod: +bb.getEast().toFixed(4) }; })(),
   };
+}
+
+/**
+ * Offline mapa (`R44`): co by se stáhlo, kdyby se teď stahovalo to, co je
+ * v mapě vidět. `null` = mapa ještě není, nebo úložiště nejde.
+ *
+ * @returns {Promise<{bbox: number[], archivy: Array, doZoomu: number, dlazdic: number, odhadBajtu: number}|{velka: true}|null>}
+ */
+export async function oblastProStazeni() {
+  if (!map || !offline?.umi()) return null;
+  const bb = map.getBounds();
+  const bbox = [bb.getWest(), bb.getSouth(), bb.getEast(), bb.getNorth()];
+  // Svět kreslí styl od z0, podrobné oblasti od `DETAIL_OD_ZOOMU`.
+  const archivy = await offline.popisArchivu([
+    { url: worldTilesUrl(), odZoomu: 0 },
+    { url: tilesUrl(), odZoomu: DETAIL_OD_ZOOMU },
+    ...moreTilesUrls().map((url) => ({ url, odZoomu: DETAIL_OD_ZOOMU })),
+  ]);
+  const vyber = vyberZoomu(bbox, archivy);
+  if (!vyber) return { velka: true };
+  return { bbox, archivy, ...vyber, odhadBajtu: vyber.dlazdic * ODHAD_BAJTU };
+}
+
+/** Úložiště offline oblastí pro obrazovku — líně, jen když mapa běží. */
+export function offlineUloziste() {
+  return offline;
 }
 
 /** Po přesunu karty mezi obrazovkami má mapa jinou plochu. */

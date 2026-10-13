@@ -49,6 +49,7 @@ import {
   vzorkyCesty, bodyDoDotazu, cistaCesta, platneCesty, dnyText, DNY_VYCHOZI,
 } from './lib/route-watch.js';
 import { AKTIVITY, VYCHOZI, hodinyZPredpovedi, nejlepsiOkno, kvalita, textOkna } from './lib/best-window.js';
+import { velikost } from './lib/offline-map.js';
 import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
 import { hlidanaMista, prepniHlidani, jeHlidane, vycistiKlice, MAX_HLIDANYCH } from './lib/watched-places.js';
 import { kamMiri, coRict } from './lib/drift.js';
@@ -82,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.3.0';
+const VERZE = '1.4.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -1054,7 +1055,138 @@ function openSettings() {
   vypisStavPolohy();
 
   $('about-version').textContent = tf('settings.version', { version: VERZE }, state.lang);
+  vykresliMapyOffline();
   $('settings-dialog').showModal();
+}
+
+/* ============================================================
+   MAPY OFFLINE (`R44`)
+
+   Pod mapou „⬇ Mapa offline": stáhne to, co je v mapě vidět. V ⚙ seznam
+   stažených oblastí s košem. Úložiště a stahování je `offline-store.js`,
+   počty a plán `lib/offline-map.js`, protokol mapy `map.js`.
+   ============================================================ */
+
+/** Úložiště offline map — líně, ať appka bez mapy nic neplatí. */
+async function offlineStore() {
+  try {
+    const s = await import('./offline-store.js');
+    return s.umi() ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Řádek pod mapou se ukáže, až mapa běží a úložiště jde. */
+function nastavOfflineRadek() {
+  const radek = $('offline-radek');
+  if (!radek) return;
+  radek.hidden = !mapModule?.offlineUloziste()?.umi();
+}
+
+/** Jak se stažená oblast jmenuje: trasa, místo, nebo datum. */
+function nazevOblasti() {
+  const { from, to } = state.route;
+  if (state.screen === 'route' && from && to) return `${from.name} → ${to.name}`;
+  if (state.place?.name) return state.place.name;
+  return tf('offline.areaFallback', { date: new Date().toLocaleDateString(state.lang) }, state.lang);
+}
+
+let stahovani = null;
+
+async function nabidniStazeni() {
+  const stav = $('offline-stav');
+  const volby = $('offline-volby');
+  const tlacitko = $('btn-offline');
+  if (stahovani) return;
+  volby.hidden = true;
+  stav.textContent = t('offline.measuring', state.lang);
+  let o;
+  try {
+    o = await mapModule?.oblastProStazeni();
+  } catch {
+    o = undefined;
+  }
+  if (!o) { stav.textContent = o === null ? t('offline.noStorage', state.lang) : t('offline.failed', state.lang); return; }
+  if (o.velka) { stav.textContent = t('offline.big', state.lang); return; }
+
+  stav.textContent = tf('offline.ask', {
+    n: o.dlazdic.toLocaleString(state.lang), size: velikost(o.odhadBajtu, state.lang),
+  }, state.lang);
+  // ⚠️ Ano / Ne jako u mazání (`R39`) — „Ne" vpravo, na místě, kam se klepe.
+  const ano = el('button', 'manage-ano', t('places.yes', state.lang));
+  const ne = el('button', 'manage-ne', t('places.no', state.lang));
+  ano.type = 'button';
+  ne.type = 'button';
+  volby.replaceChildren(ano, ne);
+  volby.hidden = false;
+  ne.focus();
+  ne.addEventListener('click', () => { volby.hidden = true; stav.textContent = ''; tlacitko.focus(); });
+  ano.addEventListener('click', () => stahniOblast(o));
+}
+
+async function stahniOblast(o) {
+  const stav = $('offline-stav');
+  const volby = $('offline-volby');
+  const tlacitko = $('btn-offline');
+  const store = mapModule?.offlineUloziste();
+  if (!store) return;
+  const nazev = nazevOblasti();
+  stahovani = new AbortController();
+  tlacitko.disabled = true;
+  const zrusit = el('button', 'manage-ne', t('offline.cancel', state.lang));
+  zrusit.type = 'button';
+  zrusit.addEventListener('click', () => stahovani?.abort());
+  volby.replaceChildren(zrusit);
+  volby.hidden = false;
+  try {
+    const hotova = await store.stahni({
+      nazev, bbox: o.bbox, archivy: o.archivy, doZoomu: o.doZoomu, signal: stahovani.signal,
+      prubeh: ({ hotovo, celkem, bajtu }) => {
+        stav.textContent = tf('offline.working', {
+          done: hotovo.toLocaleString(state.lang), total: celkem.toLocaleString(state.lang),
+          size: velikost(bajtu, state.lang),
+        }, state.lang);
+      },
+    });
+    stav.textContent = tf('offline.done', { name: hotova.nazev, size: velikost(hotova.bajtu, state.lang) }, state.lang);
+  } catch (e) {
+    stav.textContent = e?.name === 'AbortError' ? t('offline.cancelled', state.lang) : t('offline.failed', state.lang);
+  } finally {
+    stahovani = null;
+    tlacitko.disabled = false;
+    volby.hidden = true;
+  }
+}
+
+/** Seznam stažených oblastí v ⚙ — jméno, velikost, datum, koš. */
+async function vykresliMapyOffline() {
+  const sekce = $('offline-sprava');
+  if (!sekce) return;
+  const store = await offlineStore();
+  sekce.hidden = !store;
+  if (!store) return;
+  const oblasti = await store.seznam().catch(() => []);
+  const celkem = oblasti.reduce((s, o) => s + (o.bajtu || 0), 0);
+  $('offline-souhrn').textContent = oblasti.length
+    ? tf('offline.summary', { size: velikost(celkem, state.lang) }, state.lang)
+    : t('offline.empty', state.lang);
+  fill($('offline-seznam'), oblasti, (o) => {
+    const li = document.createElement('li');
+    li.className = 'manage-row offline-row';
+    const jmeno = el('span', 'manage-adresa offline-jmeno', o.nazev);
+    jmeno.title = o.nazev;
+    const kolik = el('span', 'offline-velikost', tf('offline.row', {
+      size: velikost(o.bajtu || 0, state.lang),
+      date: new Date(o.kdy).toLocaleDateString(state.lang),
+    }, state.lang));
+    li.append(jmeno, kolik, ...tlacitkoKose(o.nazev, 'offline.removeOne', async () => {
+      await store.smaz(o.id);
+      notice(tf('offline.removed', { name: o.nazev }, state.lang));
+      vykresliMapyOffline();
+    }));
+    return li;
+  });
 }
 
 /**
@@ -2140,7 +2272,8 @@ function tlacitkoKose(jmeno, popisKlic, smaz) {
   dotaz.addEventListener('manage:zavrit', () => zavri(false));
 
   btn.addEventListener('click', () => {
-    for (const jiny of $('places-dialog').querySelectorAll('.manage-potvrzeni:not([hidden])')) {
+    // V tomtéž dialogu (správa míst, nastavení s mapami offline).
+    for (const jiny of (btn.closest('dialog') || document).querySelectorAll('.manage-potvrzeni:not([hidden])')) {
       jiny.dispatchEvent(new Event('manage:zavrit'));
     }
     btn.closest('.manage-row')?.classList.add('potvrzuje');
@@ -4012,6 +4145,8 @@ async function showRadar(timeZone) {
       onPick: vyberZMapy,
       keepView: state.place.fromMap === true,
     });
+    // Offline mapa (`R44`): tlačítko pod mapou, až mapa a úložiště běží.
+    nastavOfflineRadek();
     // I když výstraha není, musí se zavolat — jinak by po přepnutí místa
     // zůstal na mapě viset obrys toho předchozího.
     presunMapu();
@@ -5526,6 +5661,7 @@ function init() {
     setTimeout(() => { btn.textContent = t('donate.copy', state.lang); }, 2500);
   });
   $('donate-close').addEventListener('click', () => $('donate-dialog').close());
+  $('btn-offline').addEventListener('click', nabidniStazeni);
   // Vlastní částka: prázdné pole neznamená chybu, ale „bez částky" —
   // QR bez ní je platný a banka se zeptá sama.
   $('donate-custom').addEventListener('input', (e) => {

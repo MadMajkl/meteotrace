@@ -2719,3 +2719,18 @@ main {
 .window-quality[hidden] { display: none; }
 .window-quality[data-kvalita="snesitelne"] { background: var(--surface-2); color: var(--text-soft); }
 .window-note { margin: 0; }
+
+/* ── Mapy offline (R44) ──────────────────────────────────────────────────
+   Pod mapou tlačítko, stav a Ano / Ne (tytéž tlačítka jako u mazání, R39).
+   V ⚙ seznam oblastí: jméno · velikost a datum · koš. */
+.offline-radek { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }
+.offline-radek[hidden] { display: none; }
+.offline-btn:disabled { opacity: .6; cursor: default; }
+.offline-stav { flex: 1 1 180px; min-width: 0; font-size: 13px; color: var(--text-soft); }
+.offline-stav:empty { display: none; }
+.offline-volby { display: inline-flex; gap: 6px; margin-left: auto; }
+.offline-volby[hidden] { display: none; }
+.offline-sprava[hidden] { display: none; }
+.manage-list .offline-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+.offline-velikost { font-size: 13px; color: var(--text-soft); white-space: nowrap; }
+.manage-row.potvrzuje > .offline-velikost { display: none; }

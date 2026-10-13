@@ -133,6 +133,27 @@ export default {
     },
   },
 
+  // Offline mapa oblasti (R44).
+  offline: {
+    download: '⬇ Mapa offline',
+    title: 'Mapy offline',
+    measuring: 'Počítám, kolik toho je…',
+    ask: 'Stáhnout mapu, která je vidět? {n} dlaždic, asi {size}.',
+    big: 'Oblast je moc velká — přibliž mapu a zkus to znovu.',
+    working: 'Stahuji {done} z {total} ({size})…',
+    done: 'Hotovo: „{name}", {size}. Mapa tu půjde i bez signálu.',
+    failed: 'Stahování se nepovedlo, nic se neuložilo. Zkus to znovu se signálem.',
+    cancelled: 'Stahování zrušeno, nic se neuložilo.',
+    cancel: 'Zrušit',
+    noStorage: 'Tady se mapy ukládat nedají (soukromé okno nebo zakázané úložiště).',
+    empty: 'Žádná oblast. Stáhneš ji tlačítkem „Mapa offline" pod mapou.',
+    summary: 'Celkem {size} v telefonu.',
+    row: '{size} · {date}',
+    removeOne: 'Smazat mapu „{name}"',
+    removed: 'Mapa „{name}" je smazaná.',
+    areaFallback: 'Oblast z {date}',
+  },
+
   // Nejlepší okno na kolo, běh, procházku (R43) — karta „Kdy ven".
   bestWindow: {
     title: 'Kdy ven',

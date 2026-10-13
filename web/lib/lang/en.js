@@ -117,6 +117,27 @@ export default {
     },
   },
 
+  // Offline map of an area (R44).
+  offline: {
+    download: '⬇ Offline map',
+    title: 'Offline maps',
+    measuring: 'Working out how much that is…',
+    ask: 'Download the map that is in view? {n} tiles, about {size}.',
+    big: 'The area is too large — zoom in and try again.',
+    working: 'Downloading {done} of {total} ({size})…',
+    done: 'Done: “{name}”, {size}. The map will work here without signal.',
+    failed: 'The download failed and nothing was saved. Try again with signal.',
+    cancelled: 'Download cancelled, nothing was saved.',
+    cancel: 'Cancel',
+    noStorage: 'Maps cannot be saved here (private window or blocked storage).',
+    empty: 'No areas yet. Download one with “Offline map” under the map.',
+    summary: '{size} on this phone in total.',
+    row: '{size} · {date}',
+    removeOne: 'Delete the map “{name}”',
+    removed: 'The map “{name}” was deleted.',
+    areaFallback: 'Area from {date}',
+  },
+
   // Best window for a ride, run or walk (R43) — the "When to go out" card.
   bestWindow: {
     title: 'When to go out',

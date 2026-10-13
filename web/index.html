@@ -111,6 +111,7 @@
 <link rel="modulepreload" href="lib/sheet-swipe.js">
 <link rel="modulepreload" href="lib/route-watch.js">
 <link rel="modulepreload" href="lib/best-window.js">
+<link rel="modulepreload" href="lib/offline-map.js">
 <link rel="modulepreload" href="lib/warn-notify.js">
 <link rel="modulepreload" href="lib/watched-places.js">
 <link rel="modulepreload" href="lib/drift.js">
@@ -488,6 +489,13 @@
     <button id="bg-status-settings" class="primary setting-akce" type="button" data-i18n="notify.openAppSettings" hidden></button>
   </div>
 
+  <!-- Mapy offline (R44): stažené oblasti, velikost a koš. -->
+  <section class="offline-sprava" id="offline-sprava" hidden>
+    <h3 data-i18n="offline.title"></h3>
+    <p class="hint" id="offline-souhrn"></p>
+    <ul class="manage-list" id="offline-seznam"></ul>
+  </section>
+
   <h3 data-i18n="settings.units"></h3>
   <p class="hint" data-i18n="settings.unitsNote"></p>
 
@@ -857,6 +865,15 @@
          🚨 ŽÁDNÉ data-i18n: to přepisuje textContent podle klíče, takže by
          při změně jazyka vrátilo větu, kterou jsme právě schovali. -->
     <p class="hint map-hint" id="map-hint" hidden></p>
+
+    <!-- Offline mapa oblasti (R44): stáhne, co je v mapě vidět, ať jde mapa
+         i bez signálu. ⚠️ Nejdřív se ZEPTÁ i s velikostí — stovka megabajtů
+         přes mobilní data se nestahuje na jedno klepnutí. -->
+    <div class="offline-radek" id="offline-radek" hidden>
+      <button id="btn-offline" class="chip offline-btn" type="button" data-i18n="offline.download"></button>
+      <span class="offline-stav" id="offline-stav" role="status" aria-live="polite"></span>
+      <span class="offline-volby" id="offline-volby" hidden></span>
+    </div>
 
     <!-- 🚨 LEGENDA JE V KARTĚ MAPY, POD ČASOVOU OSOU, VPRAVO DOLE.
          Michal 31. 8. 2026: *„dej tu dlaždici s body na trase do hlavní
