@@ -591,6 +591,42 @@ export default {
     titleEvening: 'Večer · {place}',
   },
 
+  // Hlídaná cesta (R41) — upozornění hodinu před odjezdem a jeho nastavení.
+  // ⚠️ Věty do upozornění skládá SERVER (`lib/route-watch.js`), v jazyce
+  // appky; obal je jen zobrazí.
+  routeWatch: {
+    title: 'Cesta „{name}“',
+    calm: 'Odjezd v {time}: po celé cestě sucho, {min} až {max}.',
+    rain: 'Odjezd v {time}: déšť na {n} z {total} míst po cestě, {min} až {max}.',
+    hazard: 'Odjezd v {time}: kolem {at} {what} ({temp}).',
+    wind: 'Odjezd v {time}: silný vítr po cestě, až {wind}.',
+    better: ' Vyjeď v {time} a mineš to.',
+    betterPartly: ' Vyjeď v {time}, bude to lepší.',
+    everyDay: 'každý den',
+    day1: 'Po', day2: 'Út', day3: 'St', day4: 'Čt', day5: 'Pá', day6: 'So', day7: 'Ne',
+    // Nastavení v řádku trasy ve správě.
+    start: 'Hlídat cestu „{name}“',
+    on: 'Cesta „{name}“ se hlídá: {days} v {time}',
+    departure: 'Odjezd',
+    days: 'Dny',
+    onlyHazard: 'Jen když po cestě něco hrozí',
+    note: 'Ozvu se hodinu před odjezdem — co čeká po cestě a jestli je lepší vyrazit dřív nebo později.',
+    save: 'Hlídat',
+    update: 'Uložit',
+    stop: 'Přestat hlídat',
+    computing: 'Počítám trasu…',
+    failed: 'Trasu se nepodařilo spočítat, hlídání se nezapnulo. Zkus to za chvíli.',
+    noDays: 'Vyber aspoň jeden den.',
+    noTime: 'Zadej čas odjezdu.',
+    started: 'Cesta „{name}“ se hlídá: {days} v {time}.',
+    stopped: 'Cesta „{name}“ se už nehlídá.',
+    // Stav na pozadí v nastavení.
+    statusNext: '{name}: příští kontrola {when}.',
+    statusNotPlanned: '{name}: další kontrola není naplánovaná — otevři správu tras a ulož hlídání znovu.',
+    statusNothing: 'Telefon žádnou cestu nehlídá, ač appka nějakou hlídanou má — otevři správu tras a ulož hlídání znovu.',
+    statusFailed: '{name}: budík zazvonil {when}, ale upozornění nepřišlo: {why}.',
+  },
+
   // Widget na ploše (R29). Schválně krátce — widget 4×1 má jeden řádek.
   widget: {
     feels: 'Pocitově {temp}',

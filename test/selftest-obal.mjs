@@ -1119,3 +1119,53 @@ test('záhlaví sloupců mají místa i trasy, se stejnými sloupci', () => {
   assert.deepEqual(sloupce('places-hlavicka'), ['popisek', 'popisek', 'manage-hlavicka-hlidat', 'manage-hlavicka-kos']);
   assert.deepEqual(sloupce('routes-hlavicka'), sloupce('places-hlavicka'));
 });
+
+/* ============================================================
+   HLÍDANÁ CESTA (R41)
+
+   Web a obal si předávají jeden JSON. Rozejít se v jménu pole znamená, že
+   obal cestu tiše zahodí — a upozornění prostě nepřijde.
+   ============================================================ */
+
+test('🚨 web posílá obalu hlídané cesty a obal je čte týmiž jmény', () => {
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const fn = /function zapisCesty\(\)[\s\S]*?\n\}/.exec(app)?.[0] || '';
+  assert.match(fn, /most\.hlidejCesty\(JSON\.stringify\(/);
+  const kt = KT('Cesty.kt');
+  for (const k of ['klic', 'nadpis', 'cas', 'dny', 'jen', 'body']) {
+    assert.match(fn, new RegExp(`\\b${k}[:,]`), `web neposílá ${k}`);
+    assert.match(kt, new RegExp(`opt(String|Int|Boolean|JSONArray)\\("${k}"`), `obal nečte ${k}`);
+  }
+  for (const k of ['lang', 'units', 'cesty']) {
+    assert.match(fn, new RegExp(`\\b${k}:`), `web neposílá ${k}`);
+    assert.match(kt, new RegExp(`opt(String|JSONArray)\\("${k}"`), `obal nečte ${k}`);
+  }
+});
+
+test('předstih upozornění je v obalu i na webu týž', async () => {
+  const { PREDSTIH_MIN } = await import('../web/lib/route-watch.js');
+  const kt = KT('Cesty.kt');
+  assert.match(kt, new RegExp(`const val PREDSTIH_MIN = ${PREDSTIH_MIN}\\b`));
+});
+
+test('🚨 budík cesty je neveřejný a po restartu se obnoví', () => {
+  const manifest = readFileSync(MANIFEST, 'utf8');
+  assert.match(manifest, /<receiver android:name="\.BudikCesty" android:exported="false"/,
+    'budík cesty chybí v manifestu, nebo je veřejný');
+  const zpravy = bezKomentaru(readFileSync(ZPRAVY, 'utf8'));
+  assert.match(/class PoRestartu[\s\S]*?\n\}/.exec(zpravy)?.[0] || '', /Cesty\.naplanuj\(ctx\)/,
+    'po restartu by hlídané cesty tiše přestaly');
+  const kt = bezKomentaru(KT('Cesty.kt'));
+  assert.match(/class BudikCesty[\s\S]*?\n\}/.exec(kt)?.[0] || '', /Cesty\.naplanuj\(ctx\)/,
+    'bez přeplánování by upozornění přišlo jednou a pak nikdy');
+});
+
+test('obal se ptá na tutéž službu, kterou server zná', async () => {
+  const { UPSTREAMS } = await import('../web/lib/upstreams.js');
+  const kt = KT('Cesty.kt');
+  assert.match(kt, /"\/api\/cesta\?body=/);
+  for (const p of ['body', 'odjezd', 'lang', 'units', 'jen', 'posun']) {
+    assert.ok(UPSTREAMS.cesta.params.includes(p), `server nepřijímá ${p}`);
+    assert.match(kt, new RegExp(`[?&]${p}=`), `obal neposílá ${p}`);
+  }
+});

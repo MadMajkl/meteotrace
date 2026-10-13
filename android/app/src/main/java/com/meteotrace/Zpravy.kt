@@ -341,5 +341,7 @@ class PoRestartu : BroadcastReceiver() {
         // A řetěz kontrol výstrah a bouřek (`R37`). Periodickou práci si
         // WorkManager obnoví sám, budík ne.
         Vystrahy.naplanujBudik(ctx)
+        // A budíky hlídaných cest (`R41`).
+        Cesty.naplanuj(ctx)
     }
 }

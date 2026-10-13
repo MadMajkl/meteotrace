@@ -13,6 +13,7 @@ import { stavNowcast } from '../../server/chmi-nowcast.js';
 import { stavBourky } from '../../server/chmi-storm.js';
 import { stavVystrahy } from '../../server/chmi-warnings.js';
 import { stavZpravu } from '../../server/brief.js';
+import { stavCestu } from '../../server/route-watch.js';
 import { stavWidget } from '../../server/widget.js';
 import { stavHistorii, stavKlima, stavPoslednich } from '../../server/history.js';
 import { createCache } from '../../web/lib/ttl-cache.js';
@@ -56,7 +57,7 @@ export default async function handler(request) {
     cache,
     areas,
     // Služby, které si odpověď skládají samy (víc dotazů, archiv).
-    builders: { chmiNowcast: stavNowcast, chmiBourka: stavBourky, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoWidget: stavWidget, meteoHistorie: stavHistorii, meteoKlima: stavKlima, meteoPosledni: stavPoslednich },
+    builders: { chmiNowcast: stavNowcast, chmiBourka: stavBourky, chmiWarnings: stavVystrahy, meteoZprava: stavZpravu, meteoCesta: stavCestu, meteoWidget: stavWidget, meteoHistorie: stavHistorii, meteoKlima: stavKlima, meteoPosledni: stavPoslednich },
     log: (msg, detail) => console.log(`[proxy] ${msg}`, detail ? JSON.stringify(detail) : ''),
   });
 

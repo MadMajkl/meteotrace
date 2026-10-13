@@ -12,6 +12,9 @@
     <string name="kanal_zpravy">Morning and evening report</string>
     <string name="kanal_zpravy_popis">A short forecast for your last known location.</string>
 
+    <string name="kanal_cesty">Watched routes</string>
+    <string name="kanal_cesty_popis">An hour before you leave: what is on the way and when it is better to go.</string>
+
     <string name="widget_popis">Weather for your last known location: temperature, the next six hours and when rain starts.</string>
     <string name="widget_prazdny">Open MeteoTrace and find your location — the widget will then show the weather there.</string>
     <string name="widget_nahled_misto">Prague</string>

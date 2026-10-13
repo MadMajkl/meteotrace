@@ -45,6 +45,9 @@ import { straightRoute } from './lib/great-circle.js';
 import { fitCount } from './lib/fit-row.js';
 import { createPull } from './lib/pull-refresh.js';
 import { createSwipe } from './lib/sheet-swipe.js';
+import {
+  vzorkyCesty, bodyDoDotazu, cistaCesta, platneCesty, dnyText, DNY_VYCHOZI,
+} from './lib/route-watch.js';
 import { noveVystrahy, textUpozorneni, vystrahySkoncily } from './lib/warn-notify.js';
 import { hlidanaMista, prepniHlidani, jeHlidane, vycistiKlice, MAX_HLIDANYCH } from './lib/watched-places.js';
 import { kamMiri, coRict } from './lib/drift.js';
@@ -78,7 +81,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.0.2';
+const VERZE = '1.1.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -134,6 +137,10 @@ const state = {
   // Uložená místa, která obal hlídá (klíče, `R38`). Prázdné = hlídá se místo
   // otevřené na meteostanici, tak jako do 0.28.0.
   hlidana: [],
+  // Hlídané cesty (`R41`): klíč uložené trasy → {cas, dny, jen, body}.
+  // `body` jsou navzorkované body trasy s časem od odjezdu — spočítané
+  // jednou při zapnutí, ať obal na pozadí nemusí na router.
+  cesty: {},
   // O čem se už upozornilo, aby se o téže výstraze nezvonilo pořád dokola.
   oznameno: [],
   // Prošel už uvítáním? 🚨 Vlastní příznak, NE prázdnota seznamu míst —
@@ -182,6 +189,9 @@ function load() {
     // ⚠️ Klíče se tu jen převezmou; proti skladu míst se čistí až při
     // použití (`vycistiKlice`) — místa se načítají zvlášť a později.
     if (Array.isArray(saved.hlidana)) state.hlidana = saved.hlidana.filter((k) => typeof k === 'string');
+    // ⚠️ Jako u hlídaných míst: tady se jen převezmou, proti skladu tras se
+    // čistí až při použití (`platneCesty`) — trasy se načítají zvlášť.
+    if (saved.cesty && typeof saved.cesty === 'object' && !Array.isArray(saved.cesty)) state.cesty = saved.cesty;
     // 🚨 Poloha se obnovuje, protože na ní stojí ranní a večerní zpráva:
     // bez ní by po restartu appky přestaly chodit, dokud by si člověk
     // znovu nesáhl na ⌖ — a nic by mu to neřeklo.
@@ -231,7 +241,7 @@ function save() {
       // zařízení i příště", ne „ulož si, co zařízení řeklo dneska".
       lang: state.langManual || null, langManual: state.langManual,
       theme: state.theme, primary: state.primary, primaryManual: state.primaryManual,
-      notify: state.notify, bourky: state.bourky, hlidana: state.hlidana, oznameno: state.oznameno,
+      notify: state.notify, bourky: state.bourky, hlidana: state.hlidana, cesty: state.cesty, oznameno: state.oznameno,
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
@@ -909,23 +919,32 @@ function renderManageRoutes() {
   $('routes-manage').classList.toggle('s-hlidanim', sHlidanim);
   $('routes-hlavicka').classList.toggle('s-hlidanim', sHlidanim);
 
-  fill($('routes-manage'), list, (r) => radekSpravyPolozky({
-    // Trasa se jmenuje „Praha → Brno", ale lidsky je to „do práce".
-    popis: routeDescription(r),
-    jmeno: r.name,
-    vychozi: routeAutoName(r),
-    popisekPole: t('routes.nameLabel', state.lang),
-    prejmenuj: (input) => commitRenameRoute(r, input),
-    kosKlic: 'routes.removeOne',
-    smaz: () => {
-      state.places = forgetRoute(state.places, r.key);
-      persistPlaces();
-      renderManageRoutes();
-      renderRoutes();
-      notice(tf('routes.removed', { name: r.name }, state.lang));
-    },
-    sHlidanim,
-  }));
+  fill($('routes-manage'), list, (r) => {
+    // Budík hlídané cesty (`R41`) ve sloupci, kde mají místa zvonek.
+    const cesta = sHlidanim ? cestaVRadku(r) : null;
+    const li = radekSpravyPolozky({
+      // Trasa se jmenuje „Praha → Brno", ale lidsky je to „do práce".
+      popis: routeDescription(r),
+      jmeno: r.name,
+      vychozi: routeAutoName(r),
+      popisekPole: t('routes.nameLabel', state.lang),
+      prejmenuj: (input) => commitRenameRoute(r, input),
+      kosKlic: 'routes.removeOne',
+      smaz: () => {
+        state.places = forgetRoute(state.places, r.key);
+        persistPlaces();
+        renderManageRoutes();
+        renderRoutes();
+        // Smazaná trasa se přestane hlídat — upozornění odnikud by mátlo.
+        poZmeneCest();
+        notice(tf('routes.removed', { name: r.name }, state.lang));
+      },
+      sHlidanim,
+      zvonek: cesta?.budik || null,
+    });
+    if (cesta) li.append(cesta.panel);
+    return li;
+  });
 }
 
 
@@ -1354,6 +1373,227 @@ function zapisZpravy() {
 }
 
 /* ============================================================
+   HLÍDANÁ CESTA (`R41`)
+
+   Miki 13. 10. 2026 vybral z návrhů jako první: „Domov → Plzeň, ve všední
+   dny v 7:15" a hodinu před odjezdem upozornění, co čeká po cestě a jestli
+   vyrazit dřív nebo později. Větu skládá server (`server/route-watch.js`),
+   obal jen zvoní (`Cesty.kt`). Web řekne, KTERÉ cesty, KDY a dá jim body.
+   ============================================================ */
+
+/** Most do obalu pro hlídané cesty. `null` v prohlížeči i ve starším obalu. */
+function obalCesty() {
+  const m = obal();
+  return m && typeof m.hlidejCesty === 'function' ? m : null;
+}
+
+/**
+ * Řekne obalu, které cesty hlídat. Volá se po každé změně — a po startu,
+ * protože obal si zadání nepamatuje napříč přeinstalováním.
+ *
+ * ⚠️ Nadpis jde HOTOVÝ, v jazyce appky (`R17`): `strings.xml` v obalu se
+ * řídí jazykem systému.
+ */
+function zapisCesty() {
+  const most = obalCesty();
+  if (!most) return;
+  const cesty = platneCesty(state.places, state.cesty);
+  const seznam = Object.entries(cesty).map(([klic, c]) => {
+    const r = state.places.routes.find((x) => x.key === klic);
+    return {
+      klic,
+      nadpis: tf('routeWatch.title', { name: r.name }, state.lang),
+      cas: minutyZCasu(c.cas, 7 * 60),
+      dny: c.dny,
+      jen: c.jen,
+      body: c.body,
+    };
+  });
+  most.hlidejCesty(JSON.stringify({ lang: state.lang, units: sadaJednotek(), cesty: seznam }));
+}
+
+/** Po změně tras: smazaná trasa vypadne z hlídání a obal dostane nový seznam. */
+function poZmeneCest() {
+  const ciste = platneCesty(state.places, state.cesty);
+  if (Object.keys(ciste).length !== Object.keys(state.cesty).length) {
+    state.cesty = ciste;
+    save();
+  }
+  zapisCesty();
+}
+
+/**
+ * Trasa se zrovna spočítala na obrazovce — je-li to hlídaná cesta, obnoví
+ * se jí body. Silnice se mění (objížďka, nová dálnice) a body z doby
+ * zapnutí by časem hlídaly cestu, kterou už nikdo nejezdí.
+ */
+function obnovBodyHlidaneCesty(trasa) {
+  const ulozena = najdiUlozenouTrasu();
+  const c = ulozena && state.cesty[ulozena.key];
+  if (!c) return;
+  const body = bodyDoDotazu(vzorkyCesty(trasa));
+  if (!body || body === c.body) return;
+  state.cesty[ulozena.key] = { ...c, body };
+  save();
+  zapisCesty();
+}
+
+/** Ciferník s ručičkami — kresba, ne emoji (viz zvonek). */
+const BUDIK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+  + '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4.2l2.8 1.8"/>'
+  + '<path d="M5 4.5 2.8 6.7M19 4.5l2.2 2.2"/></svg>';
+
+/**
+ * Budík u uložené trasy a pod řádkem jeho nastavení.
+ *
+ * 🚨 Ve SLOUPCI ZVONKU — tam, kde mají místa zvonek (`R38`). Trasa se
+ * nehlídá „pořád", ale v čase odjezdu; jiný znak, stejné místo, stejný
+ * význam: „ozvi se mi".
+ *
+ * Nastavení se rozbalí POD řádek, ne do druhého dialogu: dialog nad
+ * dialogem se odklikává naslepo a Escape by zavřel ten spodní.
+ *
+ * @returns {{budik: HTMLButtonElement, panel: HTMLElement}}
+ */
+function cestaVRadku(r) {
+  const budik = document.createElement('button');
+  budik.type = 'button';
+  budik.className = 'manage-zvonek manage-budik';
+  budik.innerHTML = BUDIK_SVG;
+
+  const panel = el('div', 'cesta-nastaveni');
+  panel.hidden = true;
+  const idPanelu = `cesta-${Math.abs(hashText(r.key))}`;
+  panel.id = idPanelu;
+  budik.setAttribute('aria-controls', idPanelu);
+  budik.setAttribute('aria-expanded', 'false');
+
+  const ulozena = () => cistaCesta(state.cesty[r.key]);
+  const popis = () => {
+    const c = ulozena();
+    budik.setAttribute('aria-pressed', String(!!c));
+    const text = c
+      ? tf('routeWatch.on', { name: r.name, days: dnyText(c.dny, state.lang), time: c.cas }, state.lang)
+      : tf('routeWatch.start', { name: r.name }, state.lang);
+    budik.title = text;
+    budik.setAttribute('aria-label', text);
+  };
+  popis();
+
+  // ── obsah panelu ──
+  const c0 = ulozena();
+  const cas = document.createElement('input');
+  cas.type = 'time';
+  cas.step = 300;
+  cas.className = 'cesta-cas';
+  cas.value = c0?.cas || '07:00';
+  const casLabel = el('label', 'cesta-pole', [el('span', '', t('routeWatch.departure', state.lang)), cas]);
+
+  const vybraneDny = new Set(c0?.dny || DNY_VYCHOZI);
+  const dny = el('div', 'cesta-dny');
+  dny.setAttribute('role', 'group');
+  dny.setAttribute('aria-label', t('routeWatch.days', state.lang));
+  for (let d = 1; d <= 7; d++) {
+    const b = el('button', 'cesta-den', t(`routeWatch.day${d}`, state.lang));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(vybraneDny.has(d)));
+    b.addEventListener('click', () => {
+      if (vybraneDny.has(d)) vybraneDny.delete(d); else vybraneDny.add(d);
+      b.setAttribute('aria-pressed', String(vybraneDny.has(d)));
+    });
+    dny.append(b);
+  }
+
+  const jen = document.createElement('input');
+  jen.type = 'checkbox';
+  jen.checked = !!c0?.jen;
+  const jenLabel = el('label', 'cesta-jen', [jen, el('span', '', t('routeWatch.onlyHazard', state.lang))]);
+
+  const stav = el('p', 'cesta-stav');
+  stav.setAttribute('role', 'status');
+  stav.setAttribute('aria-live', 'polite');
+
+  const ulozit = el('button', 'cesta-ulozit', t(c0 ? 'routeWatch.update' : 'routeWatch.save', state.lang));
+  ulozit.type = 'button';
+  const prestat = el('button', 'cesta-prestat', t('routeWatch.stop', state.lang));
+  prestat.type = 'button';
+  prestat.hidden = !c0;
+
+  panel.append(
+    el('div', 'cesta-radek', [casLabel, dny]),
+    jenLabel,
+    el('p', 'hint cesta-poznamka', t('routeWatch.note', state.lang)),
+    stav,
+    el('div', 'cesta-tlacitka', [prestat, ulozit]),
+  );
+
+  budik.addEventListener('click', () => {
+    const otevrit = panel.hidden;
+    // Otevřený smí být jen jeden — jinak se dialog roztáhne přes celou výšku.
+    for (const jiny of $('places-dialog').querySelectorAll('.cesta-nastaveni:not([hidden])')) {
+      if (jiny !== panel) jiny.dispatchEvent(new Event('cesta:zavrit'));
+    }
+    panel.hidden = !otevrit;
+    budik.setAttribute('aria-expanded', String(otevrit));
+    if (otevrit) cas.focus();
+  });
+  panel.addEventListener('cesta:zavrit', () => {
+    panel.hidden = true;
+    budik.setAttribute('aria-expanded', 'false');
+  });
+
+  ulozit.addEventListener('click', async () => {
+    if (!cas.value) { stav.textContent = t('routeWatch.noTime', state.lang); return; }
+    if (!vybraneDny.size) { stav.textContent = t('routeWatch.noDays', state.lang); return; }
+    ulozit.disabled = true;
+    stav.textContent = t('routeWatch.computing', state.lang);
+    try {
+      // 🚨 Body se počítají TEĎ, jednou. Na pozadí by obal musel na router
+      // a kvóta openrouteservice je společná všem uživatelům.
+      const spocitana = await spocitejTrasu({
+        from: r.from, to: r.to, via: r.via, profil: r.profile, rychlostKmh: state.route.rychlostKmh || 90,
+      }, 'cesta');
+      const body = spocitana ? bodyDoDotazu(vzorkyCesty(spocitana.trasa)) : '';
+      const nova = cistaCesta({ cas: cas.value, dny: [...vybraneDny], jen: jen.checked, body });
+      if (!nova) { stav.textContent = t('routeWatch.failed', state.lang); return; }
+      state.cesty = { ...state.cesty, [r.key]: nova };
+      save();
+      // Povolení se žádá AŽ TEĎ, při zapnutí — jako u výstrah (`R17`).
+      const most = obalCesty();
+      if (most && typeof most.majiPovoleni === 'function' && !most.majiPovoleni()) most.zadejOPovoleni();
+      zapisCesty();
+      notice(tf('routeWatch.started', { name: r.name, days: dnyText(nova.dny, state.lang), time: nova.cas }, state.lang));
+      renderManageRoutes();
+      vypisStavNaPozadi();
+    } catch (e) {
+      if (requests.isAbort(e)) return;
+      stav.textContent = t('routeWatch.failed', state.lang);
+    } finally {
+      ulozit.disabled = false;
+    }
+  });
+
+  prestat.addEventListener('click', () => {
+    const { [r.key]: _pryc, ...zbytek } = state.cesty;
+    state.cesty = zbytek;
+    save();
+    zapisCesty();
+    notice(tf('routeWatch.stopped', { name: r.name }, state.lang));
+    renderManageRoutes();
+    vypisStavNaPozadi();
+  });
+
+  return { budik, panel };
+}
+
+/** Krátký otisk textu — na id panelu, ať se klíč trasy nedává do DOM celý. */
+function hashText(text) {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+  return h;
+}
+
+/* ============================================================
    WIDGET NA PLOŠE (`R29`)
 
    Obsah skládá server (`/api/widget`), obal ho jen kreslí. Web mu řekne
@@ -1483,8 +1723,9 @@ function vypisStavNaPozadi() {
 
   const most = obalStav();
   const zpravyZap = !!state.zpravy?.zapnuto;
+  const maCesty = Object.keys(platneCesty(state.places, state.cesty)).length > 0;
   let s = null;
-  if (most && (state.notify || zpravyZap)) {
+  if (most && (state.notify || zpravyZap || maCesty)) {
     try { s = JSON.parse(most.stavNaPozadi()); } catch { s = null; }
   }
   if (!s) { blok.hidden = true; return; }
@@ -1523,8 +1764,27 @@ function vypisStavNaPozadi() {
     else if (s.zpravy.zapnuto) rekni(t('notify.briefNotPlanned', state.lang), true);
   }
 
+  // Hlídané cesty (`R41`): co telefon OPRAVDU hlídá a kdy se příště ozve.
+  if (maCesty) {
+    const cesty = (Array.isArray(s.cesty) ? s.cesty : []).filter((c) => c && typeof c.nadpis === 'string');
+    if (!cesty.length) rekni(t('routeWatch.statusNothing', state.lang), true);
+    for (const c of cesty) {
+      rekni(c.dalsi > ted
+        ? tf('routeWatch.statusNext', { name: c.nadpis, when: kdyNaTelefonu(c.dalsi, ted) }, state.lang)
+        : tf('routeWatch.statusNotPlanned', { name: c.nadpis }, state.lang), !(c.dalsi > ted));
+      // 🚨 Budík zazvonil a upozornění nepřišlo — tichá porucha (`R37`).
+      // ⚠️ „prazdne" u cesty NENÍ porucha: při „jen když něco hrozí" je klid.
+      if (c.budik > (c.zprava || 0) && (c.vysledek === 'sit' || c.vysledek === 'zakazano')) {
+        rekni(tf('routeWatch.statusFailed', {
+          name: c.nadpis, when: kdyNaTelefonu(c.budik, ted), why: t(`notify.briefWhy.${c.vysledek}`, state.lang),
+        }, state.lang), true);
+      }
+    }
+  }
+
   for (const k of s.kanaly || []) {
-    const tyka = (k.id === 'vystrahy' && state.notify) || (k.id === 'zpravy' && zpravyZap);
+    const tyka = (k.id === 'vystrahy' && state.notify) || (k.id === 'zpravy' && zpravyZap)
+      || (k.id === 'cesty' && maCesty);
     if (tyka && !k.zapnuto) rekni(tf('notify.channelOff', { name: k.jmeno }, state.lang), true);
   }
   if (s.omezeno || s.skupina >= SKUPINA_OMEZENA) rekni(t('notify.batteryRestricted', state.lang), true);
@@ -1673,6 +1933,8 @@ function prekresliVse() {
   zapisZpravy();
   // Totéž widget: obsah skládá server v jazyce a jednotkách appky (`R29`).
   zapisWidget();
+  // A hlídané cesty: nadpis i věta jsou v jazyce a jednotkách appky (`R41`).
+  zapisCesty();
   vypisStavZprav();
   if (state.place) loadStation();
   if (state.route.from && state.route.to && !$('route-summary-card').hidden) loadRoute();
@@ -1736,20 +1998,23 @@ function renderManage() {
       poZmeneHlidanych();
     },
     sHlidanim,
-    zvonek: sHlidanim ? zvonekMista(p) : null,
+    // Zvonek jen se zapnutými upozorněními na výstrahy — bez nich není co
+    // hlídat. Sloupec zůstává kvůli budíkům hlídaných cest (`R41`).
+    zvonek: sHlidanim && state.notify ? zvonekMista(p) : null,
   }));
 }
 
 /**
- * Zvonek „hlídat" (`R38`) jen tam, kde hlídání na pozadí opravdu běží:
- * v obalu a se zapnutými upozorněními. V prohlížeči by sliboval něco,
- * co prohlížeč na pozadí neumí (`R17`).
+ * Sloupec „Hlídat" jen tam, kde hlídání na pozadí opravdu běží: v obalu.
+ * V prohlížeči by sliboval něco, co prohlížeč na pozadí neumí (`R17`).
  *
- * ⚠️ Ptají se na to místa i trasy — trasy kvůli prázdnému sloupci, aby
- * jejich jména a koše stály pod těmi u míst.
+ * V něm zvonek u místa (`R38`, jen se zapnutými upozorněními na výstrahy)
+ * a budík u trasy (`R41`, hlídaná cesta). ⚠️ Od 13. 10. 2026 sloupec NEZÁVISÍ
+ * na upozorněních na výstrahy — hlídaná cesta je samostatná věc a kdo
+ * nechce výstrahy, může chtít vědět, co ho čeká cestou do práce.
  */
 function spravaSHlidanim() {
-  return !!obal() && !!state.notify && !state.places.readOnly;
+  return !!obal() && !state.places.readOnly;
 }
 
 /**
@@ -1961,6 +2226,8 @@ function commitRenameRoute(route, input) {
   notice(tf('places.renamed', { name: cil }, state.lang));
   renderManageRoutes();
   renderRoutes();
+  // Nadpis upozornění hlídané cesty nese jméno trasy — obal musí dostat nové.
+  zapisCesty();
 }
 
 /* ============================================================
@@ -4459,6 +4726,56 @@ function poznamkaTrasy(text) {
  *   3. …a to je všechno. Srovnání časů odjezdu je zadarmo, počítá se
  *      z týchž dat, jen z jiných hodin (R8).
  */
+/**
+ * Spočítá trasu (geometrii a rychlostní profil) — bez předpovědi a bez
+ * kreslení. Vrací `{trasa, useky}`, nebo `null`, když se nějaký úsek
+ * nespočítal.
+ *
+ * ⚠️ `klic` odděluje dotazy: obrazovka trasy (`route`) a hlídaná cesta
+ * (`cesta`) se nesmí navzájem rušit (`requests.run` ruší předchozí dotaz
+ * se stejným klíčem).
+ */
+async function spocitejTrasu({ from, to, via = [], profil, rychlostKmh }, klic = 'route') {
+  const zpusob = ZPUSOBY.find((z) => z.profil === profil);
+
+  // 🚨 Trasa se skládá z ÚSEKŮ mezi sousedními body. Mezibody umí ORS jen
+  // přes POST s tělem, a naše proxy propouští jen GET (`R2`) — což je
+  // bezpečnostní rozhodnutí, ne nedodělek. Viz `spojUseky()`.
+  const zastavky = [from, ...(via || []).filter(Boolean), to];
+  const useky = [];
+
+  for (let i = 0; i < zastavky.length - 1; i += 1) {
+    const a = zastavky[i];
+    const b = zastavky[i + 1];
+    let usek;
+
+    if (zpusob?.bezRouteru) {
+      // Ani jeden dotaz ven: ortodroma se spočítá u nás ze dvou bodů
+      // a rychlosti, kterou zadal uživatel. Jádru je jedno, odkud trasa je.
+      usek = straightRoute([a.lat, a.lon], [b.lat, b.lon], rychlostKmh);
+    } else {
+      const geo = await requests.run(`${klic}-${i}`, (signal) =>
+        apiGet('route', { start: toOrsCoord([a.lat, a.lon]), end: toOrsCoord([b.lat, b.lon]) },
+          { signal, subPath: profil }));
+      usek = fromOpenRouteService(geo.data);
+    }
+
+    // ⚠️ Chybějící úsek NELZE přeskočit. Trasa bez něj by vedla jinudy,
+    // než uživatel zadal, a nic by na to neupozornilo.
+    if (!usek) return null;
+    // Popis úseku pro výpis: odkud kam a kolik to je. Bez toho by se dalo
+    // ukázat jen „celkem 97 km", což u cesty přes zastávky nestačí.
+    usek.from = a;
+    usek.to = b;
+    usek.distanceM = usek.totalDistanceM;
+    usek.durationS = usek.totalDurationS;
+    useky.push(usek);
+  }
+
+  const trasa = spojUseky(useky);
+  return trasa ? { trasa, useky } : null;
+}
+
 async function loadRoute() {
   const { from, to, profil } = state.route;
   if (!from || !to) { poznamkaTrasy(t('route.needBoth', state.lang)); return; }
@@ -4477,44 +4794,12 @@ async function loadRoute() {
   skryjVysledekTrasy();
 
   try {
-    const zpusob = ZPUSOBY.find((z) => z.profil === profil);
-
-    // 🚨 Trasa se skládá z ÚSEKŮ mezi sousedními body. Mezibody umí ORS jen
-    // přes POST s tělem, a naše proxy propouští jen GET (`R2`) — což je
-    // bezpečnostní rozhodnutí, ne nedodělek. Viz `spojUseky()`.
-    const zastavky = [from, ...state.route.via.filter(Boolean), to];
-    const useky = [];
-
-    for (let i = 0; i < zastavky.length - 1; i += 1) {
-      const a = zastavky[i];
-      const b = zastavky[i + 1];
-      let usek;
-
-      if (zpusob?.bezRouteru) {
-        // Ani jeden dotaz ven: ortodroma se spočítá u nás ze dvou bodů
-        // a rychlosti, kterou zadal uživatel. Jádru je jedno, odkud trasa je.
-        usek = straightRoute([a.lat, a.lon], [b.lat, b.lon], state.route.rychlostKmh);
-      } else {
-        const geo = await requests.run(`route-${i}`, (signal) =>
-          apiGet('route', { start: toOrsCoord([a.lat, a.lon]), end: toOrsCoord([b.lat, b.lon]) },
-            { signal, subPath: profil }));
-        usek = fromOpenRouteService(geo.data);
-      }
-
-      // ⚠️ Chybějící úsek NELZE přeskočit. Trasa bez něj by vedla jinudy,
-      // než uživatel zadal, a nic by na to neupozornilo.
-      if (!usek) { poznamkaTrasy(t('route.failed', state.lang)); return; }
-      // Popis úseku pro výpis: odkud kam a kolik to je. Bez toho by se dalo
-      // ukázat jen „celkem 97 km", což u cesty přes zastávky nestačí.
-      usek.from = a;
-      usek.to = b;
-      usek.distanceM = usek.totalDistanceM;
-      usek.durationS = usek.totalDurationS;
-      useky.push(usek);
-    }
-
-    const trasa = spojUseky(useky);
-    if (!trasa) { poznamkaTrasy(t('route.failed', state.lang)); return; }
+    const spocitana = await spocitejTrasu({
+      from, to, via: state.route.via, profil, rychlostKmh: state.route.rychlostKmh,
+    });
+    if (!spocitana) { poznamkaTrasy(t('route.failed', state.lang)); return; }
+    const { trasa, useky } = spocitana;
+    obnovBodyHlidaneCesty(trasa);
 
     // Od kdy se počítá (R26). ⚠️ Rozhoduje se AŽ TEĎ, ne při zadání: mezi
     // vyplněním formuláře a výpočtem mohla uplynout hodina (appka otevřená
@@ -5147,6 +5432,7 @@ function init() {
   // web mu ho po startu připomene (R25).
   zapisZpravy();
   zapisWidget();
+  poZmeneCest();
   $('btn-donate').addEventListener('click', openDonate);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:

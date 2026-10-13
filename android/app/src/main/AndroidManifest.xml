@@ -68,6 +68,12 @@
         <receiver android:name=".BudikVystrah" android:exported="false" />
 
         <!--
+          Budík hlídané cesty (R41) — hodinu před odjezdem v zadané dny.
+          Neveřejný ze stejného důvodu jako budík zpráv.
+        -->
+        <receiver android:name=".BudikCesty" android:exported="false" />
+
+        <!--
           Po restartu telefonu se budíky ztrácejí — Android je nedrží.
           🚨 Bez tohohle by ranní zpráva po restartu tiše přestala chodit
           a od vady by se to nedalo odlišit. (`WorkManager` u výstrah si

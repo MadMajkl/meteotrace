@@ -18,6 +18,11 @@
     <string name="kanal_zpravy">Ranní a večerní zpráva</string>
     <string name="kanal_zpravy_popis">Krátká předpověď pro poslední známou polohu.</string>
 
+    <!-- Hlídaná cesta (R41). Vlastní kanál: kdo nechce upozornění k cestě,
+         vypne ho, aniž by přišel o výstrahy nebo ranní zprávu. -->
+    <string name="kanal_cesty">Hlídané cesty</string>
+    <string name="kanal_cesty_popis">Hodinu před odjezdem: co čeká po cestě a kdy vyrazit líp.</string>
+
     <!--
         Widget na ploše (R29). Tyhle texty ukazuje VÝBĚR WIDGETŮ, tedy systém —
         proto jazyk systému. Co je ve widgetu, když už má data, posílá server

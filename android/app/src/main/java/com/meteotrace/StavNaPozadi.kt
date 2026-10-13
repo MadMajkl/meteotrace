@@ -35,7 +35,7 @@ object StavNaPozadi {
         // zapnutý — vypnout ho člověk nemohl.
         val kanaly = JSONArray()
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        for ((id, jmeno) in listOf("vystrahy" to R.string.kanal_vystrahy, "zpravy" to R.string.kanal_zpravy)) {
+        for ((id, jmeno) in listOf("vystrahy" to R.string.kanal_vystrahy, "zpravy" to R.string.kanal_zpravy, "cesty" to R.string.kanal_cesty)) {
             val zapnuto = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 nm?.getNotificationChannel(id)?.importance != NotificationManager.IMPORTANCE_NONE
             } else {
@@ -53,6 +53,8 @@ object StavNaPozadi {
         o.put("kontrolaMs", Vystrahy.posledniKontrola(ctx))
         o.put("bourkaMs", Vystrahy.posledniBourka(ctx))
         o.put("zpravy", Zpravy.stav(ctx))
+        // Hlídané cesty (`R41`): co telefon opravdu hlídá a kdy se příště ozve.
+        o.put("cesty", Cesty.stav(ctx))
 
         // Šetření baterie. `setreni` = Android smí appku na pozadí brzdit
         // (výchozí stav většiny appek). `omezeno` = uživatel nebo systém jí

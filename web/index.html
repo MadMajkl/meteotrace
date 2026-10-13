@@ -109,6 +109,7 @@
 <link rel="modulepreload" href="lib/fit-row.js">
 <link rel="modulepreload" href="lib/pull-refresh.js">
 <link rel="modulepreload" href="lib/sheet-swipe.js">
+<link rel="modulepreload" href="lib/route-watch.js">
 <link rel="modulepreload" href="lib/warn-notify.js">
 <link rel="modulepreload" href="lib/watched-places.js">
 <link rel="modulepreload" href="lib/drift.js">
@@ -367,12 +368,12 @@
   <h3 data-i18n="routes.title"></h3>
   <p class="hint" data-i18n="routes.renameHint"></p>
   <p id="routes-note" class="hint" hidden></p>
-  <!-- Sloupec zvonku zůstává prázdný — trasy se nehlídají, ale jména
-       a koše stojí pod těmi u míst v jedné svislé řadě. -->
+  <!-- Sloupec „Hlídat": u trasy budík hlídané cesty (R41) — týž sloupec
+       jako zvonek u míst, ať jména a koše stojí v jedné svislé řadě. -->
   <div class="manage-hlavicka" id="routes-hlavicka" hidden aria-hidden="true">
     <span data-i18n="routes.routeCol"></span>
     <span data-i18n="routes.nameCol"></span>
-    <span class="manage-hlavicka-hlidat"></span>
+    <span class="manage-hlavicka-hlidat" data-i18n="places.watchCol"></span>
     <span class="manage-hlavicka-kos"></span>
   </div>
   <ul id="routes-manage" class="manage-list"></ul>

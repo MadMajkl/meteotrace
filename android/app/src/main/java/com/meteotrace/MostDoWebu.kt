@@ -173,6 +173,22 @@ class MostDoWebu(
     @JavascriptInterface
     fun zpravyZapnuty(): Boolean = Zpravy.zapnuto(ctx)
 
+    /* ── hlídaná cesta (R41) ──────────────────────────────────────────── */
+
+    /**
+     * Které cesty hlídat: JSON `{lang, units, cesty: [{klic, nadpis, cas, dny,
+     * jen, body}]}`. ⚠️ Jeden řetězec, ne parametr za každou věc — viz
+     * `hlidejMista`.
+     *
+     * 🚨 Nečitelné nebo prázdné zadání hlídání VYPNE. Nechat běžet staré by
+     * znamenalo upozornění k cestám, které web už nehlídá.
+     */
+    @JavascriptInterface
+    fun hlidejCesty(zadani: String) {
+        val co = Cesty.zJson(zadani)
+        if (co == null || co.cesty.isEmpty()) Cesty.nehlidej(ctx) else Cesty.hlidej(ctx, co)
+    }
+
     /* ── stav na pozadí (R37) ─────────────────────────────────────────── */
 
     /** Umí tenhle obal říct, co se děje na pozadí? Starší obal ne. */

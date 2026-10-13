@@ -26,6 +26,7 @@
 
 import { stripDiacritics, isUsablePoint } from './geo-query.js';
 import { checkHistoryQuery, checkRecentQuery, roundCoord, KROK_ROKY } from './stats.js';
+import { bodyZDotazu } from './route-watch.js';
 
 const MINUTE = 60;
 const HOUR = 3600;
@@ -392,6 +393,33 @@ export const UPSTREAMS = {
     // Deset minut: víc než dost na to, aby se ranní zpráva pro tentýž bod
     // nestahovala dvakrát, a míň, než je rozestup mezi ránem a večerem.
     ttl: 10 * MINUTE,
+  },
+
+  /**
+   * Hlídaná cesta (`R41`): věta do upozornění hodinu před odjezdem.
+   *
+   * Skládá ji `web/lib/route-watch.js`, stahuje `server/route-watch.js`.
+   * Body cesty posílá obal — spočítala je appka, když se hlídání zapínalo,
+   * takže se na router vůbec nesahá.
+   *
+   * 🚨 Všechno je v `params`, NE v `local` — musí se to dostat do klíče
+   * cache, jinak by druhý tazatel dostal větu o cizí cestě.
+   *
+   * ⚠️ `mapParams` body OVĚŘÍ dřív, než z nich vznikne klíč: vadný seznam
+   * skončí čistou chybou 400, ne „zdroj neodpověděl". A odjezd se zaokrouhlí
+   * na minutu, ať dva dotazy na tutéž cestu sdílejí záznam.
+   */
+  cesta: {
+    base: 'https://api.open-meteo.com/v1/forecast',
+    params: ['body', 'odjezd', 'lang', 'units', 'jen', 'posun'],
+    builder: 'meteoCesta',
+    mapParams: (p) => {
+      if (!bodyZDotazu(p.body)) throw new Error('Nepřípustný seznam bodů cesty.');
+      const odjezd = Math.round(Number(p.odjezd) / 60000) * 60000;
+      if (!Number.isFinite(odjezd)) throw new Error('Chybí čas odjezdu.');
+      return { ...p, odjezd: String(odjezd) };
+    },
+    ttl: 5 * MINUTE,
   },
 
   /**

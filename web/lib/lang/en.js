@@ -509,6 +509,39 @@ export default {
     titleEvening: 'Evening · {place}',
   },
 
+  // Watched route (R41) — a notification an hour before departure, and its
+  // settings. ⚠️ The SERVER composes the sentences (`lib/route-watch.js`).
+  routeWatch: {
+    title: 'Route “{name}”',
+    calm: 'Leaving at {time}: dry all the way, {min} to {max}.',
+    rain: 'Leaving at {time}: rain at {n} of {total} points on the way, {min} to {max}.',
+    hazard: 'Leaving at {time}: {what} around {at} ({temp}).',
+    wind: 'Leaving at {time}: strong wind on the way, up to {wind}.',
+    better: ' Leave at {time} and you’ll miss it.',
+    betterPartly: ' Leave at {time}, it will be better.',
+    everyDay: 'every day',
+    day1: 'Mon', day2: 'Tue', day3: 'Wed', day4: 'Thu', day5: 'Fri', day6: 'Sat', day7: 'Sun',
+    start: 'Watch the route “{name}”',
+    on: 'Watching “{name}”: {days} at {time}',
+    departure: 'Leaving',
+    days: 'Days',
+    onlyHazard: 'Only when something is coming',
+    note: 'I’ll let you know an hour before you leave — what’s on the way and whether leaving earlier or later is better.',
+    save: 'Watch',
+    update: 'Save',
+    stop: 'Stop watching',
+    computing: 'Working out the route…',
+    failed: 'The route could not be worked out, so watching is off. Try again in a moment.',
+    noDays: 'Pick at least one day.',
+    noTime: 'Enter a departure time.',
+    started: 'Watching “{name}”: {days} at {time}.',
+    stopped: '“{name}” is no longer watched.',
+    statusNext: '{name}: next check {when}.',
+    statusNotPlanned: '{name}: no next check is scheduled — open the route manager and save watching again.',
+    statusNothing: 'The phone watches no route although the app has one — open the route manager and save watching again.',
+    statusFailed: '{name}: the alarm went off {when}, but no notification came: {why}.',
+  },
+
   // Home-screen widget (R29). Short on purpose — a 4×1 widget has one line.
   widget: {
     feels: 'Feels {temp}',

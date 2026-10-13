@@ -2275,6 +2275,55 @@ main {
 }
 .manage-zvonek[aria-pressed="true"] svg { fill: currentColor; }
 
+/* Budík hlídané cesty (R41) — týž rámeček a barvy jako zvonek u míst.
+   ⚠️ Ciferník se NEVYPLŇUJE: plný kruh by ručičky schoval. Zapnutý stav
+   nese barva, pozadí, silnější tah a `aria-pressed`. */
+.manage-budik[aria-pressed="true"] svg { fill: none; stroke-width: 2.3; }
+
+/* Nastavení hlídané cesty — rozbalí se POD řádek trasy přes všechny sloupce. */
+.cesta-nastaveni {
+  grid-column: 1 / -1;
+  display: grid; gap: 8px;
+  margin: 2px 0 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.cesta-nastaveni[hidden] { display: none; }
+.cesta-radek { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cesta-pole { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.cesta-cas {
+  padding: 7px 8px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--text);
+  font: inherit; font-size: 15px;
+}
+.cesta-dny { display: flex; flex-wrap: wrap; gap: 4px; }
+.cesta-den {
+  min-width: 36px; height: 34px; padding: 0 6px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--text-soft);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+/* Vybraný den: barva akce a tučně — stav nese i `aria-pressed`, ne jen barva. */
+.cesta-den[aria-pressed="true"] {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600;
+}
+.cesta-jen { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cesta-poznamka { margin: 0; }
+.cesta-stav { margin: 0; font-size: 13px; color: var(--text-soft); }
+.cesta-stav:empty { display: none; }
+.cesta-tlacitka { display: flex; justify-content: flex-end; gap: 8px; }
+.cesta-ulozit, .cesta-prestat {
+  height: 38px; padding: 0 14px;
+  border-radius: 10px; font: inherit; font-size: 14px; cursor: pointer;
+}
+.cesta-ulozit { border: 1px solid var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+.cesta-ulozit:disabled { opacity: .6; cursor: default; }
+.cesta-prestat { border: 1px solid var(--line); background: transparent; color: var(--text); }
+.cesta-prestat[hidden] { display: none; }
+
 /* ── Legenda barev u bodů na trase ───────────────────────────────────────
    Michal 30. 8. 2026 chtěl u bodů vysvětlivky. Legenda je ta levnější
    polovina odpovědi: řeší otázku „co ta barva znamená" jednou provždy
