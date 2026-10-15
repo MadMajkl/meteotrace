@@ -367,6 +367,14 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   výstrahy) tak po přepnutí místa doběhl a nakreslil data PŘEDCHOZÍHO místa.
   Zrušení propouštět (`requests.isAbort(e)` → `throw`) a před kreslením
   kontrolovat `signal.aborted`. Viz `loadStation`.
+- **🚨 ZRUŠENÝ DOTAZ ZRUŠÍME JEN U NÁS — SERVER HO ZPRACUJE A ZAPOČÍTÁ.**
+  „Ukázat počasí" šlo do 1.4.1 mačkat do zblbnutí: každé klepnutí zrušilo
+  rozběhnutý výpočet a poslalo nový, server ty zrušené počítal do stropu
+  (`R19`, trasy 30/min) a appka hlásila „Moc dotazů naráz" (Miki 15. 10.
+  2026). Totéž zadání proto běží jen jednou naráz: `requests.once(jméno,
+  otisk, práce)` vrátí rozběhnutý slib, jiné zadání projde. Tlačítko je
+  během výpočtu zamčené (`loadRoute`), místo se dedupuje i s jazykem
+  (`loadStation`). Hlídá `selftest-api.mjs`.
 - **🚨 CO PŘIJDE, ZATÍMCO SE MAPA ZAKLÁDÁ, SE NESMÍ ZTRATIT.** „Tady" během
   zakládání mapy skončilo na `!styleReady` a mapa doběhla na původním místě.
   `showMap` si drží poslední požadavek (`kamMapa`) a aplikuje ho po založení.

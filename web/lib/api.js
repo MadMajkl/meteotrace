@@ -141,8 +141,48 @@ export async function apiGet(service, params = {}, opts = {}) {
 export function createRequestGroup() {
   /** @type {Map<string, AbortController>} */
   const running = new Map();
+  /** @type {Map<string, {key: string, promise: Promise<any>}>} */
+  const flights = new Map();
 
   return {
+    /**
+     * Jedno načítání TÉHOŽ zadání naráz.
+     *
+     * 🚨 Miki 15. 10. 2026: *„jde mačkat pořád refresh, ukaž počasí do
+     * zblbnutí a to se zahltí a hází to chyby."* `run()` sice starý dotaz
+     * zruší, ale jen u nás — server zrušený dotaz dostal, zpracuje ho
+     * a započítá do stropu (`R19`, trasy 30 za minutu). Deset klepnutí na
+     * trasu se dvěma úseky = dvacet dotazů na ORS a appka hlásí „Moc dotazů
+     * naráz".
+     *
+     * Totéž zadání (`key`), které už běží, se proto NESPOUŠTÍ znovu: volající
+     * dostane rozběhnutý slib a dočká se téhož výsledku (potažení dolů tak
+     * neohlásí „hotovo" dřív, než se opravdu načte). Jiné zadání projde —
+     * je to nové přání a předchozí dotazy zruší `run()` jako dřív.
+     *
+     * @param {string} name   co se načítá ('trasa', 'misto')
+     * @param {string} key    otisk zadání; shodný = totéž načítání
+     * @param {() => Promise<any>} work
+     */
+    once(name, key, work) {
+      const flight = flights.get(name);
+      if (flight && flight.key === key) return flight.promise;
+      const promise = (async () => {
+        try {
+          return await work();
+        } finally {
+          if (flights.get(name)?.promise === promise) flights.delete(name);
+        }
+      })();
+      flights.set(name, { key, promise });
+      return promise;
+    },
+
+    /** Běží zrovna nějaké načítání tohohle jména (`once`)? */
+    busy(name) {
+      return flights.has(name);
+    },
+
     /**
      * @param {string} name  co se dotazuje ('station', 'search'…)
      * @param {(signal: AbortSignal) => Promise<any>} work

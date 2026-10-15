@@ -281,6 +281,79 @@ test('dotazy s RŮZNÝM jménem se navzájem neruší', async () => {
   assert.equal(zruseno, false);
 });
 
+/* 🚨 Miki 15. 10. 2026: „Ukázat počasí" šlo mačkat do zblbnutí. Každé
+   klepnutí poslalo nové dotazy; zrušené u nás, ale na serveru spočítané
+   do stropu — a appka pak hlásila „Moc dotazů naráz". */
+
+test('🚨 totéž zadání, které už běží, se NESPOUŠTÍ znovu', async () => {
+  const skupina = createRequestGroup();
+  let spusteno = 0;
+  let dokonci;
+  const prace = () => { spusteno += 1; return new Promise((res) => { dokonci = res; }); };
+
+  const prvni = skupina.once('trasa', 'Praha→Brno', prace);
+  const klepnuti = Array.from({ length: 10 }, () => skupina.once('trasa', 'Praha→Brno', prace));
+
+  assert.equal(spusteno, 1, 'deset klepnutí navíc nesmí poslat ani jeden dotaz');
+  assert.equal(skupina.busy('trasa'), true);
+  dokonci('hotovo');
+  // Všichni se dočkají TÉHOŽ výsledku — potažení dolů neohlásí „hotovo"
+  // dřív, než se opravdu načte.
+  assert.deepEqual(await Promise.all([prvni, ...klepnuti]), Array(11).fill('hotovo'));
+  assert.equal(skupina.busy('trasa'), false, 'po doběhnutí je volno');
+
+  // A po doběhnutí jde totéž zadání načíst znovu (obnovení je legitimní).
+  await skupina.once('trasa', 'Praha→Brno', async () => { spusteno += 1; });
+  assert.equal(spusteno, 2);
+});
+
+test('JINÉ zadání během načítání projde — je to nové přání', async () => {
+  const skupina = createRequestGroup();
+  const spustene = [];
+  const hotove = {};
+  const prace = (k) => () => { spustene.push(k); return new Promise((res) => { hotove[k] = res; }); };
+
+  const brno = skupina.once('trasa', 'Praha→Brno', prace('brno'));
+  const plzen = skupina.once('trasa', 'Praha→Plzeň', prace('plzen'));
+  assert.deepEqual(spustene, ['brno', 'plzen']);
+
+  // 🚨 Doběhnutí STARÉHO načítání nesmí uvolnit to nové: tlačítko by se
+  // odemklo, zatímco se Plzeň pořád počítá.
+  hotove.brno('b');
+  await brno;
+  assert.equal(skupina.busy('trasa'), true);
+  // Totéž nové zadání se už zase nespouští dvakrát.
+  const plzenZnovu = skupina.once('trasa', 'Praha→Plzeň', prace('plzen-znovu'));
+  assert.deepEqual(spustene, ['brno', 'plzen']);
+
+  hotove.plzen('p');
+  assert.equal(await plzen, 'p');
+  assert.equal(await plzenZnovu, 'p');
+  assert.equal(skupina.busy('trasa'), false);
+});
+
+test('chyba načítání uvolní místo a dostanou ji všichni čekající', async () => {
+  const skupina = createRequestGroup();
+  let selhej;
+  const prace = () => new Promise((_, rej) => { selhej = rej; });
+  const a = skupina.once('misto', 'Praha', prace);
+  const b = skupina.once('misto', 'Praha', prace);
+  selhej(new Error('síť'));
+  await assert.rejects(a, /síť/);
+  await assert.rejects(b, /síť/);
+  assert.equal(skupina.busy('misto'), false, 'po chybě se musí dát zkusit znovu');
+});
+
+test('různá jména (trasa × místo) se navzájem neblokují', async () => {
+  const skupina = createRequestGroup();
+  let dokonci;
+  const trasa = skupina.once('trasa', 'x', () => new Promise((res) => { dokonci = res; }));
+  assert.equal(await skupina.once('misto', 'x', async () => 'místo'), 'místo');
+  assert.equal(skupina.busy('trasa'), true);
+  dokonci();
+  await trasa;
+});
+
 test('zrušený dotaz se pozná a není to chyba k ukázání', () => {
   const skupina = createRequestGroup();
   const ac = new AbortController();

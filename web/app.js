@@ -83,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.4.0';
+const VERZE = '1.4.1';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -3076,7 +3076,20 @@ let vykreslenoPro = null;
  * neshodily počasí — a do 27. 9. 2026 ten `catch` polykal i zrušení, takže
  * dotaz pro PŘEDCHOZÍ místo po přepnutí klidně doběhl a nakreslil se.
  */
-async function loadStation() {
+/**
+ * Načte meteostanici — totéž místo jen jednou naráz (`requests.once`,
+ * viz `loadRoute`). Opakované potažení nebo návrat do appky během načítání
+ * se připojí k rozběhnutému dotazu, místo aby poslaly další tři.
+ *
+ * ⚠️ Jazyk je součástí zadání: výstrahy chodí ze serveru už přeložené.
+ */
+function loadStation() {
+  const place = state.place;
+  if (!place) return Promise.resolve();
+  return requests.once('misto', `${place.lat},${place.lon},${state.lang}`, nactiMisto);
+}
+
+async function nactiMisto() {
   const place = state.place;
   if (!place) return;
 
@@ -4975,7 +4988,40 @@ async function spocitejTrasu({ from, to, via = [], profil, rychlostKmh }, klic =
   return trasa ? { trasa, useky } : null;
 }
 
-async function loadRoute() {
+/**
+ * Spočítá trasu — ale totéž zadání jen jednou naráz (`requests.once`).
+ *
+ * 🚨 Miki 15. 10. 2026: *„při načítání trasy i místa jde mačkat pořád
+ * refresh, ukaž počasí do zblbnutí a to se zahltí a hází to chyby."* Každé
+ * klepnutí poslalo nové dotazy na ORS; zrušené jen u nás, server je
+ * započítal do stropu a appka hlásila „Moc dotazů naráz".
+ *
+ * Tlačítko je po dobu výpočtu zamčené. Že se počítá, říká poznámka
+ * „Počítám trasu…" — zamčené tlačítko bez věty by vypadalo rozbitě.
+ * Jiné zadání (Jeď sem, uložená trasa, jiný odjezd) projde a to staré zruší.
+ */
+function loadRoute() {
+  const { from, to, via, profil, rychlostKmh, odjezdMs } = state.route;
+  const bod = (b) => (b ? [b.lat, b.lon] : null);
+  const klic = JSON.stringify([
+    bod(from), bod(to), (via || []).filter(Boolean).map(bod), profil, rychlostKmh, odjezdMs,
+  ]);
+  const tlacitko = $('route-go');
+  tlacitko.disabled = true;
+  tlacitko.setAttribute('aria-busy', 'true');
+  const hotovo = requests.once('trasa', klic, nactiTrasu);
+  // ⚠️ Odemyká se, až nic neběží: doběhnutí STARÉHO zadání by jinak
+  // odemklo tlačítko, zatímco se nové pořád počítá.
+  const uvolni = () => {
+    if (requests.busy('trasa')) return;
+    tlacitko.disabled = false;
+    tlacitko.removeAttribute('aria-busy');
+  };
+  hotovo.then(uvolni, uvolni);
+  return hotovo;
+}
+
+async function nactiTrasu() {
   const { from, to, profil } = state.route;
   if (!from || !to) { poznamkaTrasy(t('route.needBoth', state.lang)); return; }
 

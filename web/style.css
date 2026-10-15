@@ -1418,6 +1418,8 @@ main {
   color: #fff; background: var(--accent);
   border: 0; border-radius: 10px; cursor: pointer;
 }
+/* Zamčené během výpočtu (`loadRoute`): opakované klepnutí zahltilo server. */
+.primary:disabled { opacity: .6; cursor: default; }
 
 /* 🚨 Poznámka pod formulářem („Cíl je z mapy.", „Vyber start i cíl…").
    Michal 31. 8. 2026: *„je to pěkně hnusné, neformátované a namačknuté
