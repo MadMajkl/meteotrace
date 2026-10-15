@@ -375,6 +375,14 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   otisk, práce)` vrátí rozběhnutý slib, jiné zadání projde. Tlačítko je
   během výpočtu zamčené (`loadRoute`), místo se dedupuje i s jazykem
   (`loadStation`). Hlídá `selftest-api.mjs`.
+- **🚨 STYLY MAPLIBRE PATŘÍ PŘED `style.css`, NE ZA NĚJ.** Knihovna se
+  stahuje líně (`nactiKnihovny` v `map.js`), a co se připojí na konec
+  hlavičky, vyhrává při stejně silném selektoru. Od 27. 9. do 15. 10. 2026
+  tak `background:#fff` z knihovny přebil naši bublinu nad bodem trasy,
+  písmo zůstalo z motivu a v tmavém vyšlo bílé na bílém (1,17 : 1). Miki:
+  *„pořád špatně"*, tutéž chybu jsme opravovali už 31. 8. Ověřovat
+  skutečným klepnutím do mapy, ne vyrobenou značkou: ta knihovní styly
+  nemá. Hlídá `selftest-obal.mjs`.
 - **🚨 CO PŘIJDE, ZATÍMCO SE MAPA ZAKLÁDÁ, SE NESMÍ ZTRATIT.** „Tady" během
   zakládání mapy skončilo na `!styleReady` a mapa doběhla na původním místě.
   `showMap` si drží poslední požadavek (`kamMapa`) a aplikuje ho po založení.

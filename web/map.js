@@ -225,19 +225,26 @@ export function refreshTheme() {
 let knihovny = null;
 
 function nactiKnihovny() {
-  const pripoj = (tag, attrs) => new Promise((res, rej) => {
+  const pripoj = (tag, attrs, pred = null) => new Promise((res, rej) => {
     const e = document.createElement(tag);
     Object.assign(e, attrs);
     e.onload = res;
     e.onerror = () => rej(new Error(`nenačetlo se: ${attrs.src || attrs.href}`));
-    document.head.append(e);
+    document.head.insertBefore(e, pred);   // `null` = na konec
   });
   knihovny ??= Promise.all([
     // `async = false`: pořadí provedení podle připojení, ne podle toho, co
     // dorazí dřív. PMTiles na MapLibre nezávisí, ale ať to nestojí na náhodě.
     pripoj('script', { src: 'vendor/maplibre-gl.js', async: false }),
     pripoj('script', { src: 'vendor/pmtiles.js', async: false }),
-    pripoj('link', { rel: 'stylesheet', href: 'vendor/maplibre-gl.css' }),
+    // 🚨 STYLY KNIHOVNY PŘED NAŠE, NE ZA NĚ. `style.css` přebarvuje bublinu
+    // nad bodem trasy stejně silným selektorem, jaký má MapLibre — a při
+    // shodě vyhrává, co je v dokumentu později. Připojené na konec (27. 9.
+    // až 15. 10. 2026) vrátily `background:#fff`, zatímco písmo zůstalo
+    // z motivu: v tmavém bílé na bílém, kontrast 1,17 : 1. Michal: *„pořád
+    // špatně — neviditelný popis bodu v mapě při tmavém vzhledu."*
+    pripoj('link', { rel: 'stylesheet', href: 'vendor/maplibre-gl.css' },
+      document.head.querySelector('link[rel="stylesheet"]')),
   ]).catch((e) => {
     knihovny = null;                   // příští pokus (návrat signálu) zkusí znovu
     throw e;

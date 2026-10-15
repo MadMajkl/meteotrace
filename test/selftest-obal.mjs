@@ -275,6 +275,27 @@ test('🚨 předstih se načítá async z hlavičky a těžké moduly za sebou n
     ['lib/api.js', 'lib/forecast-query.js', 'lib/geo-query.js', 'start.js']);
 });
 
+test('🚨 styly MapLibre jdou PŘED naše, jinak bublina v tmavém zbělá', () => {
+  // Bublinu nad bodem trasy přebarvuje style.css stejně silným selektorem,
+  // jaký má knihovna, a při shodě vyhrává pozdější. Na konci hlavičky
+  // (27. 9. až 15. 10. 2026) vracely styly knihovny bílé pozadí pod písmo
+  // z motivu: v tmavém bílé na bílém.
+  const map = readFileSync(join(WEB, 'map.js'), 'utf8');
+  assert.match(map, /pripoj\('link', \{ rel: 'stylesheet', href: 'vendor\/maplibre-gl\.css' \},\s*document\.head\.querySelector\('link\[rel="stylesheet"\]'\)\)/);
+  assert.match(map, /document\.head\.insertBefore\(e, pred\)/);
+  // První list v hlavičce musí být náš, ať je před čím se řadit.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  const hlavicka = html.slice(0, html.indexOf('</head>'));
+  assert.equal(/<link rel="stylesheet" href="([^"]+)">/.exec(hlavicka)?.[1], 'style.css');
+  // Knihovna má pozadí napevno a přebarvení ho musí přebít barvami motivu.
+  const knihovna = readFileSync(join(WEB, 'vendor', 'maplibre-gl.css'), 'utf8');
+  assert.match(knihovna, /\.maplibregl-popup-content\{background:#fff/);
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  const blok = /\n\.maplibregl-popup-content \{[^}]*\}/.exec(css)?.[0] || '';
+  assert.match(blok, /color: var\(--text\)/);
+  assert.match(blok, /background: var\(--surface\)/);
+});
+
 test('🚨 obrazovka statistik se načítá LÍNĚ, ne se startem appky (R35)', async () => {
   // Kreslení grafu a kartiček nepatří do startu: kdo statistiky neotevře,
   // nemá je proč stahovat. Statický import by je přidal do každého spuštění.
