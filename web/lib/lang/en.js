@@ -558,6 +558,8 @@ export default {
     vtcleaner: 'A safe Windows cleaner',
     itrady: 'Practical tips from the world of IT',
     mailnino: 'An e-mail client that speaks to Czech data boxes',
+    madmajkl: 'Music by Michal Foist — album, videos, songbook',
+    madmajklEshop: 'MadMajkl CDs and merch',
   },
 
   /* When it will be.

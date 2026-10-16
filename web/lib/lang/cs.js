@@ -637,6 +637,8 @@ export default {
     vtcleaner: 'Bezpečný čistič Windows',
     itrady: 'Praktické rady a tipy ze světa IT',
     mailnino: 'E-mailový klient, který umí datovky',
+    madmajkl: 'Hudba Michala Foista — album, klipy, zpěvník',
+    madmajklEshop: 'CD a merch MadMajkl',
   },
 
   /* Kdy to bude.
