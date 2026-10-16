@@ -478,6 +478,14 @@ export default {
     open: 'Rate the app',
   },
 
+  // Google Play invitation (Gulpka pattern). Web only.
+  playCta: {
+    title: 'There’s an Android app',
+    sub: 'Widget and rain alerts',
+    go: 'Get it',
+    close: 'Hide',
+  },
+
   settings: {
     title: 'Settings',
     language: 'Language',

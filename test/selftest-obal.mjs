@@ -296,6 +296,24 @@ test('🚨 styly MapLibre jdou PŘED naše, jinak bublina v tmavém zbělá', ()
   assert.match(blok, /background: var\(--surface\)/);
 });
 
+test('🚨 pozvánka do Google Play jen na webu, ne v obalu ani na iPhonu', () => {
+  // Značka je v APK zapečená: bez `hidden` by v obalu bliknula, než ji
+  // skript schová. A odkaz do obchodu z appky, ve které člověk je, nedává smysl.
+  const html = readFileSync(join(WEB, 'index.html'), 'utf8');
+  assert.match(html, /<aside id="play-cta" class="play-cta" hidden>/);
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  const fn = /function zapniPozvanku\(\) \{([\s\S]*?)\n\}/.exec(app)?.[1] || '';
+  assert.match(fn, /!window\.MeteoTraceObal/);
+  assert.match(fn, /!jeIos\(\)/);
+  assert.match(fn, /!state\.pozvankaZavrena/);
+  assert.match(fn, /\$\('uvitani'\)\.hidden && \$\('uvitani-pruh'\)\.hidden/, 'přes uvítání ne, sedí dole taky');
+  // Zavření se pamatuje napříč spuštěními.
+  assert.match(/function save\(\) \{[\s\S]*?\n\}/.exec(app)?.[0] || '', /pozvankaZavrena: state\.pozvankaZavrena/);
+  assert.match(app, /if \(saved\.pozvankaZavrena === true\) state\.pozvankaZavrena = true;/);
+  // Instalace z webu musí jít v Play konzoli poznat.
+  assert.match(app, /'utm_source=meteotrace\.com&utm_medium=web_cta&utm_campaign=web'/);
+});
+
 test('🚨 obrazovka statistik se načítá LÍNĚ, ne se startem appky (R35)', async () => {
   // Kreslení grafu a kartiček nepatří do startu: kdo statistiky neotevře,
   // nemá je proč stahovat. Statický import by je přidal do každého spuštění.

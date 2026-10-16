@@ -556,6 +556,14 @@ export default {
     open: 'Ohodnotit appku',
   },
 
+  // Pozvánka do Google Play (vzor Gulpka). Ukazuje se JEN na webu.
+  playCta: {
+    title: 'Appka pro Android',
+    sub: 'Widget a upozornění na déšť',
+    go: 'Získat',
+    close: 'Skrýt',
+  },
+
   settings: {
     title: 'Nastavení',
     language: 'Jazyk',

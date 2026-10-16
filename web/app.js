@@ -83,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.4.2';
+const VERZE = '1.5.0';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -154,6 +154,8 @@ const state = {
   // Prošel už uvítáním? 🚨 Vlastní příznak, NE prázdnota seznamu míst —
   // kdo si místa smaže, nechce být vítán znovu jako nováček.
   onboardingHotovo: false,
+  // Zavřel pozvánku do Google Play (jen web)? Podruhé se už nenabízí.
+  pozvankaZavrena: false,
   // Trasa se zatím neukládá mezi spuštěními: rozdělaná cesta je něco jiného
   // než uložené místo a obnovovat ji po týdnu by nedávalo smysl.
   // `via` jsou mezibody v pořadí, jak se má jet. Prázdné pole = cesta z A do B.
@@ -220,6 +222,7 @@ function load() {
     }
     if (Array.isArray(saved.oznameno)) state.oznameno = saved.oznameno;
     if (saved.onboardingHotovo === true) state.onboardingHotovo = true;
+    if (saved.pozvankaZavrena === true) state.pozvankaZavrena = true;
     if (typeof saved.langManual === 'string') {
       state.langManual = saved.langManual;
       if (saved.lang) state.lang = saved.lang;
@@ -255,6 +258,7 @@ function save() {
       fix: state.fix, fixNazev: state.fixNazev, zpravy: state.zpravy,
       visits: state.visits,
       onboardingHotovo: state.onboardingHotovo,
+      pozvankaZavrena: state.pozvankaZavrena,
       // 🚨 Rozepsaná trasa PŘEŽIJE OBNOVENÍ STRÁNKY. Do 31. 8. 2026 se
       // neukládala vůbec, takže refresh vyhodil zadaný start i cíl — a appka
       // pak neměla z čeho poznat, že se má otevřít na trase.
@@ -773,6 +777,41 @@ function zapniHodnoceni() {
   if (!sekce || !odkaz) return;
   odkaz.href = PLAY_URL;
   sekce.hidden = false;
+}
+
+/*
+ * Pozvánka do Google Play — JEN NA WEBU (vzor Gulpka `initPlayCta`).
+ *
+ * Web dosud na appku nikam nevedl: návštěvník o widgetu, upozorněních
+ * a mapách offline neměl jak se dozvědět. Odkaz nese `referrer` s UTM,
+ * takže Play konzole ukáže, kolik instalací přišlo z webu.
+ *
+ * 🚨 V obalu NIKDY (odkaz do obchodu z appky, ve které člověk je) a ani
+ * na iPhonu: appka je jen na Google Play, tam by to byla čirá otrava.
+ * iPadOS se hlásí jako Macintosh, pozná se podle dotykové obrazovky.
+ * ⚠️ Ani přes uvítání: proužek uvítání sedí dole taky.
+ */
+const PLAY_URL_WEB = `${PLAY_URL}&referrer=${encodeURIComponent(
+  'utm_source=meteotrace.com&utm_medium=web_cta&utm_campaign=web')}`;
+
+function jeIos() {
+  const ua = navigator.userAgent || '';
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+function zapniPozvanku() {
+  const pruh = $('play-cta');
+  const smi = !window.MeteoTraceObal && !jeIos() && !state.pozvankaZavrena
+    && $('uvitani').hidden && $('uvitani-pruh').hidden;
+  pruh.hidden = !smi;
+  document.body.classList.toggle('has-play-cta', smi);
+  if (smi) $('play-cta-link').href = PLAY_URL_WEB;
+}
+
+function zavriPozvanku() {
+  state.pozvankaZavrena = true;
+  save();
+  zapniPozvanku();
 }
 
 /*
@@ -5685,6 +5724,7 @@ function init() {
   zapisWidget();
   poZmeneCest();
   $('btn-donate').addEventListener('click', openDonate);
+  $('play-cta-close').addEventListener('click', zavriPozvanku);
   $('btn-donate-top').addEventListener('click', openDonate);
   // 🚨 Zkopírování MUSÍ dát vědět, že se povedlo. Schránka je neviditelná:
   // tlačítko, které mlčí, se od nefunkčního nedá odlišit — a člověk pak
@@ -5779,6 +5819,7 @@ function init() {
   // spustilo dřív, ukázaly by poslední dva kroky rozestavěnou obrazovku.
   zapojUvitani();
   mozneUvitani();
+  zapniPozvanku();
 }
 
 /* ============================================================
@@ -5830,6 +5871,7 @@ function ukonciUvitani() {
   $('uvitani-pruh').hidden = true;
   state.onboardingHotovo = true;
   save();
+  zapniPozvanku();
 }
 
 /** Vykreslí právě aktuální krok. */

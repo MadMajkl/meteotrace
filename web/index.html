@@ -326,6 +326,28 @@
   <button id="uvitani-pruh-dal" class="primary" type="button"></button>
 </div>
 
+<!-- Pozvánka do Google Play (vzor Gulpka, `#play-cta`).
+     🚨 JEN NA WEBU — odkrývá ji `zapniPozvanku()`. V obalu by odkaz do
+     obchodu vedl na appku, ve které člověk právě je. Na iPhonu appka není,
+     tam se taky neukazuje. Jde zavřít a appka si to pamatuje. -->
+<aside id="play-cta" class="play-cta" hidden>
+  <a id="play-cta-link" class="play-cta-link" href="#" target="_blank" rel="noopener">
+    <svg class="play-cta-ico" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3.6 2.2 13.3 12 3.6 21.8a1.7 1.7 0 0 1-.5-1.2V3.4c0-.46.19-.88.5-1.2Z" fill="#34c3f5"/>
+      <path d="M16.9 8.4 5.2 1.7c-.4-.23-.83-.26-1.2-.1L13.3 12l3.6-3.6Z" fill="#63e6a0"/>
+      <path d="M16.9 15.6 13.3 12l3.6-3.6 3.4 1.95c1 .58 1 2.12 0 2.7l-3.4 1.95Z" fill="#ffd34d"/>
+      <path d="M4 22.4c.37.16.8.13 1.2-.1l11.7-6.7-3.6-3.6L4 22.4Z" fill="#f8636b"/>
+    </svg>
+    <span class="play-cta-texts">
+      <strong data-i18n="playCta.title"></strong>
+      <small data-i18n="playCta.sub"></small>
+    </span>
+    <span class="play-cta-go" data-i18n="playCta.go"></span>
+  </a>
+  <button id="play-cta-close" class="play-cta-close" type="button"
+          data-i18n-attr="aria-label:playCta.close|title:playCta.close">✕</button>
+</aside>
+
 <!-- Potažení dolů = načíst znovu. Pruh visí pod hlavičkou a vytahuje ho prst;
      🚨 každý stav má SVOJE SLOVO — samotné kolečko neřekne, jestli se něco
      stalo, nebo jestli appka jen zamrzla. `aria-live` to řekne i nahlas. -->
