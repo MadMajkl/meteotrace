@@ -9,7 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  parseLocalTime, formatClock, formatWeekday, isDaylight,
+  parseLocalTime, formatClock, formatWeekday, formatDateWeekday, isDaylight,
   pollenLevel, POLLEN_SPECIES, buildStationView,
 } from '../web/lib/station.js';
 import { METRIC, IMPERIAL } from '../web/lib/units.js';
@@ -362,6 +362,66 @@ test('🚨 den se láme podle pásma MÍSTA, ne prohlížeče', () => {
   const v = buildStationView({ forecast: f, lang: 'cs', units: METRIC, nowMs: POLEDNE });
   const prvni = v.hourly.findIndex((h) => h.dayLabel);
   assert.equal(prvni, 12, 'od 12:00 místního je do půlnoci dvanáct hodin');
+});
+
+/* ============================================================
+   KONEC LETNÍHO ČASU
+
+   🚨 Miki 22. 10. 2026: „na kartě 7 denní předpovědi je 2x neděle!"
+   Open-Meteo posouvá celou odpověď jedním `utc_offset_seconds` — tím,
+   který platí teď. Týden přes 25. 10. tak přišel celý s posunem +2 h
+   a „půlnoc 26. 10." byla v Praze neděle 23:00.
+   ============================================================ */
+
+/** Odpověď, jakou Open-Meteo vrátilo 22. 10. 2026 pro Prahu: sedm dní, všechno +2 h. */
+function tydenPresZmenuCasu() {
+  const zacatek = Date.parse('2026-10-21T22:00:00Z');   // 22. 10. 00:00 SELČ
+  const pocet = 7 * 24;
+  const pole = (v) => Array.from({ length: pocet }, () => v);
+  const dny = ['2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28'];
+
+  return {
+    timezone: 'Europe/Prague',
+    utc_offset_seconds: 7200,
+    current: { temperature_2m: 10, weather_code: 1, wind_speed_10m: 10, wind_direction_10m: 350 },
+    hourly: {
+      // Souvislá řada bez dvojí 02:00 — posun je pevný, ne podle kalendáře.
+      time: Array.from({ length: pocet }, (_, i) =>
+        new Date(zacatek + i * 3600000 + 7200000).toISOString().slice(0, 16)),
+      temperature_2m: pole(10),
+      precipitation_probability: pole(0),
+      precipitation: pole(0),
+      weather_code: pole(1),
+    },
+    daily: {
+      time: dny,
+      weather_code: dny.map(() => 1),
+      temperature_2m_max: dny.map(() => 14),
+      temperature_2m_min: dny.map(() => 5),
+      precipitation_probability_max: dny.map(() => 10),
+      sunrise: dny.map((d) => `${d}T07:40`),
+      sunset: dny.map((d) => `${d}T17:50`),
+    },
+  };
+}
+
+test('🚨 sedm dní přes konec letního času: každý den právě jednou', () => {
+  const ctvrtek = Date.parse('2026-10-22T08:00:00Z');
+  const v = buildStationView({ forecast: tydenPresZmenuCasu(), lang: 'cs', units: METRIC, nowMs: ctvrtek });
+  assert.deepEqual(v.daily.map((d) => d.day), ['Dnes', 'Zítra', 'so', 'ne', 'po', 'út', 'st']);
+});
+
+test('🚨 hodinový pruh přes konec letního času láme den o skutečné půlnoci', () => {
+  const sobota = Date.parse('2026-10-24T08:00:00Z');   // 10:00 SELČ
+  const v = buildStationView({ forecast: tydenPresZmenuCasu(), lang: 'cs', units: METRIC, nowMs: sobota });
+  const predely = v.hourly.filter((h) => h.dayLabel).map((h) => `${h.dayLabel} ${h.time}`);
+  assert.deepEqual(predely, ['Zítra 00:00', 'po 00:00'], 'ne „ne 23:00"');
+});
+
+test('den v týdnu z data: poškozený vstup je pomlčka', () => {
+  assert.equal(formatDateWeekday('2026-10-26', 'cs'), 'po');
+  assert.equal(formatDateWeekday('nesmysl', 'cs'), '—');
+  assert.equal(formatDateWeekday(undefined, 'cs'), '—');
 });
 
 /* ============================================================

@@ -27,6 +27,7 @@ import {
 import { weatherKey, weatherIcon, weatherKeyWithClouds, weatherIconWithClouds,
 } from './weather-code.js';
 import { moonPhase } from './moon.js';
+import { dayShift } from './when.js';
 
 /**
  * Naivní čas z Open-Meteo → epoch ms.
@@ -58,6 +59,19 @@ export function formatWeekday(ms, timeZone, locale) {
   return new Intl.DateTimeFormat(locale || 'en', {
     weekday: 'short', timeZone: timeZone || 'UTC',
   }).format(new Date(ms));
+}
+
+/**
+ * Zkratka dne v týdnu pro KALENDÁŘNÍ datum z `daily.time` (`'2026-10-26'`).
+ *
+ * 🚨 Den se čte z data, ne z okamžiku. Open-Meteo posouvá celou odpověď
+ * jedním `utc_offset_seconds` — tím, který platí TEĎ. Projde-li týdnem konec
+ * letního času, je „půlnoc 26. 10." podle letního posunu v Praze 25. 10.
+ * ve 23:00 a karta na sedm dní ukázala dvě neděle (Miki, 22. 10. 2026).
+ */
+export function formatDateWeekday(isoDate, locale) {
+  const ms = typeof isoDate === 'string' ? Date.parse(`${isoDate.slice(0, 10)}T12:00:00Z`) : NaN;
+  return formatWeekday(ms, 'UTC', locale);
 }
 
 /**
@@ -142,6 +156,13 @@ export function buildStationView(a) {
   // půlnocí, i když je odpoledne.
   const iNow = nearestIndex(hourMs, nowMs);
   const day = isDaylight(nowMs, sunrise[0], sunset[0]);
+
+  // Hodinový pruh a u každé hodiny, kolikátý je to den od začátku pruhu.
+  // 🚨 Den se láme podle KALENDÁŘE MÍSTA, jako se vypisují hodiny — ne podle
+  // `utc_offset_seconds`. Ten platí jen teď; po konci letního času by předěl
+  // dostala dlaždice „23:00" a nesla by jméno včerejška.
+  const pruh = hourMs.slice(iNow, iNow + hours);
+  const denPruhu = pruh.map((ms) => dayShift(ms, pruh[0], tz));
 
   const cur = forecast.current || {};
   const code = pick(cur.weather_code, H.weather_code?.[iNow]);
@@ -324,20 +345,20 @@ export function buildStationView(a) {
       sunsetMs: sunset[0] ?? null,
     },
 
-    hourly: hourMs.slice(iNow, iNow + hours).map((ms, k) => {
+    hourly: pruh.map((ms, k) => {
       const i = iNow + k;
       const c = H.weather_code?.[i];
       // ⚠️ U dvoudenního pruhu musí být poznat, kde končí dnešek. Osmačtyřicet
       // stejných dlaždic s časy 0–23 a znovu 0–23 je bludiště: „v 8:00" se
       // pak dá číst jako dnes i zítra. Proto se první hodina nového dne
       // označí jménem dne.
-      const denZacina = k > 0 && !stejnyDen(ms, hourMs[i - 1], off);
+      const denZacina = k > 0 && denPruhu[k] !== denPruhu[k - 1];
       return {
         timeMs: ms,
         time: formatClock(ms, tz, lang),
         // Zítřek se řekne slovem, další dny zkratkou — „Zítra" se čte líp než „Pá".
         dayLabel: denZacina
-          ? (jeZitra(ms, hourMs[iNow], off) ? t('forecast.tomorrow', lang) : formatWeekday(ms, tz, lang))
+          ? (denPruhu[k] === 1 ? t('forecast.tomorrow', lang) : formatWeekday(ms, tz, lang))
           : '',
         icon: weatherIcon(c, isDaylight(ms, sunrise[0], sunset[0])),
         // Kód jako číslo: widget podle něj pozná, jestli padá déšť, nebo sníh.
@@ -356,7 +377,7 @@ export function buildStationView(a) {
         // První dva dny se pojmenují slovem — „Dnes" se čte líp než „Pá".
         day: i === 0 ? t('forecast.today', lang)
            : i === 1 ? t('forecast.tomorrow', lang)
-           : formatWeekday(ms, tz, lang),
+           : formatDateWeekday(s, lang),
         icon: weatherIcon(D.weather_code?.[i], true),
         hi: formatTemp(D.temperature_2m_max?.[i], units, lang),
         lo: formatTemp(D.temperature_2m_min?.[i], units, lang),
@@ -442,25 +463,6 @@ function dirLong(degrees, lang) {
 function dirText(degrees, lang) {
   const key = windDirKey(degrees);
   return key ? t(`windDir.${key}`, lang) : '—';
-}
-
-/** Parametry pro dotaz na předpověď — na jednom místě, ať se nerozejdou. */
-/**
- * Jsou dva časy týž den v místním pásmu?
- *
- * ⚠️ Porovnává se v pásmu MÍSTA, ne prohlížeče. Kdo se dívá z Prahy na
- * počasí v Reykjavíku, potřebuje vědět, kdy tam začíná zítřek — ne kdy
- * začíná jemu.
- */
-function stejnyDen(a, b, offsetS) {
-  const den = (ms) => Math.floor((ms + offsetS * 1000) / 86400000);
-  return den(a) === den(b);
-}
-
-/** Je ten čas o den dál než začátek pruhu? */
-function jeZitra(ms, zacatek, offsetS) {
-  const den = (x) => Math.floor((x + offsetS * 1000) / 86400000);
-  return den(ms) - den(zacatek) === 1;
 }
 
 /** Dotaz na předpověď — jediný zdroj je `forecast-query.js` (sdílí ho předstih při startu). */

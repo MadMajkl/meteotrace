@@ -313,6 +313,14 @@ Pasti, které už jednou stály čas, jsou popsané v `03-vyvoj-progress.md`. Ne
   holé `HH:MM`, takže z pěší cesty na 60 hodin bylo „příjezd v 22:31", tedy zdánlivě
   dnes večer. **Ptej se nejen, jestli je číslo správné, ale co si z něj přečte člověk.**
   Viz `lib/when.js`.
+- **🚨 `utc_offset_seconds` OD OPEN-METEO PLATÍ JEN TEĎ, NE PRO CELOU ODPOVĚĎ.**
+  Celý týden přijde posunutý tím, co platí v okamžiku dotazu — i přes konec
+  letního času. Okamžiky z toho vyjdou správně, ale den v týdnu odvozený
+  z okamžiku ne: 22. 10. 2026 měla karta na sedm dní dvě neděle („půlnoc
+  26. 10." podle +2 h je v Praze neděle 23:00). **Den karty se čte z data**
+  (`formatDateWeekday`), **předěl v hodinovém pruhu z kalendáře místa**
+  (`dayShift`), ne dělením posunutých milisekund. Hlídá `selftest-station.mjs`
+  týdnem 22.–28. 10. 2026.
 - **🚨 Kód, který je sám se sebou v souladu, o své správnosti neříká nic.**
   QR enkodér skládal generující polynom **pozpátku**, takže korekční slova nebyla
   platná. „Ověření" přepočtem korekce přitom sedělo na bajt — enkodér i kontrola
