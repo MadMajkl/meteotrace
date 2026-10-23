@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseLocalTime, formatClock, formatWeekday, formatDateWeekday, isDaylight,
-  pollenLevel, POLLEN_SPECIES, buildStationView,
+  pollenLevel, POLLEN_SPECIES, buildStationView, FORECAST_PARAMS,
 } from '../web/lib/station.js';
 import { METRIC, IMPERIAL } from '../web/lib/units.js';
 import { pollenIcon, ICON_SPECIES } from '../web/lib/pollen-icons.js';
@@ -515,4 +515,90 @@ test('mrholení pod prahem se za déšť nepovažuje', () => {
   // počasí neodporují.
   const c = konec([0.1, 0.1, 0.1]);
   assert.equal(c.prsiTed, false);
+});
+
+/* ============================================================
+   VÍTR V PŘEDPOVĚDI PO HODINÁCH A PO DNECH
+   Miki 24. 10. 2026: „v předpovědi na víc dní a hodin není vůbec vítr
+   zahrnutý a jeho směr".
+   ============================================================ */
+
+/** Týž FORECAST s nárazy po hodinách a větrem po dnech — čísla z živé odpovědi pro Prahu. */
+const SVETREM = {
+  ...FORECAST,
+  hourly: { ...FORECAST.hourly, wind_gusts_10m: [20, 30, 25, 40] },
+  daily: {
+    ...FORECAST.daily,
+    wind_speed_10m_max: [22.4, 15.8, 6.6],
+    wind_gusts_10m_max: [45.7, 41, 14],
+    wind_direction_10m_dominant: [217, 331, 184],
+  },
+};
+
+test('🚨 dotaz na předpověď stahuje vítr i po dnech', () => {
+  // Bez toho karta 7 dní neměla z čeho vítr ukázat. Po hodinách se stahoval
+  // vždycky, jen se nevypisoval.
+  for (const p of ['wind_speed_10m_max', 'wind_gusts_10m_max', 'wind_direction_10m_dominant']) {
+    assert.ok(FORECAST_PARAMS.daily.split(',').includes(p), `daily chybí ${p}`);
+  }
+  for (const p of ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m']) {
+    assert.ok(FORECAST_PARAMS.hourly.split(',').includes(p), `hourly chybí ${p}`);
+  }
+});
+
+test('vítr po hodinách: rychlost, směr a náraz, jen když něco přidává', () => {
+  const v = buildStationView({ forecast: SVETREM, lang: 'cs', units: METRIC, nowMs: NOW });
+  const [h13, h14] = v.hourly;
+  assert.equal(h13.wind, '13 km/h');
+  assert.equal(h13.windDeg, 350, 'přesný úhel pro střelku');
+  assert.equal(h13.windDirLong, 'severní');
+  assert.equal(h13.gustsMatter, true, 'náraz 30 je o 17,5 nad průměrem');
+  assert.equal(h13.gustsValue, '30', 'do dlaždice jen číslo, jednotku nese rychlost');
+  assert.equal(h13.gusts, '30 km/h');
+  assert.equal(h14.gustsMatter, false, 'náraz 25 při 14 km/h nic nepřidává');
+  assert.equal(h14.windKmh, 14, 'číslo pro barvu střelky');
+});
+
+test('vítr po dnech: nejsilnější vítr, náraz a převládající směr', () => {
+  const v = buildStationView({ forecast: SVETREM, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.daily[0].wind, '22 km/h');
+  assert.equal(v.daily[0].gusts, '46 km/h');
+  assert.equal(v.daily[0].gustsMatter, true);
+  assert.equal(v.daily[0].windDirLong, 'jihozápadní');
+  assert.equal(v.daily[0].windDeg, 217, 'střelka dostane přesný úhel, ne zaokrouhlený');
+  assert.equal(v.daily[2].gustsMatter, false, 'náraz 14 při 7 km/h se nepíše');
+  assert.equal(v.daily[2].windDirLong, 'jižní');
+});
+
+test('🚨 vítr po dnech: směr slovem jen v OSMI stranách', () => {
+  // „severo-severozápadní, nárazy 25 km/h" se na 320 px nevešlo a nárazy
+  // spadly na další řádek. Převládající směr za celý den je odhad; přesný
+  // úhel nese střelka, slovo stačí hrubší.
+  const v = buildStationView({ forecast: SVETREM, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.daily[1].windDirLong, 'severozápadní', '331° je po šestnáctinách severo-severozápadní');
+  assert.equal(v.daily[1].windDeg, 331);
+  for (const d of v.daily) assert.doesNotMatch(d.windDirLong, /-/, 'žádné složené jméno');
+});
+
+test('🚨 starší odpověď bez větru po dnech nic nevymýšlí', () => {
+  // Odpověď z mezipaměti před 24. 10. 2026 pole nemá. Prázdný vítr znamená
+  // „nevíme" — appka ho nevypíše, místo aby ukázala nulu jako bezvětří.
+  const v = buildStationView({ forecast: FORECAST, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.daily[0].wind, '');
+  assert.equal(v.daily[0].windKmh, null);
+  assert.equal(v.daily[0].windDeg, null);
+  assert.equal(v.daily[0].windDirLong, '');
+  assert.equal(v.daily[0].gustsMatter, false);
+  // Po hodinách vítr je, nárazy ne — náraz se pak netvrdí.
+  assert.equal(v.hourly[0].wind, '13 km/h');
+  assert.equal(v.hourly[0].gusts, '');
+  assert.equal(v.hourly[0].gustsMatter, false);
+});
+
+test('vítr v předpovědi: jednotky uživatele, jazyk zvlášť', () => {
+  const usa = buildStationView({ forecast: SVETREM, lang: 'en', units: IMPERIAL, nowMs: NOW });
+  assert.equal(usa.daily[0].wind, '14 mph');
+  assert.equal(usa.daily[0].gustsValue, '28');
+  assert.equal(usa.daily[0].windDirLong, 'southwesterly');
+  assert.equal(usa.hourly[0].wind, '8 mph');
 });

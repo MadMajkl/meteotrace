@@ -14,7 +14,9 @@ import assert from 'node:assert/strict';
 
 import {
   windTon, uvTon, pressureTon, soumrakPodil, STUPNE, VICHRICE_KMH,
+  GUST_MARGIN_KMH, jeNarazSilny,
 } from '../web/lib/tile-tone.js';
+import { GUST_MARGIN_KMH as PRAH_TRASY } from '../web/lib/route-view.js';
 
 /* ── vítr ─────────────────────────────────────────────────────────────── */
 
@@ -182,4 +184,25 @@ test('🚨 všechny stupně jsou ze společné stupnice', () => {
     pressureTon(985).stupen, pressureTon(1013).stupen, pressureTon(null).stupen,
   ];
   for (const s of vsechny) assert.ok(STUPNE.includes(s), 'neznámý stupeň: ' + s);
+});
+
+/* ── nárazy ───────────────────────────────────────────────────────────── */
+
+test('🚨 práh nárazů je jeden pro trasu i pro předpověď', () => {
+  // Kdyby se rozešly, psala by appka o tomtéž větru na trase „nárazy"
+  // a na meteostanici nic.
+  assert.equal(PRAH_TRASY, GUST_MARGIN_KMH);
+  assert.equal(GUST_MARGIN_KMH, 15);
+});
+
+test('náraz se píše, až když převýší průměr aspoň o práh', () => {
+  assert.equal(jeNarazSilny(10, 25), true, 'přesně na prahu');
+  assert.equal(jeNarazSilny(10, 24.9), false);
+  assert.equal(jeNarazSilny(22.4, 45.7), true);
+});
+
+test('náraz: chybějící údaj se netvrdí', () => {
+  assert.equal(jeNarazSilny(null, 40), false);
+  assert.equal(jeNarazSilny(10, null), false);
+  assert.equal(jeNarazSilny(undefined, undefined), false);
 });

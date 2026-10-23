@@ -450,6 +450,9 @@ export default {
     high: 'Nejvýš',
     low: 'Nejníž',
     chanceOfRain: 'Pravděpodobnost deště',
+    // Nárazy v předpovědi. V dlaždici hodiny jen číslo (jednotku nese
+    // rychlost nad ním), u dne celé „nárazy 45 km/h".
+    gusts: 'nárazy {w}',
   },
 
   weather: {
@@ -654,15 +657,25 @@ export default {
   /* Ranní a večerní zpráva (`R25`). Skládá je server, obal je jen zobrazí —
      proto tady, a ne v `strings.xml` obalu: ten se řídí jazykem SYSTÉMU,
      kdežto jazyk appky je volba uživatele (`R10`).
-     ⚠️ Věta musí být čitelná na zamčeném displeji, tedy krátká. */
+     ⚠️ Řádek musí být čitelný na zamčeném displeji, tedy krátký. Řádek je
+     jeden na úsek (`R45`): ráno dnešek a noc, večer noc a zítřek. */
   brief: {
     today: 'Dnes',
     tomorrow: 'Zítra',
-    line: '{day} {min} až {max} · {what}',
+    tonight: 'V noci',
+    line: '{day} {temp} · {what}',
+    // U noci jen minimum — rozhoduje o mrazu, ne o oblékání.
+    low: 'nejníž {t}',
     // ⚠️ NE „déšť {p} %": jev už se jmenuje o řádek výš a vyšlo z toho
     // „Déšť, déšť 70 %". Pravděpodobnost je navíc to, co ta hodnota je.
     rain: 'pravděpodobnost {p} %',
-    wind: 'vítr až {w}',
+    // Směr zkratkou: celé jméno („jihozápadní") by na zamčeném displeji
+    // vytlačilo nárazy na další řádek.
+    wind: 'vítr {dir} až {w}',
+    windNoDir: 'vítr až {w}',
+    variable: 'proměnlivý',
+    calm: 'bezvětří',
+    gusts: 'nárazy {g}',
     titleMorning: 'Ráno · {place}',
     titleEvening: 'Večer · {place}',
   },

@@ -17,7 +17,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
+  sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, windArrowShape, moonShape,
   uvShape, moonTrendShape,
 } from '../web/lib/sky-icons.js';
 import { formatElevation, formatPressure, METRIC, IMPERIAL } from '../web/lib/units.js';
@@ -234,4 +234,26 @@ test('🚨 hrot růžice míří NAHORU — otočení dodává app.js', () => {
   const iHrot = ys.indexOf(Math.min(...ys));
   assert.equal(xs[iHrot], 12, 'hrot je na svislé ose');
   assert.ok(ys[iHrot] < 6, 'a míří nahoru');
+});
+
+/* ── střelka větru v předpovědi ───────────────────────────────────────── */
+
+test('🚨 střelka v předpovědi míří v základu NAHORU, stejně jako hrot růžice', () => {
+  // Otočení (windDeg + 180) dodává app.js oběma stejně. Kdyby tvar sám
+  // mířil jinam, ukazovala by střelka v předpovědi jinam než růžice nahoře.
+  const cisla = windArrowShape().plocha.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const ys = cisla.filter((_, i) => i % 2 === 1);
+  const xs = cisla.filter((_, i) => i % 2 === 0);
+  const iHrot = ys.indexOf(Math.min(...ys));
+  assert.equal(xs[iHrot], 12, 'hrot je na svislé ose');
+  assert.ok(ys[iHrot] < 4, 'a míří nahoru');
+  assert.ok(Math.max(...ys) > 20, 'sahá přes celé políčko — ve 14 px by malý hrot zanikl');
+});
+
+test('střelka v předpovědi je jen hrot, bez prstence', () => {
+  // Prstenec a světové strany by se ve 14 px slily v šmouhu.
+  const s = windArrowShape();
+  assert.equal(s.kruh, undefined);
+  assert.equal(s.cara, undefined);
+  assert.equal(s.ocas, undefined);
 });

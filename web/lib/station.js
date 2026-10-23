@@ -22,8 +22,9 @@
 
 import { t, tf } from './i18n.js';
 import {
-  formatTemp, formatWind, formatPrecip, formatPressure, formatElevation, windDirKey,
+  formatTemp, formatWind, formatWindValue, formatPrecip, formatPressure, formatElevation, windDirKey,
 } from './units.js';
+import { jeNarazSilny } from './tile-tone.js';
 import { weatherKey, weatherIcon, weatherKeyWithClouds, weatherIconWithClouds,
 } from './weather-code.js';
 import { moonPhase } from './moon.js';
@@ -367,6 +368,7 @@ export function buildStationView(a) {
         tempC: Number.isFinite(H.temperature_2m?.[i]) ? H.temperature_2m[i] : null,
         precipProb: pct(H.precipitation_probability?.[i], lang),
         precip: formatPrecip(H.precipitation?.[i], units, lang),
+        ...vitrPredpovedi(H.wind_speed_10m?.[i], H.wind_gusts_10m?.[i], H.wind_direction_10m?.[i], units, lang),
       };
     }),
 
@@ -382,6 +384,9 @@ export function buildStationView(a) {
         hi: formatTemp(D.temperature_2m_max?.[i], units, lang),
         lo: formatTemp(D.temperature_2m_min?.[i], units, lang),
         precipProb: pct(D.precipitation_probability_max?.[i], lang),
+        // Nejsilnější vítr dne a převládající směr. ⚠️ Starší odpověď
+        // v mezipaměti tahle pole nemá — pak se vítr prostě neukáže.
+        ...vitrPredpovedi(D.wind_speed_10m_max?.[i], D.wind_gusts_10m_max?.[i], D.wind_direction_10m_dominant?.[i], units, lang, { osmSmeru: true }),
       };
     }),
 
@@ -452,6 +457,34 @@ function pct(value, lang) {
 function numOrDash(value, lang) {
   if (value == null || !Number.isFinite(value)) return '—';
   return new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(value);
+}
+
+/**
+ * Vítr pro hodinu nebo den předpovědi (Miki 24. 10. 2026: *„v předpovědi na
+ * víc dní a hodin není vůbec vítr zahrnutý a jeho směr"*).
+ *
+ * Čísla vedle textů: podle `windKmh` a `gustKmh` se barví střelka,
+ * podle `windDeg` se natáčí. Bez rychlosti není co ukázat — prázdný
+ * `wind` znamená „vítr nevíme", ne „bezvětří".
+ */
+function vitrPredpovedi(kmh, gustKmh, deg, units, lang, { osmSmeru = false } = {}) {
+  const jeVitr = Number.isFinite(kmh);
+  const jeNaraz = Number.isFinite(gustKmh);
+  const jeSmer = Number.isFinite(deg);
+  return {
+    windKmh: jeVitr ? kmh : null,
+    gustKmh: jeNaraz ? gustKmh : null,
+    windDeg: jeSmer ? deg : null,
+    wind: jeVitr ? formatWind(kmh, units, lang) : '',
+    // ⚠️ U dne jen OSM směrů slovem („severozápadní", ne „severo-severozápadní").
+    // Převládající směr za celý den je odhad a šestnáctinové jméno by na
+    // 360 px odsunulo nárazy na další řádek. Přesný úhel nese střelka.
+    windDirLong: dirLong(osmSmeru && jeSmer ? (Math.round(deg / 45) * 45) % 360 : deg, lang),
+    gusts: jeNaraz ? formatWind(gustKmh, units, lang) : '',
+    gustsValue: jeNaraz ? formatWindValue(gustKmh, units, lang) : '',
+    // Náraz se píše, jen když něco přidává — stejný práh jako u bodu trasy.
+    gustsMatter: jeNarazSilny(kmh, gustKmh),
+  };
 }
 
 /** Plné jméno směru — do bubliny nad zkratkou. */

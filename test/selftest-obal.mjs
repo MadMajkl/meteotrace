@@ -237,6 +237,24 @@ test('🚨 horní lišta naopak HORNÍ systémový okraj respektovat musí', () 
   assert.match(top.telo, /padding-top:\s*calc\([^)]*safe-area-inset-top/);
 });
 
+test('🚨 pruh hodin je kotva pro absolutně umístěné potomky', () => {
+  // Směr větru pro čtečku (`.sr-only`) je `position: absolute`. Bez kotvy
+  // na `.hours` se k němu počítal až `.hours-box` MIMO rolovací pruh, takže
+  // ho pruh neořízl a stránka přetékala do strany o 2 217 px (24. 10. 2026).
+  const css = readFileSync(join(WEB, 'style.css'), 'utf8');
+  const hours = cssBloky(css).find((b) => b.selektor === '.hours');
+  assert.ok(hours, 'blok `.hours` ve stylu chybí');
+  assert.match(hours.telo, /position:\s*relative/);
+});
+
+test('🚨 střelky v předpovědi míří po proudu jako růžice (+180°)', () => {
+  // windDeg je meteorologicky „odkud", plná šipka se čte jako „kam".
+  // Viz poznámka u růžice v app.js (Michal 30. 8. 2026).
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  assert.match(app, /kresliTvar\(windArrowShape\(\), 'sky-icon', w\.windDeg \+ 180\)/);
+  assert.match(app, /vlozIkonu\('ico-wind', windRoseShape\(\), Number\.isFinite\(c\.windDeg\) \? c\.windDeg \+ 180/);
+});
+
 test('hledač bloků si nesplete komentář s pravidlem', () => {
   // Kdyby se komentáře nevyhazovaly, našel by se `safe-area-inset-bottom`
   // v poznámce nad pravidlem — a test by hlásil vadu tam, kde není.

@@ -19,7 +19,7 @@ import { buildWarningsView } from './lib/warnings-view.js';
 import { pollenIcon } from './lib/pollen-icons.js';
 import { kresliTvar } from './icon-draw.js';
 import {
-  sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, moonShape,
+  sunriseShape, sunsetShape, elevationShape, pressureShape, windRoseShape, windArrowShape, moonShape,
   uvShape, moonTrendShape, noteShape,
 } from './lib/sky-icons.js';
 import { placeMeta, placeLabel, placeTitle, isUsablePoint } from './lib/geo-query.js';
@@ -83,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.5.3';
+const VERZE = '1.5.4';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -3476,6 +3476,11 @@ function render(forecast) {
       el('span', 'i', h.icon),
       el('div', 'v', h.temp),
       el('div', 'p', h.precipProb === '0 %' ? '' : h.precipProb),
+      // Vítr: střelka a rychlost, pod nimi náraz, když něco přidává.
+      // ⚠️ Náraz jen číslem — „nárazy 27 km/h" se do dlaždice nevejde
+      // a jednotka stojí o řádek výš.
+      ...(h.wind ? [vitrPredpovedi(h, h.wind)] : []),
+      ...(h.wind && h.gustsMatter ? [el('div', 'g', tf('forecast.gusts', { w: h.gustsValue }, state.lang))] : []),
     ]);
     // Předěl dne. Bez něj je dvoudenní pruh bludiště — „v 8:00" se dá číst
     // jako dnes i zítra.
@@ -3486,12 +3491,31 @@ function render(forecast) {
     return bunka;
   });
 
-  fill($('days'), view.daily, (d) => el('li', '', [
-    el('span', 'd', d.day),
-    el('span', 'p', d.precipProb === '0 %' ? '' : d.precipProb),
-    el('span', 'i', d.icon),
-    el('span', 'r', [document.createTextNode(d.hi + ' '), el('span', 'lo', d.lo)]),
-  ]));
+  fill($('days'), view.daily, (d) => {
+    const radek = el('li', '', [
+      el('span', 'd', d.day),
+      el('span', 'p', d.precipProb === '0 %' ? '' : d.precipProb),
+      el('span', 'i', d.icon),
+      el('span', 'r', [document.createTextNode(d.hi + ' '), el('span', 'lo', d.lo)]),
+    ]);
+    // 🚨 Vítr dne jde na VLASTNÍ ŘÁDEK pod den, přes celou šířku. Vedle jména
+    // dne je na 360 px volných asi 60 px a „22 km/h jihozápadní, nárazy
+    // 46 km/h" jich chce přes dvě stě; na 320 px a v angličtině („Tomorrow")
+    // skoro nic. Vlastní řádek unese i celé slovo směru, které se do dlaždice
+    // hodiny nevejde.
+    if (d.wind) {
+      const casti = [el('span', 'wv', d.wind)];
+      if (d.windDirLong) casti.push(el('span', 'wd', d.windDirLong));
+      if (d.gustsMatter) {
+        // Čárka, ne tečka uprostřed: když se náraz na úzkém displeji zalomí,
+        // zůstane na konci řádku, kam patří, a nový řádek nezačne „· nárazy".
+        casti.at(-1).append(',');
+        casti.push(el('span', 'wg', tf('forecast.gusts', { w: d.gusts }, state.lang)));
+      }
+      radek.append(vitrPredpovedi(d, casti));
+    }
+    return radek;
+  });
 
   return true;
 }
@@ -4244,12 +4268,8 @@ function obarviDlazdice(view, c) {
   const v = windTon(c.windKmh, c.gustKmh);
   const cell = $('cell-wind');
   if (cell) {
-    // Odstín jde od zelené (140°) k červené (0°) — přes žlutou a oranžovou,
-    // tedy tou stranou kruhu, kterou lidé čtou jako semafor.
-    const odstin = Math.round(140 * (1 - v.podil));
-    cell.style.setProperty('--vitr-barva', v.stupen === 'zadny'
-      ? 'var(--accent)'
-      : `hsl(${odstin} 72% 45%)`);
+    // Táž stupnice jako u střelek v předpovědi (`barvaVetru()`).
+    cell.style.setProperty('--vitr-barva', barvaVetru(c.windKmh, c.gustKmh));
     ton('cell-wind', v.vichrice ? 'krize' : 'zadny');
   }
 
@@ -4306,6 +4326,42 @@ function srovnejDlazdiciHlasek(idDlazdice) {
   if (!box) return;
   const jeCo = [...box.querySelectorAll('.route-quip')].some((p) => !p.hidden && p.textContent.trim());
   box.hidden = !jeCo;
+}
+
+/**
+ * Vítr v předpovědi po hodinách a po dnech: střelka a text vedle ní.
+ *
+ * 🚨 Střelka míří tam, KAM vítr fouká (+180°), stejně jako růžice v dlaždici
+ * „Vítr". Barví se toutéž stupnicí. Barva ale nenese údaj sama: vedle stojí
+ * rychlost a pro čtečku i celý popis.
+ * Bez směru se střelka nekreslí — nenatočená by ukazovala na sever a lhala.
+ *
+ * @param {object} w      položka z `view.hourly` / `view.daily`
+ * @param {string|Node[]} obsah  co stojí vedle střelky
+ */
+function vitrPredpovedi(w, obsah) {
+  const popis = [
+    t('now.wind', state.lang), w.wind, w.windDirLong,
+  ].filter(Boolean).join(' ')
+    + (w.gustsMatter && w.gusts ? `, ${tf('forecast.gusts', { w: w.gusts }, state.lang)}` : '');
+  const box = el('div', 'w', [
+    ...(Number.isFinite(w.windDeg) ? [kresliTvar(windArrowShape(), 'sky-icon', w.windDeg + 180)] : []),
+    ...(Array.isArray(obsah) ? obsah : [el('span', 'wv', obsah)]),
+    // Směr jen pro čtečku — střelka je pro ni výzdoba (`aria-hidden`).
+    ...(Array.isArray(obsah) || !w.windDirLong ? [] : [el('span', 'sr-only', w.windDirLong)]),
+  ]);
+  box.title = popis;
+  box.style.setProperty('--vitr-barva', barvaVetru(w.windKmh, w.gustKmh));
+  return box;
+}
+
+/**
+ * Odstín střelky podle síly větru: od zelené (140°) k červené (0°) přes
+ * žlutou a oranžovou, tedy tou stranou kruhu, kterou lidé čtou jako semafor.
+ */
+function barvaVetru(kmh, gustKmh) {
+  const v = windTon(kmh, gustKmh);
+  return v.stupen === 'zadny' ? 'var(--accent)' : `hsl(${Math.round(140 * (1 - v.podil))} 72% 45%)`;
 }
 
 function vlozIkonu(id, tvar, otoceni = null) {

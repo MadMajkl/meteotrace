@@ -825,6 +825,11 @@ main {
 .hours {
   display: flex; gap: 6px;
   overflow-x: auto;                          /* vodorovné rolování, ne zalamování */
+  /* 🚨 Kotva pro absolutně umístěné potomky (směr větru pro čtečku, `.sr-only`).
+     Bez ní se k nim počítá až `.hours-box` MIMO rolovací pruh, takže se
+     neořežou a stránka přetékala do strany o 2 217 px (24. 10. 2026,
+     při přidání větru do předpovědi). Hlídá `selftest-obal.mjs`. */
+  position: relative;
   scroll-snap-type: x proximity;
   margin: 0 -18px; padding: 0 18px 6px;
   scrollbar-width: thin;
@@ -848,7 +853,9 @@ main {
 .hours-box[data-vpravo="1"]::after { opacity: 1; }
 
 .hour {
-  flex: none; width: 66px;
+  /* 70 px, ne 66: řádek větru „↗ 12 km/h" chce 60 px a dlaždice má 4 px
+     okraj z každé strany. Při 66 by se rychlost lepila na hranu. */
+  flex: none; width: 70px;
   padding: 10px 4px;
   text-align: center;
   background: var(--surface-2);
@@ -860,12 +867,28 @@ main {
 .hour .v { font-size: 15px; font-variant-numeric: tabular-nums; }
 .hour .p { margin-top: 2px; font-size: 11px; color: var(--accent); min-height: 15px; }
 
+/* Vítr v předpovědi (Miki 24. 10. 2026). Střelka nese barvu podle síly
+   (`barvaVetru()` v app.js), text vedle ní je obyčejný. */
+.hour .w {
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  margin-top: 4px;
+  font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.hour .g { font-size: 11px; color: var(--text-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hour .w .sky-icon,
+.days .w .sky-icon {
+  flex: none; width: 14px; height: 14px;
+  color: var(--vitr-barva, var(--accent));
+  opacity: 0.95;
+}
+
 /* ---------- po dnech ---------- */
 
 .days { list-style: none; margin: 0; padding: 0; }
 .days li {
   display: grid; grid-template-columns: 1fr auto auto auto;
-  align-items: center; gap: 10px;
+  /* Mezera jen mezi sloupci. Řádek větru pod dnem patří ke svému dni. */
+  align-items: center; gap: 0 10px;
   padding: 10px 0;
   border-top: 1px solid var(--line);
 }
@@ -875,6 +898,18 @@ main {
 .days .p { font-size: 12px; color: var(--accent); min-width: 42px; text-align: right; }
 .days .r { font-variant-numeric: tabular-nums; min-width: 96px; text-align: right; }
 .days .lo { color: var(--text-soft); }
+
+/* Vítr dne: vlastní řádek přes celou šířku, pod jménem dne. Na dlouhém
+   směru se zalomí celý kus („nárazy 45 km/h"), ne slovo uprostřed. Mezera
+   mezi kusy je `column-gap`, takže čte se jako mezera mezi slovy. */
+.days .w {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px;
+  margin-top: -3px;                          /* k jeho dni, ne k dalšímu */
+  font-size: 13px; line-height: 1.35; color: var(--text-soft);
+}
+.days .w .wv { color: var(--text); font-variant-numeric: tabular-nums; }
+.days .w .sky-icon { margin-right: 2px; }
 
 /* ---------- pyl ---------- */
 

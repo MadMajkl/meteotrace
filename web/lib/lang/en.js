@@ -386,6 +386,7 @@ export default {
     high: 'High',
     low: 'Low',
     chanceOfRain: 'Chance of rain',
+    gusts: 'gusts {w}',
   },
 
   /** Weather conditions — keys come from `weather-code.js` (WEATHER_KEYS). */
@@ -575,9 +576,15 @@ export default {
   brief: {
     today: 'Today',
     tomorrow: 'Tomorrow',
-    line: '{day} {min} to {max} · {what}',
+    tonight: 'Tonight',
+    line: '{day} {temp} · {what}',
+    low: 'low {t}',
     rain: 'chance {p}%',
-    wind: 'wind up to {w}',
+    wind: '{dir} wind up to {w}',
+    windNoDir: 'wind up to {w}',
+    variable: 'variable',
+    calm: 'calm',
+    gusts: 'gusts {g}',
     titleMorning: 'Morning · {place}',
     titleEvening: 'Evening · {place}',
   },

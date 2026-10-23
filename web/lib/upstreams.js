@@ -372,7 +372,8 @@ export const UPSTREAMS = {
   /**
    * Ranní a večerní zpráva o počasí (`R25`).
    *
-   * Vrací JEDNU HOTOVOU VĚTU v jazyce appky — obal ji jen zobrazí.
+   * Vrací HOTOVÝ TEXT v jazyce appky (řádek na úsek, `R45`) — obal ho
+   * jen zobrazí.
    * Skládá ji `web/lib/brief.js`, stahuje `server/brief.js`.
    *
    * ⚠️ Proto `builder`: z jedné odpovědi Open-Meteo se dělá text, ne průchod.

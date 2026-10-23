@@ -176,6 +176,24 @@ export function windRoseShape() {
 }
 
 /**
+ * Střelka větru do předpovědi po hodinách a po dnech (Miki 24. 10. 2026).
+ *
+ * Je to TENTÝŽ hrot jako v růžici, jen bez prstence a světových stran.
+ * Ve čtrnácti pixelech by se z nich stala šmouha, ve které se hrot ztratí.
+ *
+ * 🚨 Hrot ukazuje, KAM vítr fouká, stejně jako v růžici. `app.js`
+ * přičítá k `windDeg` 180°. Kdyby střelka v předpovědi ukazovala
+ * opačně než růžice nahoře, nedalo by se věřit ani jedné.
+ *
+ * @returns {{plocha: string}}
+ */
+export function windArrowShape() {
+  // Táž kresba jako `windRoseShape().plocha`, natažená na celou výšku
+  // políčka. Těžiště zůstává ve středu, takže se střelka točí na místě.
+  return { plocha: 'M12 2.2 18.6 21.8 12 17 5.4 21.8z' };
+}
+
+/**
  * UV index: slunce a pod ním člověk.
  *
  * Michal 29. 8. 2026: *„UV index musí mít piktogram slunce a v dlaždici musí

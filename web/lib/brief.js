@@ -1,8 +1,24 @@
 /**
- * Ranní a večerní zpráva o počasí (`R25`).
+ * Ranní a večerní zpráva o počasí (`R25`, tvar `R45`).
  *
  * ⚠️ ČISTÝ MODUL. Bez DOM, bez sítě — dostane odpověď Open-Meteo a vrátí
- * hotovou větu. „Teď" dodává volající, ať jde otestovat ráno i večer.
+ * hotový text. „Teď" dodává volající, ať jde otestovat ráno i večer.
+ *
+ * ────────────────────────────────────────────────────────────────────────
+ * CO ZPRÁVA POKRÝVÁ — POSUVNÉ OKNO, NE „JEDEN DEN" (`R45`)
+ *
+ * Miki 24. 10. 2026: *„večerní zprávy jsou předpověď na noc a druhý den
+ * a ranní v podstatě jejich zpřesnění a prodloužení."*
+ *
+ *   večer   noc (od teď do rána) + den, který po ní přijde
+ *   ráno    dnešek (od teď do večera) + noc po něm
+ *
+ * Ranní tedy zpřesní den, který slíbila večerní (čerstvější data), a okno
+ * prodlouží o noc. Den je od 6 do 20 h místního času, noc od 20 do 6 h.
+ *
+ * ⚠️ Úsek se čte z HODINOVÉ předpovědi, ne z denní: denní minimum je
+ * z půlnoci až půlnoci, takže by „Zítra 3 až 15 °C" opakovalo noc, o které
+ * už mluví první řádek. A noc přes půlnoc v denních datech vůbec není.
  *
  * ────────────────────────────────────────────────────────────────────────
  * PROČ TO SKLÁDÁ SERVER, A NE OBAL
@@ -25,11 +41,15 @@
 
 import { t, tf } from './i18n.js';
 import { weatherKey } from './weather-code.js';
-import { formatTemp, formatWind, convert } from './units.js';
+import { formatTemp, formatTempRange, formatWind, windDirKey } from './units.js';
+import { jeNarazSilny } from './tile-tone.js';
 
-/** Co se stahuje kvůli zprávě. Dva dny stačí: dnešek a zítřek. */
+/**
+ * Co se stahuje kvůli zprávě. Dva dny stačí: večerní okno končí zítra
+ * ve 20 h, ranní zítra v 6 h — a Open-Meteo počítá dny v pásmu místa.
+ */
 export const BRIEF_PARAMS = {
-  daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max',
+  hourly: 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
   timezone: 'auto',
   forecast_days: '2',
 };
@@ -37,84 +57,188 @@ export const BRIEF_PARAMS = {
 /** Od téhle pravděpodobnosti srážek se o dešti píše. Níž je to šum. */
 export const RAIN_MENTION = 40;
 
-/** Od téhle rychlosti (km/h) se zmiňuje vítr — od té doby mění, co si vzít na sebe. */
-export const WIND_MENTION = 40;
+/** Hodina místního času, kdy začíná den, a kdy noc. */
+export const DEN_OD = 6;
+export const DEN_DO = 20;
 
-/** Druhy zprávy. Ranní mluví o dnešku, večerní o zítřku. */
+/**
+ * Pod touhle stálostí směru je vítr „proměnlivý" (0 = fouká ze všech stran
+ * stejně, 1 = celý úsek z jedné). Průměr z větru, který se točí, je číslo
+ * bez obsahu — „vítr J" po noci, kdy foukalo ze severu i z jihu, je lež.
+ */
+export const PROMENLIVY_POD = 0.4;
+
+/** Pod touhle nejvyšší rychlostí (km/h) je v úseku bezvětří, ne „vítr až 1 km/h". */
+export const BEZVETRI_POD = 2;
+
+/** Druhy zprávy. Liší se oknem — viz hlavička. */
 export const KINDS = ['morning', 'evening'];
 
 /**
- * Datum v pásmu místa, ve tvaru, jaký vrací Open-Meteo v `daily.time`.
+ * Teď v pásmu místa jako `YYYY-MM-DDTHH` — tentýž tvar jako začátek
+ * hodinových časů Open-Meteo, takže se dá porovnávat jako text.
  *
- * ⚠️ Počítá se z `utc_offset_seconds` z TÉŽE odpovědi, ne z pásma serveru.
+ * ⚠️ Posun z `utc_offset_seconds` TÉŽE odpovědi, ne z pásma serveru.
  * Netlify běží v UTC, takže „dnes" podle serveru je pro uživatele v Praze
- * po 22:00 už včerejšek — a ranní zpráva by mluvila o špatném dni.
+ * po 22:00 už včerejšek — a zpráva by mluvila o špatném dni.
+ *
+ * ⚠️ Hranice úseků jsou v NAIVNÍM místním čase (6:00, 20:00), takže na
+ * přechodu času nic neposouvají: Open-Meteo píše hodiny místa i v den
+ * změny, 24 za den.
  */
-function denVMiste(ms, posunS) {
-  return new Date(ms + (Number(posunS) || 0) * 1000).toISOString().slice(0, 10);
+function hodinaVMiste(ms, posunS) {
+  return new Date(ms + (Number(posunS) || 0) * 1000).toISOString().slice(0, 13);
+}
+
+function dalsiDen(datum) {
+  const d = new Date(`${datum}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+const naHodinu = (datum, h) => `${datum}T${String(h).padStart(2, '0')}`;
+const pozdejsi = (a, b) => (a > b ? a : b);
+
+/**
+ * Úseky, o kterých zpráva mluví: `[{druh: 'den'|'noc', datum?, od, do}]`,
+ * `od` včetně, `do` bez. Prázdný úsek (ranní zpráva nastavená po 20 h)
+ * vypadne.
+ */
+export function useky({ forecast, kind, nowMs }) {
+  if (!KINDS.includes(kind)) return [];
+  const ted = hodinaVMiste(nowMs, forecast?.utc_offset_seconds);
+  const dnes = ted.slice(0, 10);
+  const zitra = dalsiDen(dnes);
+
+  if (kind === 'morning') {
+    return [
+      { druh: 'den', datum: dnes, od: pozdejsi(ted, naHodinu(dnes, DEN_OD)), do: naHodinu(dnes, DEN_DO) },
+      { druh: 'noc', od: pozdejsi(ted, naHodinu(dnes, DEN_DO)), do: naHodinu(zitra, DEN_OD) },
+    ].filter((u) => u.od < u.do);
+  }
+
+  // Večer: noc, která běží nebo přijde, a den po ní. Po půlnoci (zpráva
+  // zdržená sítí) je to noc do dnešního rána a den je dnešek.
+  const poPulnoci = Number(ted.slice(11, 13)) < DEN_OD;
+  const rano = poPulnoci ? dnes : zitra;
+  return [
+    { druh: 'noc', od: poPulnoci ? ted : pozdejsi(ted, naHodinu(dnes, DEN_DO)), do: naHodinu(rano, DEN_OD) },
+    { druh: 'den', datum: rano, od: naHodinu(rano, DEN_OD), do: naHodinu(rano, DEN_DO) },
+  ];
 }
 
 /**
- * Který den z předpovědi se má popsat.
+ * Souhrn hodin úseku. `null`, když předpověď úsek celý nepokrývá.
  *
- * `morning` = dnešek, `evening` = zítřek. Když ten den v odpovědi není
- * (stáhlo se málo dní, jsme za obzorem), vrací `-1` a volající **nesmí
- * zvonit**: zpráva o dni, o kterém nic nevíme, je horší než žádná.
+ * Jev je NEJHORŠÍ kód úseku — stejné pravidlo, podle kterého Open-Meteo
+ * počítá kód dne (ověřeno 24. 10. 2026 na 42 dnech v šesti městech), takže
+ * zpráva říká totéž co karta dne v appce. Vítr a nárazy jsou nejvyšší
+ * hodnoty, směr je průměr vážený rychlostí.
  */
-export function indexDne({ forecast, kind, nowMs }) {
-  const dny = forecast?.daily?.time;
-  if (!Array.isArray(dny) || !dny.length) return -1;
-  const dnes = denVMiste(nowMs, forecast.utc_offset_seconds);
-  const i = dny.indexOf(dnes);
-  if (i < 0) return -1;
-  return kind === 'evening' ? (i + 1 < dny.length ? i + 1 : -1) : i;
+function shrnUsek(H, { od, do: doH }) {
+  const s = { hodin: 0, teploty: [], kod: null, dest: null, vitr: null, naraz: null, x: 0, y: 0, sila: 0 };
+  // ⚠️ `null` výslovně: `0 <= null` je v JS `true`, takže by jasno (kód 0)
+  // ani bezvětří (0 km/h) nikdy nepřebily „zatím nic".
+  const vyssi = (a, b) => (Number.isFinite(b) && (a == null || b > a) ? b : a);
+
+  (H.time || []).forEach((cas, i) => {
+    const h = String(cas).slice(0, 13);
+    if (h < od || h >= doH) return;
+    s.hodin++;
+    const tep = H.temperature_2m?.[i];
+    if (Number.isFinite(tep)) s.teploty.push(tep);
+    const kod = H.weather_code?.[i];
+    if (Number.isInteger(kod) && (s.kod == null || kod > s.kod)) s.kod = kod;
+    s.dest = vyssi(s.dest, H.precipitation_probability?.[i]);
+    s.naraz = vyssi(s.naraz, H.wind_gusts_10m?.[i]);
+    const v = H.wind_speed_10m?.[i];
+    s.vitr = vyssi(s.vitr, v);
+    const smer = H.wind_direction_10m?.[i];
+    if (Number.isFinite(v) && Number.isFinite(smer)) {
+      const rad = (smer * Math.PI) / 180;
+      s.x += v * Math.sin(rad);
+      s.y += v * Math.cos(rad);
+      s.sila += v;
+    }
+  });
+
+  // 🚨 Úsek musí být CELÝ. Zkrácená předpověď (jen dnešek) by jinak dala
+  // „V noci nejníž 11 °C" ze čtyř večerních hodin — a nejnižší teplota
+  // přichází k ránu. Hodiny se počítají v naivním čase, jak je píše
+  // Open-Meteo: 24 za den i v den přechodu času.
+  const ocekavano = (Date.parse(`${doH}:00:00Z`) - Date.parse(`${od}:00:00Z`)) / 3_600_000;
+  if (s.hodin < ocekavano || !s.teploty.length) return null;
+  return {
+    min: Math.min(...s.teploty),
+    max: Math.max(...s.teploty),
+    kod: s.kod,
+    dest: s.dest,
+    vitr: s.vitr,
+    naraz: s.naraz,
+    smer: smerUseku(s),
+  };
+}
+
+/** Klíč směru (osm stran), `'variable'`, nebo `null`, když vítr nefouká. */
+function smerUseku({ x, y, sila }) {
+  if (!(sila > 0)) return null;
+  if (Math.hypot(x, y) / sila < PROMENLIVY_POD) return 'variable';
+  const deg = ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360;
+  // ⚠️ Osm stran, ne šestnáct: průměr přes noc je odhad a „západo-
+  // severozápadní" by slibovalo přesnost, kterou nemá (jako den v 1.5.4).
+  return windDirKey((Math.round(deg / 45) * 45) % 360);
+}
+
+/** Jeden řádek: „Zítra 6 až 17 °C · Déšť, pravděpodobnost 70 %, vítr Z až 35 km/h". */
+function vetaUseku(u, s, dnes, lang, units) {
+  const den = u.druh === 'noc' ? t('brief.tonight', lang)
+    : t(u.datum === dnes ? 'brief.today' : 'brief.tomorrow', lang);
+  // ⚠️ U noci jen minimum: noční teplota nerozhoduje o oblékání, ale
+  // o mrazu na skle a záhonech — a o tom rozhoduje to nejnižší číslo.
+  const teplota = u.druh === 'noc'
+    ? tf('brief.low', { t: formatTemp(s.min, units, lang) }, lang)
+    : formatTempRange(s.min, s.max, units, lang, tf);
+
+  const casti = [];
+  if (s.kod != null) casti.push(t(`weather.${weatherKey(s.kod)}`, lang));
+  if (Number.isFinite(s.dest) && s.dest >= RAIN_MENTION) {
+    casti.push(tf('brief.rain', { p: Math.round(s.dest) }, lang));
+  }
+  // Vítr VŽDYCKY, se směrem (Miki 24. 10. 2026). Náraz jen nad průměr
+  // o `GUST_MARGIN_KMH` — týž práh jako předpověď a trasa v appce.
+  if (Number.isFinite(s.vitr) && s.vitr < BEZVETRI_POD) {
+    casti.push(t('brief.calm', lang));
+  } else if (Number.isFinite(s.vitr)) {
+    const w = formatWind(s.vitr, units, lang);
+    const smer = s.smer === 'variable' ? t('brief.variable', lang)
+      : s.smer ? t(`windDir.${s.smer}`, lang) : null;
+    casti.push(smer ? tf('brief.wind', { dir: smer, w }, lang) : tf('brief.windNoDir', { w }, lang));
+    if (jeNarazSilny(s.vitr, s.naraz)) casti.push(tf('brief.gusts', { g: formatWind(s.naraz, units, lang) }, lang));
+  }
+
+  return tf('brief.line', { day: den, temp: teplota, what: casti.join(', ') }, lang);
 }
 
 /**
- * Text zprávy — jedna věta, kterou jde přečíst na zamčeném displeji.
+ * Text zprávy — řádek na každý úsek, v pořadí, jak jdou po sobě.
  *
- * Tvar: „Dnes 8 až 19 °C · polojasno, déšť 60 %, vítr až 45 km/h"
+ * ⚠️ Pořadí v řádku je schválně takové: teplota první, protože podle ní se
+ * člověk obléká; jev druhý; déšť jen tehdy, když opravdu něco mění.
  *
- * ⚠️ Pořadí je schválně takové: teplota první, protože podle ní se člověk
- * obléká; jev druhý; déšť a vítr jen tehdy, když opravdu něco mění.
- *
- * @returns {{text: string, den: string, kind: string}|null} `null` = nemáme co říct
+ * @returns {{text: string, den: string|null, kind: string}|null} `null` = nemáme co říct
  */
 export function briefText({ forecast, kind, nowMs, lang = 'en', units }) {
-  if (!KINDS.includes(kind)) return null;
-  const i = indexDne({ forecast, kind, nowMs });
-  if (i < 0) return null;
+  const H = forecast?.hourly;
+  if (!H || !Array.isArray(H.time)) return null;
+  const casti = useky({ forecast, kind, nowMs });
+  if (!casti.length) return null;
 
-  const d = forecast.daily;
-  const min = d.temperature_2m_min?.[i];
-  const max = d.temperature_2m_max?.[i];
-  // 🚨 Bez teplot zpráva nedává smysl. Radši nic než „Dnes — · polojasno".
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  const souhrny = casti.map((u) => shrnUsek(H, u));
+  // 🚨 Chybí-li kterýkoli úsek, NEZVONÍ se vůbec. Půlka zprávy by se tvářila
+  // jako celá: „V noci nejníž 4 °C" bez zítřka čte člověk jako „zítra nic".
+  if (souhrny.some((s) => !s)) return null;
 
-  const den = t(kind === 'evening' ? 'brief.tomorrow' : 'brief.today', lang);
-  const jev = t(`weather.${weatherKey(d.weather_code?.[i])}`, lang);
-
-  const casti = [jev];
-
-  const dest = d.precipitation_probability_max?.[i];
-  if (Number.isFinite(dest) && dest >= RAIN_MENTION) {
-    casti.push(tf('brief.rain', { p: Math.round(dest) }, lang));
-  }
-
-  const vitr = d.wind_speed_10m_max?.[i];
-  if (Number.isFinite(vitr) && vitr >= WIND_MENTION) {
-    casti.push(tf('brief.wind', { w: formatWind(vitr, units, lang) }, lang));
-  }
-
-  // ⚠️ Jednotka se píše JEN u druhého čísla: „8 až 19 °C", ne
-  // „8 °C až 19 °C". Dvakrát tentýž symbol v jedné větě je šum a na
-  // zamčeném displeji zabírá místo, které chybí jevu.
-  const text = tf('brief.line', {
-    day: den,
-    min: Math.round(convert.temp(min, units.temp)),
-    max: formatTemp(max, units, lang),
-    what: casti.join(', '),
-  }, lang);
-
-  return { text, den: d.time[i], kind };
+  const dnes = hodinaVMiste(nowMs, forecast.utc_offset_seconds).slice(0, 10);
+  const text = casti.map((u, i) => vetaUseku(u, souhrny[i], dnes, lang, units)).join('\n');
+  return { text, den: casti.find((u) => u.druh === 'den')?.datum ?? null, kind };
 }

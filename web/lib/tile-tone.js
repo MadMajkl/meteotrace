@@ -80,6 +80,21 @@ export function windTon(kmh, gustKmh = null) {
   };
 }
 
+/**
+ * O kolik musí náraz převýšit průměr, aby to bylo sdělení, a ne šum.
+ *
+ * ⚠️ Jedna hodnota pro bod trasy i pro předpověď po hodinách a dnech. Kdyby
+ * se rozešly, psala by appka o tomtéž větru na jedné obrazovce „nárazy"
+ * a na druhé nic.
+ */
+export const GUST_MARGIN_KMH = 15;
+
+/** Je náraz větru natolik nad průměrem, že se o něm musí říct? */
+export function jeNarazSilny(vitr, naraz) {
+  if (!Number.isFinite(vitr) || !Number.isFinite(naraz)) return false;
+  return naraz - vitr >= GUST_MARGIN_KMH;
+}
+
 /* ── UV index ─────────────────────────────────────────────────────────── */
 
 /**

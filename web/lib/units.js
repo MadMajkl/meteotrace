@@ -182,6 +182,13 @@ export function formatWind(kmh, units, locale, digits = 0) {
   return `${num(v, locale, digits)} ${SYMBOL[units.wind]}`;
 }
 
+/** Rychlost větru jen číslem, v jednotce uživatele. Jednotku nese sousední údaj. */
+export function formatWindValue(kmh, units, locale, digits = 0) {
+  const v = convert.wind(kmh, units.wind);
+  if (v == null) return '—';
+  return num(v, locale, digits);
+}
+
 export function formatPrecip(mm, units, locale) {
   const v = convert.precip(mm, units.precip);
   if (v == null) return '—';

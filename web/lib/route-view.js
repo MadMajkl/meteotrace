@@ -21,6 +21,7 @@ import { t, tf, tp } from './i18n.js';
 import { formatTemp, formatWind, formatPrecip, windDirKey } from './units.js';
 import { weatherKey, weatherIcon, isHazard, weatherKeyWithClouds, weatherIconWithClouds } from './weather-code.js';
 import { asLocationList } from './route-adapter.js';
+import { jeNarazSilny } from './tile-tone.js';
 
 /** Nad kolik procent se déšť považuje za pravděpodobný. */
 export const RAIN_PROBABILITY = 40;
@@ -222,14 +223,8 @@ function liseSe(teplota, pocitova) {
   return Math.abs(teplota - pocitova) >= 2;
 }
 
-/** O kolik musí náraz převýšit průměr, aby to bylo sdělení, a ne šum. */
-export const GUST_MARGIN_KMH = 15;
-
-/** Je náraz větru natolik nad průměrem, že se o něm musí říct? */
-function jeNarazSilny(vitr, naraz) {
-  if (!Number.isFinite(vitr) || !Number.isFinite(naraz)) return false;
-  return naraz - vitr >= GUST_MARGIN_KMH;
-}
+/** Práh nárazů je společný s předpovědí na meteostanici — viz `tile-tone.js`. */
+export { GUST_MARGIN_KMH } from './tile-tone.js';
 
 /** Plné jméno směru („východo-severovýchodní"), do bubliny a pro čtečku. */
 function dirLong(degrees, lang) {

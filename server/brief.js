@@ -1,8 +1,9 @@
 /**
- * Stavitel ranní a večerní zprávy (`R25`).
+ * Stavitel ranní a večerní zprávy (`R25`, tvar `R45`).
  *
- * Stáhne dvoudenní předpověď pro jeden bod a vrátí HOTOVOU VĚTU v jazyce
- * appky. Skládá ji čistá `web/lib/brief.js`, která má samotest — tady
+ * Stáhne dvoudenní hodinovou předpověď pro jeden bod a vrátí HOTOVÝ TEXT
+ * v jazyce appky — řádek na každý úsek (ráno dnešek a noc, večer noc
+ * a zítřek). Skládá ji čistá `web/lib/brief.js`, která má samotest — tady
  * zbývá jen dotaz ven a převod parametrů.
  *
  * ────────────────────────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ export async function stavZpravu({ fetchImpl, base, nowMs, params, log = () => {
   }
 
   const zprava = briefText({ forecast: data, kind, nowMs, lang, units });
-  if (!zprava) return prazdno('předpověď na ten den nic neříká');
+  if (!zprava) return prazdno('předpověď ty hodiny celé nepokrývá');
 
   return { text: zprava.text, den: zprava.den, kind: zprava.kind };
 }
