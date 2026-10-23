@@ -22,7 +22,7 @@ import { isUsablePoint, placeLabel } from './lib/geo-query.js';
 import {
   PERIODS, periodRange, localToday, daysBetween, dayMs, addDays, hourIso,
   summarizeDaily, chartSeries, summarizeYears, yearsInRange, availableQuantities,
-  summarizeHourly, hourlySeries, availableHourQuantities,
+  summarizeHourly, hourlySeries, availableHourQuantities, hourMoment,
   roundCoord, KROK_DNY, KROK_ROKY, CELY_ROK_DNI, VELICINY, VELICINY_ROKY,
 } from './lib/stats.js';
 
@@ -81,18 +81,18 @@ function den(iso, sRokem = false) {
  * `2026-10-07T15:00` → „út 15:00"; s `datum: 'den'` „út 7. 10. 15:00",
  * s `datum: 'rok'` „út 7. 10. 2026 15:00".
  *
- * ⚠️ Čas je místní čas MÍSTA, jak ho poslal zdroj (`timezone=auto`) —
- * proto se formátuje v UTC, ne v pásmu telefonu. Kdo se z Prahy dívá
- * na New York, má vidět newyorské hodiny, ne o šest posunuté.
+ * ⚠️ Čas je místní čas MÍSTA, ne telefonu. Kdo se z Prahy dívá na New
+ * York, má vidět newyorské hodiny, ne o šest posunuté. S `zdroj` (posun
+ * a pásmo z odpovědi) i přes přechod letního času — viz `hourMoment`.
  */
-function hodina(iso, datum = '') {
-  const ms = Date.parse(`${iso}:00Z`);
+function hodina(iso, datum = '', zdroj = null) {
+  const { ms, timeZone } = hourMoment(iso, zdroj);
   if (!Number.isFinite(ms)) return '';
   return new Intl.DateTimeFormat(stav().lang, {
     weekday: 'short',
     ...(datum ? { day: 'numeric', month: 'numeric' } : {}),
     ...(datum === 'rok' ? { year: 'numeric' } : {}),
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC',
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
   }).format(new Date(ms));
 }
 
@@ -346,19 +346,19 @@ function vykresliSouhrn(s) {
  * se počítají hodiny. Navíc tlak teď a kam se hnul — za dva dny je to
  * zpráva (u měsíce ne).
  */
-function vykresliSouhrnHodin(s) {
+function vykresliSouhrnHodin(s, zdroj) {
   const L = stav().lang;
   const hodin = (n) => tp('stats.hours', n, {}, L);
   const bunky = [
     bunka(t('stats.tempMean', L), temp(s.tempMean)),
-    s.tempMax && bunka(t('stats.tempMax', L), temp(s.tempMax.value), hodina(s.tempMax.date)),
-    s.tempMin && bunka(t('stats.tempMin', L), temp(s.tempMin.value), hodina(s.tempMin.date)),
+    s.tempMax && bunka(t('stats.tempMax', L), temp(s.tempMax.value), hodina(s.tempMax.date, '', zdroj)),
+    s.tempMin && bunka(t('stats.tempMin', L), temp(s.tempMin.value), hodina(s.tempMin.date, '', zdroj)),
     s.precipSum !== null && bunka(t('stats.precip', L), srazky(s.precipSum), tp('stats.rainHours', s.rainHours, {}, L)),
     s.wettestHour && s.wettestHour.value > 0
-      && bunka(t('stats.wettestHour', L), srazky(s.wettestHour.value), hodina(s.wettestHour.date)),
+      && bunka(t('stats.wettestHour', L), srazky(s.wettestHour.value), hodina(s.wettestHour.date, '', zdroj)),
     s.snowHours > 0 && bunka(t('stats.snowHours', L), hodin(s.snowHours)),
     s.cloudMean !== null && bunka(t('stats.cloud', L), pct(s.cloudMean)),
-    s.gustMax && bunka(t('stats.gust', L), vitr(s.gustMax.value), hodina(s.gustMax.date)),
+    s.gustMax && bunka(t('stats.gust', L), vitr(s.gustMax.value), hodina(s.gustMax.date, '', zdroj)),
     s.windDir && bunka(t('stats.wind', L), t(`windDirLong.${s.windDir.key}`, L),
       tf('stats.windShareHours', { hours: s.windDir.hours, total: s.hoursWithData }, L)),
     s.pressureNow && bunka(t('stats.pressureNow', L), tlak(s.pressureNow.value),
@@ -435,6 +435,7 @@ let vybrany = null;
  * @param {object} g.popis     z `popisVeliciny()`
  * @param {string} g.nazev     jméno veličiny (do popisu pro čtečku)
  * @param {string} g.note      věta pod grafem
+ * @param {object} [g.zdroj]   u hodin posun a pásmo z odpovědi (`hourMoment`)
  */
 function nakresliGraf(g) {
   const stejnaData = posledniGraf?.klic === g.klic;
@@ -577,7 +578,7 @@ function nakresliGraf(g) {
   box.replaceChildren(svg, tip);
   box.setAttribute('aria-label', tf(g.krok === 'hour' ? 'stats.chartAriaHour' : 'stats.chartAria',
     { what: g.nazev }, stav().lang));
-  geo = { svg, tip, W, L, T, B, n, x, y, body, popis, krok: g.krok, sloupce, zamer, zvyrazneni };
+  geo = { svg, tip, W, L, T, B, n, x, y, body, popis, krok: g.krok, zdroj: g.zdroj, sloupce, zamer, zvyrazneni };
 
   vypisPoznamku(g);
   if (vybrany !== null) ukazBod(vybrany);
@@ -602,11 +603,11 @@ function vypisPoznamku(g) {
  * píše rozsah dnů, ne „říjen 2025", jinak by součet srážek za půl
  * měsíce vypadal jako za celý.
  */
-function kdyBod(p, krok) {
+function kdyBod(p, krok, zdroj) {
   const L = stav().lang;
   if (krok === 'year') return String(p.year);
   // Po hodinách i s časem — o to Michal stál od začátku („s datem a časem").
-  if (krok === 'hour') return hodina(p.time, 'rok');
+  if (krok === 'hour') return hodina(p.time, 'rok', zdroj);
   const rozsah = () => {
     const ruzneRoky = p.from.slice(0, 4) !== p.to.slice(0, 4);
     return `${den(p.from, ruzneRoky)} – ${den(p.to, true)}`;
@@ -668,7 +669,7 @@ function ukazBod(i) {
   if (popis.smer && p.windDir) {
     radky.push(radek('prazdny', t(`windDirLong.${p.windDir}`, L), t('stats.series.dir', L)));
   }
-  tip.replaceChildren(el('div', 'stats-tip-kdy', kdyBod(p, geo.krok)), ...radky);
+  tip.replaceChildren(el('div', 'stats-tip-kdy', kdyBod(p, geo.krok, geo.zdroj)), ...radky);
   tip.hidden = false;
 
   // Bublina vedle zaměřovače, ne přes něj: vpravo, a když se nevejde, vlevo.
@@ -741,7 +742,7 @@ function grafZeDnu(daily, klic) {
 }
 
 /** Graf posledních 48 hodin: bod = hodina, bublina nese i čas. */
-function grafZHodin(hourly, klic) {
+function grafZHodin(hourly, klic, zdroj) {
   const L = stav().lang;
   const dostupne = availableHourQuantities(hourly);
   vykresliVolbu('stats-quantity', dostupne);
@@ -751,7 +752,8 @@ function grafZHodin(hourly, klic) {
     klic,
     body,
     krok: 'hour',
-    labels: body.map((p) => hodina(p.time)),
+    zdroj,
+    labels: body.map((p) => hodina(p.time, '', zdroj)),
     popis: popisVeliciny(v, 'hodiny'),
     nazev: t(`stats.q.${v}`, L),
     note: `${t(`stats.qNoteHour.${v}`, L)} ${t('stats.chartStep.hour', L)} ${t('stats.chartTapHour', L)}`,
@@ -921,7 +923,7 @@ export async function refreshStats() {
       : `${den(rozsah.from, true)} – ${den(rozsah.to, true)} · ${dni(daysBetween(rozsah.from, rozsah.to))}`;
   const rozsahHodin = (data) => {
     $('stats-range').textContent = data?.from
-      ? `${hodina(data.from, 'den')} – ${hodina(data.to, 'den')} · ${tp('stats.hours', data.hourly.time.length, {}, L)}`
+      ? `${hodina(data.from, 'den', data)} – ${hodina(data.to, 'den', data)} · ${tp('stats.hours', data.hourly.time.length, {}, L)}`
       : '';
   };
 
@@ -939,8 +941,8 @@ export async function refreshStats() {
           $('stats-route-card').hidden = true;
           if (!s) { schovejVysledky(); vypisStav(t('stats.empty', L)); return; }
           rozsahHodin(data);
-          vykresliSouhrnHodin(s);
-          grafZHodin(data.hourly, klic);
+          vykresliSouhrnHodin(s, data);
+          grafZHodin(data.hourly, klic, data);
         } else if (rozsah.years) {
           const data = await rokyPro(misto, signal);
           if (signal.aborted) return;

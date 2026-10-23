@@ -571,6 +571,30 @@ export function recentHours(hourly, nowLocal, n = HODIN) {
   return out;
 }
 
+/**
+ * Okamžik a pásmo, ve kterém se hodina ze zdroje vypíše.
+ *
+ * 🚨 Zdroj posílá všechny hodiny s JEDNÍM posunem (`utc_offset_seconds`) —
+ * tím, který platí při dotazu, i přes přechod letního času. Dva dny po
+ * přechodu by se hodiny z doby před ním vypisovaly o hodinu vedle. Posun
+ * udělá z hodiny skutečný okamžik a pásmo místa ho vypíše, jak tam šly
+ * hodiny.
+ *
+ * Bez nich (stará odpověď v mezipaměti) zůstane čas, jak přišel — v UTC.
+ *
+ * @param {string} iso      `RRRR-MM-DDTHH:MM` ze zdroje
+ * @param {object} [zdroj]  `{utc_offset_seconds, timezone}` z odpovědi
+ * @returns {{ms: number, timeZone: string}}
+ */
+export function hourMoment(iso, zdroj) {
+  const ms = Date.parse(`${iso}:00Z`);
+  const posun = zdroj?.utc_offset_seconds;
+  if (!Number.isFinite(posun) || typeof zdroj?.timezone !== 'string' || !zdroj.timezone) {
+    return { ms, timeZone: 'UTC' };
+  }
+  return { ms: ms - posun * 1000, timeZone: zdroj.timezone };
+}
+
 /** Které veličiny v hodinových údajích opravdu jsou (jako `availableQuantities`). */
 export function availableHourQuantities(hourly) {
   return VELICINY.filter((v) => ZDROJ_HODIN[v].some((k) => (hourly?.[k] || []).some(jeCislo)));

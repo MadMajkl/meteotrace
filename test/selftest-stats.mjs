@@ -15,7 +15,7 @@ import {
   recordVisit, cleanVisits, visitsInRange, MAX_NAVSTEV, HISTORY_DAILY, CLIMATE_DAILY,
   VELICINY, VELICINY_ROKY, availableQuantities,
   HODIN, RECENT_HOURLY, DESTIVA_HODINA_MM, checkRecentQuery, hourIso, recentHours,
-  availableHourQuantities, hourlySeries, summarizeHourly,
+  availableHourQuantities, hourlySeries, summarizeHourly, hourMoment,
 } from '../web/lib/stats.js';
 import { stavHistorii, stavKlima, stavPoslednich } from '../server/history.js';
 import { planRequest } from '../web/lib/proxy-core.js';
@@ -609,14 +609,14 @@ test('souhrn hodin: bez srážek je úhrn „nevím", prázdno nedá souhrn', ()
   assert.equal(summarizeHourly(hodiny(2, undefined, () => null)), null);
 });
 
-function fakePredpoved(zapis, posunS) {
+function fakePredpoved(zapis, posunS, pasmo = 'Europe/Prague') {
   return async (url) => {
     const u = new URL(url);
     zapis.push(u);
     // Předevčírem až dnes, celé dny v místním čase.
     const dnes = isoDay(NYNI + posunS * 1000);
     const vse = hodiny(72, `${addDays(dnes, -2)}T00:00`);
-    return { ok: true, status: 200, json: async () => ({ utc_offset_seconds: posunS, elevation: 190, hourly: vse }) };
+    return { ok: true, status: 200, json: async () => ({ utc_offset_seconds: posunS, timezone: pasmo, elevation: 190, hourly: vse }) };
   };
 }
 
@@ -638,14 +638,46 @@ test('🚨 hodiny na serveru: veličiny určuje server, „teď" je v čase MÍS
   assert.equal(out.to, '2026-09-30T10:00');
   assert.equal(out.from, '2026-09-28T11:00');
   assert.equal(out.elevation, 190);
+  // Posun a pásmo jdou s daty, aby klient vypsal hodiny i přes přechod času.
+  assert.equal(out.utc_offset_seconds, 7200);
+  assert.equal(out.timezone, 'Europe/Prague');
 
   // New York (UTC−4): tam jsou teprve čtyři ráno.
   const ny = await stavPoslednich({
-    fetchImpl: fakePredpoved([], -14400), base: 'https://api.open-meteo.com/v1/forecast', nowMs: NYNI,
+    fetchImpl: fakePredpoved([], -14400, 'America/New_York'), base: 'https://api.open-meteo.com/v1/forecast', nowMs: NYNI,
     params: { lat: '40.71', lon: '-74.01' },
   });
   assert.equal(ny.to, '2026-09-30T04:00');
   assert.equal(ny.hourly.time.length, 48);
+  assert.equal(ny.timezone, 'America/New_York');
+});
+
+/* 🚨 Zdroj posílá 48 hodin s posunem, který platí PŘI DOTAZU (ověřeno
+   23. 10. 2026: archiv vrátil i leden s +2 h). Dva dny po přechodu času
+   by se hodiny z doby před ním vypisovaly o hodinu vedle. */
+const hodinaV = (iso, zdroj) => {
+  const { ms, timeZone } = hourMoment(iso, zdroj);
+  return new Intl.DateTimeFormat('cs', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone }).format(new Date(ms));
+};
+
+test('🚨 hodiny po konci letního času: sobotní odpoledne je pořád 15:00 SELČ', () => {
+  // Dotaz v neděli 25. 10. 2026 v 10:00 SEČ → posun +1 h pro všechny hodiny.
+  const zdroj = { utc_offset_seconds: 3600, timezone: 'Europe/Prague' };
+  assert.equal(hodinaV('2026-10-24T14:00', zdroj), '15:00', 'sobota 13:00 UTC je v Praze 15:00 letního času');
+  assert.equal(hodinaV('2026-10-25T10:00', zdroj), '10:00', 'po přechodu sedí posun i pásmo');
+});
+
+test('🚨 hodiny po začátku letního času: sobotní odpoledne je pořád 13:00 SEČ', () => {
+  // Dotaz v neděli 29. 3. 2026 v 10:00 SELČ → posun +2 h pro všechny hodiny.
+  const zdroj = { utc_offset_seconds: 7200, timezone: 'Europe/Prague' };
+  assert.equal(hodinaV('2026-03-28T14:00', zdroj), '13:00', 'sobota 12:00 UTC je v Praze 13:00 zimního času');
+  assert.equal(hodinaV('2026-03-29T10:00', zdroj), '10:00');
+});
+
+test('hodiny bez posunu a pásma (stará odpověď v mezipaměti) zůstanou, jak přišly', () => {
+  assert.equal(hodinaV('2026-10-24T14:00', null), '14:00');
+  assert.equal(hodinaV('2026-10-24T14:00', { utc_offset_seconds: 3600, timezone: null }), '14:00');
+  assert.equal(hodinaV('2026-10-24T14:00', { utc_offset_seconds: null, timezone: 'Europe/Prague' }), '14:00');
 });
 
 test('hodiny na serveru: vadné místo se ven nepošle, chyba zdroje nese stav', async () => {

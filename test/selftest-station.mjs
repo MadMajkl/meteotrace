@@ -373,21 +373,25 @@ test('🚨 den se láme podle pásma MÍSTA, ne prohlížeče', () => {
    a „půlnoc 26. 10." byla v Praze neděle 23:00.
    ============================================================ */
 
-/** Odpověď, jakou Open-Meteo vrátilo 22. 10. 2026 pro Prahu: sedm dní, všechno +2 h. */
-function tydenPresZmenuCasu() {
-  const zacatek = Date.parse('2026-10-21T22:00:00Z');   // 22. 10. 00:00 SELČ
+/**
+ * Odpověď, jakou Open-Meteo vrátilo 22. 10. 2026 pro Prahu: sedm dní,
+ * všechno s posunem platným při dotazu (+2 h). Na jaro totéž s +1 h.
+ */
+function tydenPresZmenuCasu(prvniDen = '2026-10-22', posunS = 7200) {
+  const zacatek = Date.parse(`${prvniDen}T00:00:00Z`) - posunS * 1000;
   const pocet = 7 * 24;
   const pole = (v) => Array.from({ length: pocet }, () => v);
-  const dny = ['2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28'];
+  const dny = Array.from({ length: 7 }, (_, i) =>
+    new Date(Date.parse(`${prvniDen}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
 
   return {
     timezone: 'Europe/Prague',
-    utc_offset_seconds: 7200,
+    utc_offset_seconds: posunS,
     current: { temperature_2m: 10, weather_code: 1, wind_speed_10m: 10, wind_direction_10m: 350 },
     hourly: {
       // Souvislá řada bez dvojí 02:00 — posun je pevný, ne podle kalendáře.
       time: Array.from({ length: pocet }, (_, i) =>
-        new Date(zacatek + i * 3600000 + 7200000).toISOString().slice(0, 16)),
+        new Date(zacatek + i * 3600000 + posunS * 1000).toISOString().slice(0, 16)),
       temperature_2m: pole(10),
       precipitation_probability: pole(0),
       precipitation: pole(0),
@@ -416,6 +420,23 @@ test('🚨 hodinový pruh přes konec letního času láme den o skutečné půl
   const v = buildStationView({ forecast: tydenPresZmenuCasu(), lang: 'cs', units: METRIC, nowMs: sobota });
   const predely = v.hourly.filter((h) => h.dayLabel).map((h) => `${h.dayLabel} ${h.time}`);
   assert.deepEqual(predely, ['Zítra 00:00', 'po 00:00'], 'ne „ne 23:00"');
+});
+
+test('🚨 začátek letního času (28. 3. 2027): sedm dní i hodinový pruh', () => {
+  // Dotaz ve čtvrtek 25. 3. 2027 → celý týden s posunem +1 h.
+  const jaro = tydenPresZmenuCasu('2027-03-25', 3600);
+  const ctvrtek = Date.parse('2027-03-25T09:00:00Z');
+  const v = buildStationView({ forecast: jaro, lang: 'cs', units: METRIC, nowMs: ctvrtek });
+  assert.deepEqual(v.daily.map((d) => d.day), ['Dnes', 'Zítra', 'so', 'ne', 'po', 'út', 'st']);
+
+  const sobota = Date.parse('2027-03-27T09:00:00Z');   // 10:00 SEČ
+  const s = buildStationView({ forecast: jaro, lang: 'cs', units: METRIC, nowMs: sobota });
+  const predely = s.hourly.filter((h) => h.dayLabel).map((h) => `${h.dayLabel} ${h.time}`);
+  assert.deepEqual(predely, ['Zítra 00:00', 'po 00:00'], 'ne „po 01:00"');
+  // Hodina 02:00 v noci na neděli neexistuje — pruh ji nevymyslí.
+  const casy = s.hourly.map((h) => h.time);
+  const i = casy.indexOf('01:00');
+  assert.equal(casy[i + 1], '03:00');
 });
 
 test('den v týdnu z data: poškozený vstup je pomlčka', () => {

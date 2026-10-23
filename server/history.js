@@ -155,5 +155,9 @@ export async function stavPoslednich({ fetchImpl, base, nowMs, params }) {
     from: hourly.time[0],
     to: hourly.time[hourly.time.length - 1],
     elevation: Number.isFinite(data.elevation) ? data.elevation : null,
+    // Čím se hodiny vypíšou (`hourMoment`): posun platí jen teď, pásmo i přes
+    // přechod letního času.
+    utc_offset_seconds: Number.isFinite(data.utc_offset_seconds) ? data.utc_offset_seconds : null,
+    timezone: typeof data.timezone === 'string' ? data.timezone : null,
   };
 }
