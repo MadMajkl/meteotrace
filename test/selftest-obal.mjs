@@ -255,6 +255,38 @@ test('🚨 střelky v předpovědi míří po proudu jako růžice (+180°)', ()
   assert.match(app, /vlozIkonu\('ico-wind', windRoseShape\(\), Number\.isFinite\(c\.windDeg\) \? c\.windDeg \+ 180/);
 });
 
+test('🚨 prudký náraz má štítek v každém stupni, světle i tmavě', async () => {
+  // Miki 24. 10. 2026: „prudké nárazy v předpovědích barevně odlišit".
+  // Stupeň bez pravidla v CSS by zůstal šedý a od slabého nárazu by se
+  // nedal odlišit — funkce by vypadala jako chybějící.
+  const { narazTon } = await import('../web/lib/tile-tone.js');
+  const stupne = new Set();
+  for (let naraz = 0; naraz <= 150; naraz++) {
+    const ton = narazTon(0, naraz);
+    if (ton) stupne.add(ton);
+  }
+  assert.deepEqual([...stupne], ['pozor', 'zle', 'krize']);
+
+  const bloky = cssBloky(readFileSync(join(WEB, 'style.css'), 'utf8'));
+  for (const s of stupne) {
+    const svetle = bloky.find((b) => b.selektor.includes(`.hour .g[data-ton="${s}"]`)
+      && b.selektor.includes(`.days .w .wg[data-ton="${s}"]`));
+    assert.match(svetle?.telo || '', /background:/, `stupeň ${s}: chybí štítek ve světlém`);
+    const tmave = bloky.filter((b) => b.selektor.includes(`[data-ton="${s}"]`)
+      && /\.hour \.g/.test(b.selektor) && /background:/.test(b.telo));
+    assert.ok(tmave.some((b) => b.selektor.includes(':root:not([data-theme])')),
+      `stupeň ${s}: chybí štítek pro tmavý systém`);
+    assert.ok(tmave.some((b) => b.selektor.includes('[data-theme="dark"]') && b.selektor.includes('[data-theme="pink-dark"]')),
+      `stupeň ${s}: chybí štítek pro zvolený tmavý motiv`);
+  }
+
+  // A appka stupeň opravdu předá — po hodinách i po dnech.
+  const app = bezKomentaru(readFileSync(join(WEB, 'app.js'), 'utf8'));
+  assert.match(app, /narazPredpovedi\('div', 'g', h\.gustsValue, h\.gustsTone\)/);
+  assert.match(app, /narazPredpovedi\('span', 'wg', d\.gusts, d\.gustsTone\)/);
+  assert.match(app, /if \(ton\) naraz\.dataset\.ton = ton;/);
+});
+
 test('hledač bloků si nesplete komentář s pravidlem', () => {
   // Kdyby se komentáře nevyhazovaly, našel by se `safe-area-inset-bottom`
   // v poznámce nad pravidlem — a test by hlásil vadu tam, kde není.

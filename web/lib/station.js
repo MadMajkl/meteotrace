@@ -24,7 +24,7 @@ import { t, tf } from './i18n.js';
 import {
   formatTemp, formatWind, formatWindValue, formatPrecip, formatPressure, formatElevation, windDirKey,
 } from './units.js';
-import { jeNarazSilny } from './tile-tone.js';
+import { jeNarazSilny, narazTon } from './tile-tone.js';
 import { weatherKey, weatherIcon, weatherKeyWithClouds, weatherIconWithClouds,
 } from './weather-code.js';
 import { moonPhase } from './moon.js';
@@ -484,6 +484,8 @@ function vitrPredpovedi(kmh, gustKmh, deg, units, lang, { osmSmeru = false } = {
     gustsValue: jeNaraz ? formatWindValue(gustKmh, units, lang) : '',
     // Náraz se píše, jen když něco přidává — stejný práh jako u bodu trasy.
     gustsMatter: jeNarazSilny(kmh, gustKmh),
+    // Prudký náraz dostane barevný štítek (`pozor` / `zle` / `krize`).
+    gustsTone: narazTon(kmh, gustKmh),
   };
 }
 

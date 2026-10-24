@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 
 import {
   windTon, uvTon, pressureTon, soumrakPodil, STUPNE, VICHRICE_KMH,
-  GUST_MARGIN_KMH, jeNarazSilny,
+  GUST_MARGIN_KMH, jeNarazSilny, narazTon,
 } from '../web/lib/tile-tone.js';
 import { GUST_MARGIN_KMH as PRAH_TRASY } from '../web/lib/route-view.js';
 
@@ -205,4 +205,33 @@ test('náraz: chybějící údaj se netvrdí', () => {
   assert.equal(jeNarazSilny(null, 40), false);
   assert.equal(jeNarazSilny(10, null), false);
   assert.equal(jeNarazSilny(undefined, undefined), false);
+});
+
+/* ── prudký náraz v předpovědi (Miki 24. 10. 2026) ───────────────────── */
+
+test('prudký náraz: od 39 km/h, stupně jako dlaždice Vítr', () => {
+  assert.equal(narazTon(10, 38.9), null, 'pod 6 Bf zůstává šedý');
+  assert.equal(narazTon(10, 39), 'pozor', 'přesně na prahu');
+  assert.equal(narazTon(22.4, 45.7), 'pozor');
+  assert.equal(narazTon(30, 62), 'zle');
+  assert.equal(narazTon(40, 75), 'krize');
+  assert.equal(narazTon(45, 120), 'krize');
+});
+
+test('🚨 prudký náraz: táž stupnice jako windTon, žádné vlastní prahy', () => {
+  // Kdyby se rozešly, obarvila by appka tentýž náraz v předpovědi jinak
+  // než dlaždici Vítr.
+  for (let naraz = 0; naraz <= 130; naraz += 0.5) {
+    const ton = narazTon(0, naraz);
+    if (ton) assert.equal(ton, windTon(naraz).stupen, `náraz ${naraz}`);
+  }
+});
+
+test('prudký náraz: co se nepíše, to se nebarví', () => {
+  // 50 km/h při 40 km/h průměru se nepíše vůbec (rozdíl 10 < 15) — štítek
+  // u textu, který tam není, by nebylo kam dát.
+  assert.equal(narazTon(40, 50), null);
+  assert.equal(narazTon(null, 80), null);
+  assert.equal(narazTon(10, null), null);
+  assert.equal(narazTon(10, NaN), null);
 });

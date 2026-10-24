@@ -855,7 +855,8 @@ main {
 .hour {
   /* 70 px, ne 66: řádek větru „↗ 12 km/h" chce 60 px a dlaždice má 4 px
      okraj z každé strany. Při 66 by se rychlost lepila na hranu. */
-  flex: none; width: 70px;
+  --sirka-hodiny: 70px;
+  flex: none; width: var(--sirka-hodiny);
   padding: 10px 4px;
   text-align: center;
   background: var(--surface-2);
@@ -910,6 +911,29 @@ main {
 }
 .days .w .wv { color: var(--text); font-variant-numeric: tabular-nums; }
 .days .w .sky-icon { margin-right: 2px; }
+
+/* Prudký náraz (Miki 24. 10. 2026: „barevně odlišit"): štítek, stupeň
+   z `narazTon()` — od 39 km/h, stupnice dlaždice Vítr. Barvy jsou TÉŽ jako
+   u pylu (střední · vysoká · velmi vysoká), ať appka mluví jedním jazykem.
+   Slabší náraz zůstává šedý; číslo nese údaj, barva jen zvýrazňuje. */
+.hour .g[data-ton],
+.days .w .wg[data-ton] {
+  border-radius: 999px; font-weight: 600;
+}
+.hour .g[data-ton] { display: inline-block; margin-top: 1px; padding: 0 4px; }
+.days .w .wg[data-ton] { padding: 0 6px; }
+.hour .g[data-ton="pozor"], .days .w .wg[data-ton="pozor"] { background: #fdeacd; color: #8a5310; }
+.hour .g[data-ton="zle"], .days .w .wg[data-ton="zle"] { background: #fbdcd3; color: #8c3a18; }
+.hour .g[data-ton="krize"], .days .w .wg[data-ton="krize"] { background: #f7cdcd; color: #7f1710; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) :is(.hour .g, .days .w .wg)[data-ton="pozor"] { background: #3a2f14; color: #f0d9a8; }
+  :root:not([data-theme]) :is(.hour .g, .days .w .wg)[data-ton="zle"] { background: #40291a; color: #f5c4a4; }
+  :root:not([data-theme]) :is(.hour .g, .days .w .wg)[data-ton="krize"] { background: #42201f; color: #f5b0b0; }
+}
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) :is(.hour .g, .days .w .wg)[data-ton="pozor"] { background: #3a2f14; color: #f0d9a8; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) :is(.hour .g, .days .w .wg)[data-ton="zle"] { background: #40291a; color: #f5c4a4; }
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) :is(.hour .g, .days .w .wg)[data-ton="krize"] { background: #42201f; color: #f5b0b0; }
 
 /* ---------- pyl ---------- */
 
@@ -2109,6 +2133,10 @@ main {
   margin-left: 14px;
   border-left: 1px solid var(--line);
   padding-left: 14px;
+  /* ⚠️ Odsazení a čára jsou UVNITŘ dlaždice, takže je o ně (bez běžných
+     4 px) širší — obsah má stejných 62 px jako ostatní. Do 24. 10. 2026 jich
+     měl 51 a štítek prudkého nárazu z dlaždice lezl o 7 px. */
+  width: calc(var(--sirka-hodiny) + 11px);
 }
 .hour-newday::before {
   content: attr(data-day);

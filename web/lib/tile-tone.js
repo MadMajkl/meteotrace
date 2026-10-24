@@ -95,6 +95,25 @@ export function jeNarazSilny(vitr, naraz) {
   return naraz - vitr >= GUST_MARGIN_KMH;
 }
 
+/** Stupně, od kterých je náraz prudký: od 6 Bf, kdy se obtížně drží deštník. */
+const PRUDKE_NARAZY = ['pozor', 'zle', 'krize'];
+
+/**
+ * Prudký náraz v předpovědi: stupeň pro barevný štítek, nebo `null`.
+ *
+ * Miki 24. 10. 2026: *„prudké nárazy v předpovědích barevně odlišit"*.
+ *
+ * ⚠️ Stupeň je z TÉŽE stupnice jako dlaždice Vítr (`windTon`). Vlastní
+ * prahy by tentýž náraz obarvily v předpovědi jinak než v dlaždici.
+ * Slabší náraz zůstává šedý — barva u každého větrného dne by přestala
+ * varovat. A náraz, který se nepíše (`jeNarazSilny`), se nebarví.
+ */
+export function narazTon(vitr, naraz) {
+  if (!jeNarazSilny(vitr, naraz)) return null;
+  const { stupen } = windTon(naraz);
+  return PRUDKE_NARAZY.includes(stupen) ? stupen : null;
+}
+
 /* ── UV index ─────────────────────────────────────────────────────────── */
 
 /**

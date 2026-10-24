@@ -83,7 +83,7 @@ const $ = (id) => document.getElementById(id);
 const requests = createRequestGroup();
 
 /** ⚠️ Verze se bumpuje až úplně nakonec a na všech místech najednou. */
-const VERZE = '1.5.5';
+const VERZE = '1.5.6';
 
 // Klíč úložiště je sdílený s předstihem při startu (`start.js`).
 
@@ -3480,7 +3480,7 @@ function render(forecast) {
       // ⚠️ Náraz jen číslem — „nárazy 27 km/h" se do dlaždice nevejde
       // a jednotka stojí o řádek výš.
       ...(h.wind ? [vitrPredpovedi(h, h.wind)] : []),
-      ...(h.wind && h.gustsMatter ? [el('div', 'g', tf('forecast.gusts', { w: h.gustsValue }, state.lang))] : []),
+      ...(h.wind && h.gustsMatter ? [narazPredpovedi('div', 'g', h.gustsValue, h.gustsTone)] : []),
     ]);
     // Předěl dne. Bez něj je dvoudenní pruh bludiště — „v 8:00" se dá číst
     // jako dnes i zítra.
@@ -3510,7 +3510,7 @@ function render(forecast) {
         // Čárka, ne tečka uprostřed: když se náraz na úzkém displeji zalomí,
         // zůstane na konci řádku, kam patří, a nový řádek nezačne „· nárazy".
         casti.at(-1).append(',');
-        casti.push(el('span', 'wg', tf('forecast.gusts', { w: d.gusts }, state.lang)));
+        casti.push(narazPredpovedi('span', 'wg', d.gusts, d.gustsTone));
       }
       radek.append(vitrPredpovedi(d, casti));
     }
@@ -4353,6 +4353,19 @@ function vitrPredpovedi(w, obsah) {
   box.title = popis;
   box.style.setProperty('--vitr-barva', barvaVetru(w.windKmh, w.gustKmh));
   return box;
+}
+
+/**
+ * „Nárazy 46" v předpovědi. Prudký náraz (od 39 km/h, `narazTon()`) dostane
+ * štítek v barvě svého stupně — Miki 24. 10. 2026: *„prudké nárazy
+ * v předpovědích barevně odlišit"*. Číslo zůstává, barva jen zvýrazňuje.
+ *
+ * @param {string|null} ton  `pozor` / `zle` / `krize`, nebo `null` = šedý text
+ */
+function narazPredpovedi(tag, trida, hodnota, ton) {
+  const naraz = el(tag, trida, tf('forecast.gusts', { w: hodnota }, state.lang));
+  if (ton) naraz.dataset.ton = ton;
+  return naraz;
 }
 
 /**

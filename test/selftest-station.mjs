@@ -570,6 +570,18 @@ test('vítr po dnech: nejsilnější vítr, náraz a převládající směr', ()
   assert.equal(v.daily[2].windDirLong, 'jižní');
 });
 
+test('prudký náraz v předpovědi dostane stupeň pro štítek', () => {
+  // Miki 24. 10. 2026: „prudké nárazy v předpovědích barevně odlišit".
+  const v = buildStationView({ forecast: SVETREM, lang: 'cs', units: METRIC, nowMs: NOW });
+  assert.equal(v.daily[0].gustsTone, 'pozor', 'náraz 46 km/h je od 6 Bf');
+  assert.equal(v.daily[1].gustsTone, 'pozor', 'náraz 41 km/h');
+  assert.equal(v.daily[2].gustsTone, null, 'nepsaný náraz se nebarví');
+  assert.equal(v.hourly[0].gustsTone, null, 'náraz 30 km/h se píše, ale prudký není');
+  // Stupeň se počítá z km/h, ne z čísla v jednotkách uživatele.
+  const usa = buildStationView({ forecast: SVETREM, lang: 'en', units: IMPERIAL, nowMs: NOW });
+  assert.equal(usa.daily[0].gustsTone, 'pozor', '28 mph = 46 km/h');
+});
+
 test('🚨 vítr po dnech: směr slovem jen v OSMI stranách', () => {
   // „severo-severozápadní, nárazy 25 km/h" se na 320 px nevešlo a nárazy
   // spadly na další řádek. Převládající směr za celý den je odhad; přesný

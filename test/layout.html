@@ -169,6 +169,62 @@ function nasypPyl(doc) {
 }
 
 /**
+ * Nejširší štítek prudkého nárazu do první hodiny a prvního dne.
+ *
+ * ⚠️ Prudký náraz v živých datech většinu dní není, takže by se štítek
+ * neměřil vůbec. Dlaždice hodiny má pevných 70 px a „nárazy 108" (tři
+ * číslice, česky) je nejdelší, co se do ní může dostat.
+ *
+ * 🚨 I do dlaždice s PŘEDĚLEM DNE: odsazení a čáru má uvnitř, takže na obsah
+ * jí zbývalo o 11 px míň a štítek z ní lezl — v obyčejné dlaždici se vešel.
+ */
+function nasypNarazy(doc) {
+  for (const hodina of [doc.querySelector('#hours .hour'), doc.querySelector('#hours .hour-newday')]) {
+    if (!hodina) continue;
+    hodina.querySelector('.g')?.remove();
+    const g = doc.createElement('div');
+    g.className = 'g';
+    g.dataset.ton = 'krize';
+    g.textContent = 'nárazy 108';
+    hodina.append(g);
+  }
+  const den = doc.querySelector('#days .w');
+  if (den) {
+    den.querySelector('.wg')?.remove();
+    const wg = doc.createElement('span');
+    wg.className = 'wg';
+    wg.dataset.ton = 'krize';
+    wg.textContent = 'nárazy 108 km/h';
+    den.append(wg);
+  }
+}
+
+/**
+ * Vejde se štítek prudkého nárazu celý do své dlaždice a řádku — a má barvu?
+ *
+ * ⚠️ Chybějící štítek se hlásí, nepřeskakuje: bez předpovědi by kontrola
+ * mlčky neměřila nic a hlásila ✓.
+ */
+function stitkyNarazu(doc) {
+  const nalezy = [];
+  for (const [sel, obal] of [['#hours .hour .g[data-ton]', '.hour'], ['#hours .hour-newday .g[data-ton]', '.hour-newday'],
+    ['#days .w .wg[data-ton]', 'li']]) {
+    const stitky = [...doc.querySelectorAll(sel)];
+    if (!stitky.length) { nalezy.push(`štítek nárazu v ${obal} chybí — předpověď se nenačetla?`); continue; }
+    for (const s of stitky) {
+      const r = s.getBoundingClientRect();
+      const o = s.closest(obal).getBoundingClientRect();
+      const ven = Math.max(o.left - r.left, r.right - o.right);
+      if (ven > 0.5) nalezy.push(`štítek „${s.textContent}" leze z ${obal} o ${Math.round(ven)} px`);
+      if (s.scrollWidth > s.clientWidth + 1) nalezy.push(`štítek „${s.textContent}" v ${obal} je useknutý`);
+      const pozadi = doc.defaultView.getComputedStyle(s).backgroundColor;
+      if (pozadi === 'transparent' || pozadi === 'rgba(0, 0, 0, 0)') nalezy.push(`štítek „${s.textContent}" v ${obal} nemá barvu`);
+    }
+  }
+  return [...new Set(nalezy)];
+}
+
+/**
  * 🚨 PŘEKRÝVÁ SE NĚCO S NĚČÍM? Přetečení z okna je jen jedna polovina.
  *
  * Ta druhá stála 29. 8. 2026 volbu „Vzdušnou čarou": pruh způsobů dopravy
@@ -677,6 +733,7 @@ async function run() {
     rozbalNabidku(f.contentDocument);
     nasypVystrahy(f.contentDocument);
     nasypPyl(f.contentDocument);
+    nasypNarazy(f.contentDocument);
   }
 
   let failed = 0;
@@ -691,6 +748,7 @@ async function run() {
       const o = overflow(doc);
       if (o) vady.push(`Místo: přetéká o ${o.total - o.limit} px (${o.culprit} sahá na ${o.right})`);
       for (const p of prekryvy(doc)) vady.push(`Místo: překryv ${p}`);
+      for (const n of stitkyNarazu(doc)) vady.push(`Místo: ${n}`);
       // 🚨 Sbalený řádek se měří NA KAŽDÉ OBRAZOVCE ZVLÁŠŤ. Napoprvé se měřil
       //    jen na trase, kde je kontext krátký („Trasa") a vždycky se vejde —
       //    takže kontrola mlčky nic nekontrolovala. Dlouhý je na meteostanici
