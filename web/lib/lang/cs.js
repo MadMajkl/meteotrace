@@ -658,7 +658,7 @@ export default {
      proto tady, a ne v `strings.xml` obalu: ten se řídí jazykem SYSTÉMU,
      kdežto jazyk appky je volba uživatele (`R10`).
      ⚠️ Řádek musí být čitelný na zamčeném displeji, tedy krátký. Řádek je
-     jeden na úsek (`R45`): ráno dnešek a noc, večer noc a zítřek. */
+     jeden na úsek (`R45`): ráno jen dnešek, večer noc a zítřek. */
   brief: {
     today: 'Dnes',
     tomorrow: 'Zítra',

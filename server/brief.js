@@ -2,7 +2,7 @@
  * Stavitel ranní a večerní zprávy (`R25`, tvar `R45`).
  *
  * Stáhne dvoudenní hodinovou předpověď pro jeden bod a vrátí HOTOVÝ TEXT
- * v jazyce appky — řádek na každý úsek (ráno dnešek a noc, večer noc
+ * v jazyce appky — řádek na každý úsek (ráno jen dnešek, večer noc
  * a zítřek). Skládá ji čistá `web/lib/brief.js`, která má samotest — tady
  * zbývá jen dotaz ven a převod parametrů.
  *

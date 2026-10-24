@@ -7,14 +7,14 @@
  * ────────────────────────────────────────────────────────────────────────
  * CO ZPRÁVA POKRÝVÁ — POSUVNÉ OKNO, NE „JEDEN DEN" (`R45`)
  *
- * Miki 24. 10. 2026: *„večerní zprávy jsou předpověď na noc a druhý den
- * a ranní v podstatě jejich zpřesnění a prodloužení."*
+ * Miki 24. 10. 2026: *„večerní zprávy jsou předpověď na noc a druhý den"*
+ * a *„ranní zpráva má ukazovat jen ten aktuální den"*.
  *
  *   večer   noc (od teď do rána) + den, který po ní přijde
- *   ráno    dnešek (od teď do večera) + noc po něm
+ *   ráno    dnešek (od teď do večera) — nic víc
  *
- * Ranní tedy zpřesní den, který slíbila večerní (čerstvější data), a okno
- * prodlouží o noc. Den je od 6 do 20 h místního času, noc od 20 do 6 h.
+ * Ranní tedy zpřesní den, který slíbila večerní (čerstvější data). Den je
+ * od 6 do 20 h místního času, noc od 20 do 6 h.
  *
  * ⚠️ Úsek se čte z HODINOVÉ předpovědi, ne z denní: denní minimum je
  * z půlnoci až půlnoci, takže by „Zítra 3 až 15 °C" opakovalo noc, o které
@@ -46,7 +46,7 @@ import { jeNarazSilny } from './tile-tone.js';
 
 /**
  * Co se stahuje kvůli zprávě. Dva dny stačí: večerní okno končí zítra
- * ve 20 h, ranní zítra v 6 h — a Open-Meteo počítá dny v pásmu místa.
+ * ve 20 h, ranní dnes ve 20 h — a Open-Meteo počítá dny v pásmu místa.
  */
 export const BRIEF_PARAMS = {
   hourly: 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
@@ -101,21 +101,20 @@ const pozdejsi = (a, b) => (a > b ? a : b);
 
 /**
  * Úseky, o kterých zpráva mluví: `[{druh: 'den'|'noc', datum?, od, do}]`,
- * `od` včetně, `do` bez. Prázdný úsek (ranní zpráva nastavená po 20 h)
- * vypadne.
+ * `od` včetně, `do` bez.
  */
 export function useky({ forecast, kind, nowMs }) {
   if (!KINDS.includes(kind)) return [];
   const ted = hodinaVMiste(nowMs, forecast?.utc_offset_seconds);
   const dnes = ted.slice(0, 10);
-  const zitra = dalsiDen(dnes);
 
+  // Ráno: jen dnešek, bez noci po něm (Miki 24. 10. 2026). Zítřek i noc
+  // přinese večerní zpráva.
   if (kind === 'morning') {
-    return [
-      { druh: 'den', datum: dnes, od: pozdejsi(ted, naHodinu(dnes, DEN_OD)), do: naHodinu(dnes, DEN_DO) },
-      { druh: 'noc', od: pozdejsi(ted, naHodinu(dnes, DEN_DO)), do: naHodinu(zitra, DEN_OD) },
-    ].filter((u) => u.od < u.do);
+    return [{ druh: 'den', datum: dnes, od: pozdejsi(ted, naHodinu(dnes, DEN_OD)), do: naHodinu(dnes, DEN_DO) }]
+      .filter((u) => u.od < u.do);
   }
+  const zitra = dalsiDen(dnes);
 
   // Večer: noc, která běží nebo přijde, a den po ní. Po půlnoci (zpráva
   // zdržená sítí) je to noc do dnešního rána a den je dnešek.

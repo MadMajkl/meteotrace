@@ -77,10 +77,10 @@ const zprava = (kind, nowMs, f = predpoved(), lang = 'cs', units = METRIC) =>
 
 /* ── které hodiny se popisují ───────────────────────────────────────── */
 
-test('ranní zpráva: dnešek od teď do večera, pak noc do rána', () => {
+test('🚨 ranní zpráva: JEN dnešek od teď do večera, noc ne', () => {
+  // Miki 24. 10. 2026: „ranní zpráva má ukazovat jen ten aktuální den".
   assert.deepEqual(useky({ forecast: predpoved(), kind: 'morning', nowMs: RANO }), [
     { druh: 'den', datum: '2026-09-17', od: '2026-09-17T06', do: '2026-09-17T20' },
-    { druh: 'noc', od: '2026-09-17T20', do: '2026-09-18T06' },
   ]);
 });
 
@@ -91,12 +91,11 @@ test('🚨 večerní zpráva: NOC a ZÍTŘEK, ne dnešek', () => {
   ]);
 });
 
-test('🚨 ranní zpráva zpřesní den z večerní a okno prodlouží o noc', () => {
-  // Miki 24. 10. 2026: „ranní v podstatě jejich zpřesnění a prodloužení".
+test('ranní zpráva zpřesní den, který slíbila večerní', () => {
   const vecerPred = useky({ forecast: predpoved(), kind: 'evening', nowMs: Date.UTC(2026, 8, 16, 18, 0) });
   const rano = useky({ forecast: predpoved(), kind: 'morning', nowMs: RANO });
   assert.equal(vecerPred[1].datum, rano[0].datum, 'ráno mluví znovu o dni, který slíbil večer');
-  assert.ok(rano.at(-1).do > vecerPred.at(-1).do, 'a dohlédne dál než večerní zpráva');
+  assert.equal(rano.at(-1).do, vecerPred.at(-1).do, 'a dál než do jeho večera nedohlédne');
 });
 
 test('🚨 hodiny se počítají v pásmu MÍSTA, ne serveru', () => {
@@ -123,12 +122,6 @@ test('ranní zpráva zdržená do dopoledne mluví o zbytku dne', () => {
   assert.equal(den.od, '2026-09-17T09');
 });
 
-test('ranní zpráva nastavená po 20 h už o dni nemluví — jen o noci', () => {
-  const u = useky({ forecast: predpoved(), kind: 'morning', nowMs: Date.UTC(2026, 8, 17, 19, 0) });
-  assert.deepEqual(u.map((x) => x.druh), ['noc']);
-  assert.equal(u[0].od, '2026-09-17T21');
-});
-
 test('večerní zpráva nastavená na 18 h: noc začíná ve 20, ne v 18', () => {
   const [noc] = useky({ forecast: predpoved(), kind: 'evening', nowMs: Date.UTC(2026, 8, 17, 16, 0) });
   assert.equal(noc.od, '2026-09-17T20');
@@ -148,7 +141,7 @@ test('🚨 když úsek v předpovědi celý není, NEZVONÍ se', () => {
   // noci by se tvářila jako celá: nejnižší teplota přichází až k ránu.
   const jenDnes = predpoved({ dny: ['2026-09-17'] });
   assert.equal(zprava('evening', VECER, jenDnes), null);
-  assert.equal(zprava('morning', RANO, jenDnes), null, 'ráno chybí konec noci');
+  assert.ok(zprava('morning', RANO, jenDnes), 'ranní zítřek nepotřebuje');
 
   const cizi = predpoved({ dny: ['2026-10-01', '2026-10-02'] });
   assert.equal(zprava('morning', RANO, cizi), null);
@@ -156,11 +149,9 @@ test('🚨 když úsek v předpovědi celý není, NEZVONÍ se', () => {
 
 /* ── text ───────────────────────────────────────────────────────────── */
 
-test('ranní zpráva: dnešek a noc, každý na svém řádku', () => {
+test('🚨 ranní zpráva: jeden řádek o dnešku, o noci ani slovo', () => {
   const r = zprava('morning', RANO);
-  assert.equal(r.text,
-    'Dnes 8 až 19 °C · Zataženo, vítr JZ až 12 km/h\n' +
-    'V noci nejníž 5 °C · Skoro jasno, vítr Z až 8 km/h');
+  assert.equal(r.text, 'Dnes 8 až 19 °C · Zataženo, vítr JZ až 12 km/h');
   assert.equal(r.den, '2026-09-17');
 });
 
@@ -201,14 +192,14 @@ test('🚨 jasno (kód 0) se napíše — nula není „nic"', () => {
 test('🚨 vítr se píše VŽDYCKY, i slabý, a se směrem', () => {
   // Miki 24. 10. 2026: vítr a jeho směr chyběl. Dřív se psal až od 40 km/h.
   const f = sUpravou(() => ({ v: 4, naraz: 6, smer: 0 }));
-  for (const radek of zprava('morning', RANO, f).text.split('\n')) {
-    assert.match(radek, /vítr S až 4 km\/h$/, radek);
-  }
+  const radky = [zprava('morning', RANO, f), zprava('evening', VECER, f)].flatMap((r) => r.text.split('\n'));
+  assert.equal(radky.length, 3, 'dnešek, noc i zítřek');
+  for (const radek of radky) assert.match(radek, /vítr S až 4 km\/h$/, radek);
 });
 
 test('úplné bezvětří slovem, ne „vítr až 1 km/h"', () => {
   const f = sUpravou(() => ({ v: BEZVETRI_POD - 1, naraz: 2 }));
-  assert.match(zprava('morning', RANO, f).text, /· Zataženo, bezvětří\n/);
+  assert.match(zprava('morning', RANO, f).text, /· Zataženo, bezvětří$/);
 });
 
 test('směr je průměr VÁŽENÝ RYCHLOSTÍ — slabé bezvětří ze západu nepřehlasuje vichr z východu', () => {
@@ -323,7 +314,7 @@ test('stavitel se zeptá na správné místo a správná pole', async () => {
     fetchImpl: f, base: 'https://api.open-meteo.com/v1/forecast', nowMs: RANO,
     params: new URLSearchParams({ lat: '49.5307', lon: '12.9436', kind: 'morning', lang: 'cs', units: 'metric' }),
   });
-  assert.match(r.text, /^Dnes 8 až 19 °C · Zataženo, vítr JZ až 12 km\/h\nV noci /);
+  assert.equal(r.text, 'Dnes 8 až 19 °C · Zataženo, vítr JZ až 12 km/h');
 
   const u = new URL(f.volani[0]);
   assert.equal(u.searchParams.get('latitude'), '49.5307');
