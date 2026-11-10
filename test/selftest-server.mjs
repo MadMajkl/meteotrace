@@ -539,6 +539,31 @@ test('🚨 výstrahy: zpráva starší než 12 hodin nepustí ven ANI JEDNU (25.
   assert.deepEqual(obal.body.warnings, [], 'obal nesmí zvonit na zastaralou výstrahu');
 });
 
+test('🚨 R46: výstraha S KONCEM jde ven do svého konce, i ze zprávy starší 12 h', async () => {
+  // 10. 11. 2026: „Velmi kluzké povrchy" na zítřek 3–10 ze zprávy z 10:34
+  // by ve 22:34 zmizely i z upozornění, ještě než začaly. Výše uvedené
+  // pravidlo proto platí jen pro výstrahy BEZ konce (FEED je nemá).
+  const sent = '2026-11-10T10:34:05+01:00';
+  const feed = { sent, warnings: [
+    { alert: { info: [{ language: 'cs', event: 'Velmi kluzké povrchy', severity: 'Severe',
+      onset: '2026-11-11T03:00:00+01:00', expires: '2026-11-11T10:00:00+01:00',
+      area: [{ areaDesc: 'Ústecký kraj (Litoměřice)', geocode: [] }] }] } },
+    { alert: { info: [{ language: 'cs', event: 'Bez konce', severity: 'Severe',
+      onset: '2026-11-10T10:00:00+01:00',
+      area: [{ areaDesc: 'Ústecký kraj (Litoměřice)', geocode: [] }] }] } },
+  ] };
+  const dotaz = (kdy) => serveProxy(
+    { pathname: '/api/warnings', params: { ...LITOMERICE, minSeverity: 'Moderate' }, env: ENV },
+    { cache: createCache(), fetchImpl: fakeFetch({ body: feed }), areas: AREAS, now: () => Date.parse(kdy), builders: STAVITELE },
+  );
+  const vecer = await dotaz('2026-11-10T23:30:00+01:00');
+  assert.deepEqual(vecer.body.warnings.map((w) => w.event), ['Velmi kluzké povrchy']);
+  const rano = await dotaz('2026-11-11T05:00:00+01:00');
+  assert.deepEqual(rano.body.warnings.map((w) => w.event), ['Velmi kluzké povrchy']);
+  const po = await dotaz('2026-11-11T10:01:00+01:00');
+  assert.deepEqual(po.body.warnings, [], 'po skončení události zmizí');
+});
+
 test('výstrahy: hranice území se přiloží jen na vyžádání', async () => {
   const bez = await vystrahy(LITOMERICE);
   const s = await vystrahy({ ...LITOMERICE, geo: '1' });

@@ -187,6 +187,24 @@ test('🚨 nejnovější se pozná podle času úpravy, NE podle jména', () => 
   assert.equal(n.jmeno, 'alert_cap_50_300811.xml');
 });
 
+test('🚨 bulletin o suchu (řada _70) NEVYTLAČÍ meteorologické výstrahy', () => {
+  // Skutečný výpis z 10. 11. 2026: ve 14:00 vyšlo sucho od hydrologů a appka
+  // místo „Velmi kluzkých povrchů" z rána hlásila „Stav sucha" (R46).
+  const vypis = `<pre>
+<a href="alert_cap_50_090920.xml">alert_cap_50_090920.xml</a>   09-Nov-2026 09:21   1550502
+<a href="alert_cap_50_100934.xml">alert_cap_50_100934.xml</a>   10-Nov-2026 09:34   1617053
+<a href="alert_cap_70_101200.xml">alert_cap_70_101200.xml</a>   10-Nov-2026 14:00   60758
+</pre>`;
+  assert.equal(nejnovejsiSoubor(vypis).jmeno, 'alert_cap_50_100934.xml');
+});
+
+test('jen řada _70 (nebo přejmenovaná řada) = null → záloha, ne bulletin o suchu', () => {
+  const vypis = `<pre>
+<a href="alert_cap_70_101200.xml">alert_cap_70_101200.xml</a>   10-Nov-2026 14:00   60758
+</pre>`;
+  assert.equal(nejnovejsiSoubor(vypis), null);
+});
+
 test('nesrozumitelný výpis vrátí null, ne dohad', () => {
   assert.equal(nejnovejsiSoubor('<html>nic tu není</html>'), null);
   assert.equal(nejnovejsiSoubor(''), null);

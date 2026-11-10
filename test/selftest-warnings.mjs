@@ -171,6 +171,25 @@ test('období: běžící výstraha ukazuje jen konec', () => {
   assert.ok(v.polozky[0].obdobi.startsWith('do '), v.polozky[0].obdobi);
 });
 
+test('🚨 období: výstraha na zítřek má napsané „zítra" — jednou, ne u konce znovu', () => {
+  // 10. 11. 2026 ve 22:00: „Kluzké povrchy 03:00–10:00" se četlo jako dnešek.
+  const nowMs = Date.parse('2026-11-10T22:00:00+01:00');
+  const w = vystraha({ onset: '2026-11-11T03:00:00+01:00', expires: '2026-11-11T10:00:00+01:00' });
+  const payload = { warnings: [w], pokryto: true, filtrovano: true, sent: '2026-11-10T21:00:00+01:00' };
+  const cs = buildWarningsView({ payload, lang: 'cs', nowMs }).polozky[0].obdobi;
+  assert.match(cs, /^zítra \d{1,2}:\d{2}–\d{1,2}:\d{2}$/, cs);
+  const en = buildWarningsView({ payload, lang: 'en', nowMs }).polozky[0].obdobi;
+  assert.match(en, /^tomorrow \d{1,2}:\d{2}–\d{1,2}:\d{2}$/, en);
+  // Běžící výstraha, která skončí zítra: „do zítra 10:00".
+  const bezi = vystraha({ onset: '2026-11-10T20:00:00+01:00', expires: '2026-11-11T10:00:00+01:00' });
+  const b = buildWarningsView({ payload: { ...payload, warnings: [bezi] }, lang: 'cs', nowMs }).polozky[0].obdobi;
+  assert.match(b, /^do zítra \d{1,2}:\d{2}$/, b);
+  // Dnešní zůstává bez dne.
+  const dnes = vystraha({ onset: '2026-11-10T23:00:00+01:00', expires: '2026-11-10T23:30:00+01:00' });
+  const d = buildWarningsView({ payload: { ...payload, warnings: [dnes] }, lang: 'cs', nowMs }).polozky[0].obdobi;
+  assert.match(d, /^\d{1,2}:\d{2}–\d{1,2}:\d{2}$/, d);
+});
+
 test('období: budoucí výstraha ukazuje začátek i konec', () => {
   const v = pohled({ warnings: [vystraha({ onset: za(2), expires: za(5) })], pokryto: true, filtrovano: true });
   assert.ok(v.polozky[0].obdobi.includes('–'), v.polozky[0].obdobi);
@@ -276,8 +295,10 @@ test('🚨 zastaralý zdroj se NESMÍ tvářit jako klid — a nic se neukáže'
   assert.deepEqual(v.polozky, []);
 });
 
-test('🚨 hranice je 12 hodin: 11 h se ukáže, 13 h už ne', () => {
-  const w = [vystraha({ event: 'Bouřky' })];
+test('🚨 hranice je 12 hodin u výstrahy BEZ KONCE: 11 h se ukáže, 13 h už ne', () => {
+  // ♻️ R46: s koncem platí do konce (test níž). Bez konce nevíme, jestli
+  // ještě platí, a tam 12 hodin zůstává.
+  const w = [vystraha({ event: 'Bouřky', expires: null })];
   const za = (h) => new Date(TEĎ - h * 3600_000).toISOString();
   assert.equal(pohled({ warnings: w, misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: za(11) }).stav, 'vystrahy');
   assert.equal(pohled({ warnings: w, misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: za(13) }).stav, 'zastaralé');
@@ -294,13 +315,35 @@ test('🚨 chybějící čas vydání se bere jako nevíme, ne jako klid', () =>
   assert.equal(v.stav, 'zastaralé');
 });
 
-test('🚨 zastaralost PŘEBIJE i výstrahy, které ve zprávě jsou (25. 9. 2026)', () => {
-  // ♻️ Do 25. 9. platil opak („zastaralost nepřebije platné výstrahy").
-  // Zpráva stará tři dny neříká nic o tom, co platí dnes.
+test('zastaralá zpráva: výstraha BEZ konce se neukáže, prošlá taky ne', () => {
+  // 25. 9. 2026: zastaralost přebíjí výstrahy. ♻️ R46 to zúžil na ty, u
+  // kterých nevíme, jestli ještě platí.
   const tridny = new Date(TEĎ - 3 * 24 * 3600_000).toISOString();
-  const v = pohled({ warnings: [vystraha({ event: 'Bouřky' })], misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
+  const v = pohled({ warnings: [vystraha({ event: 'Bouřky', expires: null }), vystraha({ event: 'Vítr', expires: za(-1) })],
+    misto: { nazev: 'Litoměřice' }, pokryto: true, filtrovano: true, sent: tridny });
   assert.equal(v.stav, 'zastaralé');
   assert.deepEqual(v.polozky, []);
+});
+
+test('🚨 R46: výstraha na zítřek platí do svého konce, i když je zpráva starší 12 h', () => {
+  // 10. 11. 2026: ČHMÚ vydal v 10:34 „Velmi kluzké povrchy" na 11. 11. 3:00–10:00
+  // a další zprávu do večera nevydal. Ve 22:34 by výstraha zmizela, ještě
+  // než začala. Miki: „ty se přece přemažou, až po tom co ta výstrahová
+  // událost proběhne".
+  const sent = '2026-11-10T10:34:05+01:00';
+  const led = vystraha({ event: 'Velmi kluzké povrchy', severity: 'Severe',
+    onset: '2026-11-11T03:00:00+01:00', expires: '2026-11-11T10:00:00+01:00' });
+  const payload = { warnings: [led], misto: { nazev: 'Domažlice' }, pokryto: true, filtrovano: true, sent };
+  for (const kdy of ['2026-11-10T23:30:00+01:00', '2026-11-11T05:00:00+01:00', '2026-11-11T09:59:00+01:00']) {
+    const v = buildWarningsView({ payload, lang: 'cs', nowMs: Date.parse(kdy) });
+    assert.equal(v.stav, 'vystrahy', kdy);
+    assert.equal(v.polozky[0].nadpis, 'Velmi kluzké povrchy', kdy);
+    assert.match(v.polozky[0].vydano, /^Vydáno před \d+ hodinami \(\d{1,2}:\d{2}\)$/, kdy);
+  }
+  // Po skončení události zmizí — a karta jde pryč celá.
+  const po = buildWarningsView({ payload, lang: 'cs', nowMs: Date.parse('2026-11-11T10:01:00+01:00') });
+  assert.equal(po.stav, 'zastaralé');
+  assert.deepEqual(po.polozky, []);
 });
 
 test('🚨 u každé výstrahy je VŽDYCKY napsané, jak je stará', () => {

@@ -21,6 +21,7 @@
 
 import { t, tf, tp } from './i18n.js';
 import { zpravaJeCerstva, stariZpravyS } from './cap.js';
+import { momentParts } from './when.js';
 
 /** Pořadí závažnosti od nejhorší. Neznámou bereme vážně, ne jako nejmenší. */
 const ZAVAZNOST = ['Extreme', 'Severe', 'Moderate', 'Minor'];
@@ -43,11 +44,32 @@ function cas(iso, lang) {
   return new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
 }
 
+/**
+ * Hodina, a k ní den, jakmile není týž jako `refMs` („zítra 03:00").
+ *
+ * 🚨 Pravidlo z `when.js`: „Kluzké povrchy 03:00–10:00" napsané ve 22:00
+ * se čte jako dnešek, a je to zítra (10. 11. 2026). Pásmo je TELEFONU,
+ * stejně jako u hodiny bez dne.
+ */
+function casSeDnem(ms, refMs, lang) {
+  const pasmo = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const p = momentParts(ms, refMs, pasmo, lang);
+  if (!p) return null;
+  if (p.shift === 0) return p.time;
+  if (p.shift === 1) return tf('when.tomorrow', { time: p.time }, lang);
+  if (p.shift === -1) return tf('when.yesterday', { time: p.time }, lang);
+  return tf('when.date', { date: p.date, time: p.time }, lang);
+}
+
 /** Kdy výstraha platí, slovy. Chybějící konec i začátek se přejde mlčky. */
 function obdobi(w, lang, nowMs) {
   const zacatek = w.onset ? new Date(w.onset).getTime() : null;
-  const od = zacatek && zacatek > nowMs ? cas(w.onset, lang) : null;
-  const doKdy = w.expires ? cas(w.expires, lang) : null;
+  const konec = w.expires ? new Date(w.expires).getTime() : null;
+  const budouci = Number.isFinite(zacatek) && zacatek > nowMs;
+  const od = budouci ? casSeDnem(zacatek, nowMs, lang) : null;
+  // Konec se vztahuje k začátku, když je napsaný: „zítra 03:00–10:00",
+  // ne „zítra 03:00–zítra 10:00".
+  const doKdy = Number.isFinite(konec) ? casSeDnem(konec, budouci ? zacatek : nowMs, lang) : null;
 
   if (od && doKdy) return tf('warnings.fromUntil', { from: od, until: doKdy }, lang);
   if (od) return tf('warnings.from', { time: od }, lang);
@@ -108,22 +130,33 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
      staré 26 hodin, nespoléhej se". Tím se ukazovalo přesně to, co vidět
      nemá. Rozhoduje se tady NA ZAČÁTKU, dřív než se sestaví jediná položka —
      zastaralost přebíjí i výstrahy, které ve zprávě jsou.
-     ⚠️ Chybějící čas vydání se bere jako zastaralý: nevíme, jak je stará. */
-  if (!zpravaJeCerstva(payload.sent, ted)) {
-    return { stav: 'zastaralé', misto, zprava: '', polozky: [] };
-  }
+     ⚠️ Chybějící čas vydání se bere jako zastaralý: nevíme, jak je stará.
 
-  // A jak je zpráva stará, je u výstrah napsané VŽDYCKY.
-  const vydano = vydanoSlovy(payload.sent, ted, lang);
+     ♻️ R46 (Miki 10. 11. 2026): *„ty se přece přemažou, až po tom co ta
+     výstrahová událost proběhne"*. Výstraha, která má KONEC, platí do něj,
+     i když je zpráva starší než 12 hodin. ČHMÚ za klidného dne vydává jen
+     ráno — ranní „Velmi kluzké povrchy zítra 3–10" by jinak zmizely ve
+     22:34, ještě než začnou. Ze staré zprávy se zahazuje jen to, co konec
+     nemá (nevíme, jestli ještě platí). Když nezbude nic, karta jde pryč
+     celá, beze slova — jako dosud. */
+  const cerstva = zpravaJeCerstva(payload.sent, ted);
 
   // Prošlé zahazuje i server (kvůli objemu), ale poslední slovo má výpis:
   // odpověď se drží v cache celé minuty a může se servírovat i prošlá při
   // výpadku, takže „už neplatí" se s jistotou pozná až tady.
   const platne = payload.warnings.filter((w) => {
-    if (!w.expires) return true;
+    if (!w.expires) return cerstva;
     const konec = new Date(w.expires).getTime();
-    return Number.isNaN(konec) || konec > nowMs;
+    if (Number.isNaN(konec)) return cerstva;
+    return konec > nowMs;
   });
+
+  if (!cerstva && !platne.length) {
+    return { stav: 'zastaralé', misto, zprava: '', polozky: [] };
+  }
+
+  // A jak je zpráva stará, je u výstrah napsané VŽDYCKY.
+  const vydano = vydanoSlovy(payload.sent, ted, lang);
 
   const jedinecne = slucDuplicity(platne);
 
@@ -136,7 +169,7 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
 
   const polozky = jedinecne.map((w) => ({
     nadpis: w.event || t('warnings.unnamed', lang),
-    obdobi: obdobi(w, lang, nowMs),
+    obdobi: obdobi(w, lang, ted),
     zavaznost: t(`warnings.severity.${trida(w.severity)}`, lang),
     trida: trida(w.severity),
     // Rozsah se čte z lidského textu, takže nemusí vyjít. Když nevyšel, musí
@@ -173,8 +206,8 @@ export function buildWarningsView({ payload, lang = 'cs', nowMs = 0 }) {
 /**
  * Kdy byla zpráva vydaná — „Vydáno před 3 hodinami (10:38)".
  *
- * Volá se jen pro čerstvou zprávu (do 12 hodin), takže čas vydání známe
- * a dny tu nejsou potřeba. Hodiny se zaokrouhlují DOLŮ: „před 3 hodinami"
+ * Od R46 i pro starší zprávu, ze které ještě platí výstraha s koncem
+ * („Vydáno před 14 hodinami (10:34)"). Hodiny se zaokrouhlují DOLŮ: „před 3 hodinami"
  * u zprávy staré 3 h 50 min je pravda, „před 4" by nebyla.
  */
 export function vydanoSlovy(sent, nowMs, lang) {

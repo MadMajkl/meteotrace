@@ -233,17 +233,24 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // mobilních datech. Přesné odfiltrování dělá až klient při výpisu, protože
   // tahle odpověď se drží v cache minuty a mezitím může něco vypršet.
   const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : 0;
-  // 🚨 JEN AKTUÁLNÍ VÝSTRAHY (Michal 25. 9. 2026). Zpráva starší než 12 hodin
-  // nepošle ven ani jednu — jinak by ji obal ohlásil upozorněním a widget
-  // ukázal, i když appka kartu schová. `sent` jde ven dál, aby klient poznal,
-  // proč je prázdno (viz `buildWarningsView`).
+  // 🚨 JEN AKTUÁLNÍ VÝSTRAHY (Michal 25. 9. 2026). Rozhoduje se TADY i pro
+  // obal a widget — co sem neprojde, to neohlásí ani upozornění. `sent` jde
+  // ven dál, aby klient poznal, proč je prázdno (viz `buildWarningsView`).
+  // ♻️ Do 10. 11. 2026 nepustila zpráva starší než 12 hodin ven ani jednu:
+  // ♻️ R46 (Miki 10. 11. 2026): *„ty se přece přemažou, až po tom co ta
+  // výstrahová událost proběhne"*. Výstraha s KONCEM platí do svého konce,
+  // i když je zpráva starší než 12 hodin — ČHMÚ za klidného dne vydává jen
+  // jednou ráno, a ranní „kluzko zítra 3–10" by jinak zmizelo už večer.
+  // Ze staré zprávy se proto zahazují jen výstrahy BEZ konce: u nich nevíme,
+  // jestli ještě platí.
   const aktualni = !nowMs || zpravaJeCerstva(body?.sent ?? null, nowMs);
-  const vsechny = (aktualni && body && body.warnings) || [];
+  const vsechny = (body && body.warnings) || [];
   const vystrahy = nowMs
     ? vsechny.filter((w) => {
-      if (!w.expires) return true;
+      if (!w.expires) return aktualni;
       const konec = new Date(w.expires).getTime();
-      return Number.isNaN(konec) || konec > nowMs;
+      if (Number.isNaN(konec)) return aktualni;
+      return konec > nowMs;
     })
     : vsechny;
 

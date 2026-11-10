@@ -136,6 +136,9 @@ export function parseCap(xml) {
   };
 }
 
+/** Řada souborů s meteorologickými výstrahami (viz `nejnovejsiSoubor`). */
+export const RADA_VYSTRAH = 'alert_cap_50_';
+
 /**
  * Který soubor v adresáři ČHMÚ je nejnovější?
  *
@@ -144,9 +147,20 @@ export function parseCap(xml) {
  * NEDÁ; pozná se jen podle času úpravy ve výpisu adresáře. Kdo by řadil
  * podle jména, dostal by klidně soubor z března.
  *
+ * 🚨 V ADRESÁŘI JSOU DVĚ ŘADY A BERE SE JEN JEDNA. `alert_cap_50_…`
+ * (odesílatel `chmi@chmi.cz`) jsou meteorologické výstrahy, kvůli kterým
+ * tu jsme. `alert_cap_70_…` (`ohp@chmi.cz`) je zvláštní bulletin
+ * hydrologů o SUCHU: vychází zhruba jednou týdně odpoledne a nese JEN
+ * sucho. Dokud se bral nejnovější soubor bez ohledu na řadu, každý takový
+ * bulletin do příštího rána vytlačil všechny meteorologické výstrahy:
+ * 10. 11. 2026 hlásila appka „Stav sucha" a „Hydrologické sucho", zatímco
+ * ČHMÚ měl na zítřek vydané „Velmi kluzké povrchy" (Miki: *„to sucho…
+ * vůbec tam být nemá"*, `R46`).
+ *
  * ⚠️ Rozebírat výpis adresáře je křehké — je to HTML pro lidi, ne rozhraní.
  * Proto se při neúspěchu vrací `null` a volající sáhne po záloze, místo aby
- * hádal.
+ * hádal. Totéž, kdyby ČHMÚ řadu přejmenoval: radši záloha (MeteoAlarm nese
+ * tytéž meteorologické výstrahy) než bulletin o něčem jiném.
  *
  * @param {string} html  výpis adresáře
  * @returns {{jmeno: string, kdy: number}|null}
@@ -157,6 +171,7 @@ export function nejnovejsiSoubor(html) {
   )];
   let nej = null;
   for (const [, jmeno, datum] of radky) {
+    if (!jmeno.startsWith(RADA_VYSTRAH)) continue;
     const kdy = Date.parse(datum.replace(/-/g, ' '));
     if (!Number.isFinite(kdy)) continue;
     if (!nej || kdy > nej.kdy) nej = { jmeno, kdy };
