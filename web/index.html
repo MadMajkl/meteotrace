@@ -613,6 +613,18 @@
   <h3 data-i18n="more.title"></h3>
   <p class="hint" data-i18n="more.note"></p>
   <div class="more-links">
+    <!-- MoB (Master of Backups) jako PRVNÍ a jako jediná dlaždice s obrázkem
+         a vlastními barvami (Miki 11. 11. 2026, přes session Marketing).
+         Obrázek je u nás (`img/`), ne z mobackup.cz — cizí doména pro obsah
+         ne (R2) a v APK by bez sítě zůstala díra. Adresa, obrázek i popisek
+         se mění s jazykem appky (`data-i18n-attr`). Cesta RELATIVNÍ: v APK
+         běží appka v `/assets/www/` a cesta od kořene by minula. -->
+    <a class="more-card more-card-mob" href="https://mobackup.cz/en/" data-i18n-attr="href:more.mobUrl" target="_blank" rel="noopener">
+      <img class="more-obr" src="img/mob-en.webp" data-i18n-attr="src:more.mobImg|alt:more.mobAlt" width="720" height="378" loading="lazy" decoding="async" alt="">
+      <span class="more-name">Master of Backups</span>
+      <span class="more-what" data-i18n="more.mob"></span>
+      <span class="more-domain">mobackup.cz</span>
+    </a>
     <a class="more-card" href="https://gulpka.app" target="_blank" rel="noopener">
       <span class="more-name">Gulpka</span>
       <span class="more-what" data-i18n="more.gulpka"></span>

@@ -2681,7 +2681,7 @@ body.has-play-cta main { padding-bottom: calc(110px + env(safe-area-inset-bottom
 }
 
 /* Crosslinky. Naše projekty, ne reklama — proto strohé řádky bez obrázků
-   a bez lákání. */
+   a bez lákání. Jedinou výjimkou je MoB níž (Miki 11. 11. 2026). */
 .more-links { display: grid; gap: 8px; }
 .more-card {
   display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
@@ -2693,6 +2693,23 @@ body.has-play-cta main { padding-bottom: calc(110px + env(safe-area-inset-bottom
 .more-name { font-weight: 600; font-size: 15px; }
 .more-domain { grid-row: 1; grid-column: 2; align-self: center; font-size: 12px; color: var(--text-soft); }
 .more-what { grid-column: 1 / -1; font-size: 13px; color: var(--text-soft); }
+
+/* MoB (Master of Backups): obrázek přes celou šířku a vlastní barvy značky
+   (#0E1116 tmavá, #D2AE66 zlatá). 🚨 Barvy MoBa JEN tady — do motivu appky
+   nepatří. Tmavá dlaždice je stejná ve všech motivech: je to jeho značka,
+   ne náš povrch. Obrázek bere první řádek, jméno a doména druhý. */
+.more-card-mob {
+  background: #0E1116; border-color: #D2AE66; color: #F2EEE6;
+  padding: 8px 8px 10px;
+}
+.more-card-mob .more-obr {
+  grid-column: 1 / -1; grid-row: 1;
+  display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630;
+  border-radius: 8px; margin-bottom: 6px;
+}
+.more-card-mob .more-name { grid-row: 2; color: #D2AE66; padding-left: 6px; }
+.more-card-mob .more-domain { grid-row: 2; color: #D2AE66; padding-right: 6px; }
+.more-card-mob .more-what { color: #CFC9BD; padding: 0 6px; }
 
 /* ══ STATISTIKY (R35) ════════════════════════════════════════════════════
    Jaké počasí na místě nebo po trase BYLO. Stejné karty a stejná mřížka

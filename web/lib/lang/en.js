@@ -555,6 +555,10 @@ export default {
   more: {
     title: 'More from us',
     note: 'Our own projects, not third-party ads.',
+    mob: 'A whole-computer backup you actually come back from, and rescue media that starts even without Windows. For Windows 10 and 11, free.',
+    mobAlt: 'Master of Backups (MoB) – whole-computer backup and rescue media for Windows',
+    mobUrl: 'https://mobackup.cz/en/',
+    mobImg: 'img/mob-en.webp',
     gulpka: 'Drink up — a water reminder',
     vtcleaner: 'A safe Windows cleaner',
     itrady: 'Practical tips from the world of IT',

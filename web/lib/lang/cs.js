@@ -636,6 +636,11 @@ export default {
   more: {
     title: 'Další od nás',
     note: 'Naše vlastní projekty, ne reklama třetí strany.',
+    mob: 'Záloha celého počítače, ze které se opravdu vrátíš, a záchranné médium, které nastartuje i bez Windows. Pro Windows 10 a 11, zdarma.',
+    mobAlt: 'Master of Backups (MoB) – záloha celého počítače a záchranné médium pro Windows',
+    // Česky i slovensky mluvícím česká stránka MoBa, ostatním anglická.
+    mobUrl: 'https://mobackup.cz/cs/',
+    mobImg: 'img/mob-cs.webp',
     gulpka: 'Napij se — připomínač pitného režimu',
     vtcleaner: 'Bezpečný čistič Windows',
     itrady: 'Praktické rady a tipy ze světa IT',
