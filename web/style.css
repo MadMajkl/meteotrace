@@ -2694,22 +2694,33 @@ body.has-play-cta main { padding-bottom: calc(110px + env(safe-area-inset-bottom
 .more-domain { grid-row: 1; grid-column: 2; align-self: center; font-size: 12px; color: var(--text-soft); }
 .more-what { grid-column: 1 / -1; font-size: 13px; color: var(--text-soft); }
 
-/* MoB (Master of Backups): obrázek přes celou šířku a vlastní barvy značky
-   (#0E1116 tmavá, #D2AE66 zlatá). 🚨 Barvy MoBa JEN tady — do motivu appky
-   nepatří. Tmavá dlaždice je stejná ve všech motivech: je to jeho značka,
-   ne náš povrch. Obrázek bere první řádek, jméno a doména druhý. */
+/* MoB (Master of Backups): obrázek přes celou šířku, jméno a doména pod ním.
+   🚨 Dlaždice cizí appky má VZHLED NAŠEHO WEBU (Miki 12. 11. 2026): pozadí,
+   text i světlý/tmavý režim jako sousední karty, nikdy natvrdo barvy MoBa.
+   Do 1.5.8 tu bylo pevné tmavé pozadí #0E1116 — omyl v zadání. Ze značky
+   zůstal jen zlatý akcent (rámeček + jméno) a ten se řídí motivem:
+   zlatá MoBa #D2AE66 má na světlém povrchu jen 1,9 : 1, proto ve světlých
+   motivech tmavší #7A5C14 (5,6 : 1 na #f0f4f9), v tmavých originál (7,1 : 1).
+   Na khaki maskáčích (`camo`) nečte dobře ani jedna — jméno tam bere barvu
+   textu, zlatý zůstane jen rámeček. */
 .more-card-mob {
-  background: #0E1116; border-color: #D2AE66; color: #F2EEE6;
+  --mob-zlata: #7A5C14;
+  border-color: var(--mob-zlata);
   padding: 8px 8px 10px;
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .more-card-mob { --mob-zlata: #D2AE66; }
+}
+:root:is([data-theme="dark"], [data-theme="pink-dark"]) .more-card-mob { --mob-zlata: #D2AE66; }
 .more-card-mob .more-obr {
   grid-column: 1 / -1; grid-row: 1;
   display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630;
   border-radius: 8px; margin-bottom: 6px;
 }
-.more-card-mob .more-name { grid-row: 2; color: #D2AE66; padding-left: 6px; }
-.more-card-mob .more-domain { grid-row: 2; color: #D2AE66; padding-right: 6px; }
-.more-card-mob .more-what { color: #CFC9BD; padding: 0 6px; }
+.more-card-mob .more-name { grid-row: 2; color: var(--mob-zlata); padding-left: 6px; }
+:root[data-theme="camo"] .more-card-mob .more-name { color: var(--text); }
+.more-card-mob .more-domain { grid-row: 2; padding-right: 6px; }
+.more-card-mob .more-what { padding: 0 6px; }
 
 /* ══ STATISTIKY (R35) ════════════════════════════════════════════════════
    Jaké počasí na místě nebo po trase BYLO. Stejné karty a stejná mřížka
