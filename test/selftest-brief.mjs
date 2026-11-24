@@ -350,39 +350,53 @@ test('neznámý druh zprávy se ven neptá vůbec', async () => {
 });
 
 
-/* ── úplněk a nov ve zprávě (Miki 24. 11. 2026) ─────────────────────── */
+/* ── hlavní fáze Měsíce ve zprávě (Miki 24. 11. 2026) ─────────────────── */
 
-/** Listopad v Praze: +1 h. Úplněk 24. 11. 2026 14:53 UTC = 15:53 SEČ. */
-const listopad = (dny) => predpoved({ dny, posunS: 3600 });
+/**
+ * Zima v Praze: +1 h. Časy podle katalogu NASA (UT): úplněk 24. 12. 01:28,
+ * nov 9. 12. 00:52, první čtvrť 17. 12. 05:43, poslední čtvrť 1. 12. 06:09.
+ * ⚠️ Schválně ne dnešní úplněk 24. 11.: vyšel 14:53:32, těsně na hranici
+ * minuty, a tabulky píšou 14:53 — test by hlídal náhodu, ne pravidlo.
+ */
+const zima = (dny) => predpoved({ dny, posunS: 3600 });
 
 test('🚨 úplněk v den úkazu: první řádek ranní i večerní zprávy', () => {
-  const f = listopad(['2026-11-24', '2026-11-25']);
-  const rano = zprava('morning', Date.UTC(2026, 10, 24, 5, 30), f).text.split('\n');
-  assert.equal(rano[0], '🌕 Úplněk dnes v 15:53');
-  const vecer = zprava('evening', Date.UTC(2026, 10, 24, 19, 0), f).text.split('\n');
-  assert.equal(vecer[0], '🌕 Úplněk dnes v 15:53');
+  const f = zima(['2026-12-24', '2026-12-25']);
+  const rano = zprava('morning', Date.UTC(2026, 11, 24, 5, 30), f).text.split('\n');
+  assert.equal(rano[0], '🌕 Úplněk dnes v 02:28');
+  const vecer = zprava('evening', Date.UTC(2026, 11, 24, 19, 0), f).text.split('\n');
+  assert.equal(vecer[0], '🌕 Úplněk dnes v 02:28');
   assert.equal(vecer.length, 3, 'měsíc + noc + zítřek');
   assert.match(vecer[1], /^V noci/);
 });
 
-test('den předem ani den potom o úplňku nemluví', () => {
+test('🚨 první a poslední čtvrť (Miki: „i přesný čtvrt a půlměsíc")', () => {
+  const prvni = zprava('morning', Date.UTC(2026, 11, 17, 5, 30), zima(['2026-12-17', '2026-12-18'])).text;
+  assert.equal(prvni.split('\n')[0], '🌓 První čtvrť dnes v 06:43');
+  const posledni = zprava('evening', Date.UTC(2026, 11, 1, 19, 0), zima(['2026-12-01', '2026-12-02'])).text;
+  assert.equal(posledni.split('\n')[0], '🌗 Poslední čtvrť dnes v 07:09');
+  const en = zprava('morning', Date.UTC(2026, 11, 17, 5, 30), zima(['2026-12-17', '2026-12-18']), 'en').text;
+  assert.equal(en.split('\n')[0], '🌓 First quarter today at 06:43');
+});
+
+test('den předem ani den potom o fázi nemluví', () => {
   const den = (d) => d.slice(0, 10);
-  const predem = zprava('evening', Date.UTC(2026, 10, 23, 19, 0), listopad(['2026-11-23', '2026-11-24'])).text;
-  const potom = zprava('morning', Date.UTC(2026, 10, 25, 5, 30), listopad(['2026-11-25', '2026-11-26'])).text;
-  for (const text of [predem, potom]) assert.doesNotMatch(text, /Úplněk|Nov /, den(text));
+  const predem = zprava('evening', Date.UTC(2026, 11, 23, 19, 0), zima(['2026-12-23', '2026-12-24'])).text;
+  const potom = zprava('morning', Date.UTC(2026, 11, 25, 5, 30), zima(['2026-12-25', '2026-12-26'])).text;
+  for (const text of [predem, potom]) assert.doesNotMatch(text, /Úplněk|Nov |čtvrť/, den(text));
 });
 
 test('anglicky a nov', () => {
-  const f = listopad(['2026-11-24', '2026-11-25']);
-  assert.equal(zprava('evening', Date.UTC(2026, 10, 24, 19, 0), f, 'en').text.split('\n')[0], '🌕 Full moon today at 15:53');
-  const nov = zprava('morning', Date.UTC(2026, 11, 9, 5, 30), listopad(['2026-12-09', '2026-12-10'])).text;
-  assert.equal(nov.split('\n')[0], '🌑 Nov dnes v 01:51');
+  const f = zima(['2026-12-24', '2026-12-25']);
+  assert.equal(zprava('evening', Date.UTC(2026, 11, 24, 19, 0), f, 'en').text.split('\n')[0], '🌕 Full moon today at 02:28');
+  const nov = zprava('morning', Date.UTC(2026, 11, 9, 5, 30), zima(['2026-12-09', '2026-12-10'])).text;
+  assert.equal(nov.split('\n')[0], '🌑 Nov dnes v 01:52');
 });
 
-test('🚨 den úkazu je den MÍSTA, ne serveru: nov 9. 12. 00:51 UTC je v New Yorku 8. 12. večer', () => {
+test('🚨 den úkazu je den MÍSTA, ne serveru: nov 9. 12. 00:52 UTC je v New Yorku 8. 12. večer', () => {
   const ny = (dny) => predpoved({ dny, posunS: -5 * 3600 });
   const osmy = zprava('morning', Date.UTC(2026, 11, 8, 11, 30), ny(['2026-12-08', '2026-12-09'])).text;
-  assert.equal(osmy.split('\n')[0], '🌑 Nov dnes v 19:51');
+  assert.equal(osmy.split('\n')[0], '🌑 Nov dnes v 19:52');
   const devaty = zprava('morning', Date.UTC(2026, 11, 9, 11, 30), ny(['2026-12-09', '2026-12-10'])).text;
   assert.doesNotMatch(devaty, /Nov dnes/);
 });

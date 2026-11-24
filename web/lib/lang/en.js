@@ -508,6 +508,7 @@ export default {
     about: 'About',
     privacy: 'Privacy policy',
     briefs: 'Morning and evening report',
+    briefsMoon: 'Includes moon phases.',
     briefsOff: 'Off',
     briefsOn: 'On',
     briefMorning: 'Morning at',
@@ -589,10 +590,12 @@ export default {
     variable: 'variable',
     calm: 'calm',
     gusts: 'gusts {g}',
-    // A full or new moon falling on today (local date), first line.
+    // A principal moon phase falling on today (local date), first line.
     moon: {
-      full: '{icon} Full moon today at {time}',
       new: '{icon} New moon today at {time}',
+      firstQuarter: '{icon} First quarter today at {time}',
+      full: '{icon} Full moon today at {time}',
+      lastQuarter: '{icon} Last quarter today at {time}',
     },
     titleMorning: 'Morning · {place}',
     titleEvening: 'Evening · {place}',

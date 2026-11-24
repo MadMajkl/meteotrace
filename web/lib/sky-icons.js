@@ -81,7 +81,7 @@ export function elevationShape() {
  * Kdyby se to prohodilo, ukazovala by appka ubývající Měsíc jako dorůstající
  * — tedy pravý opak toho, co je na obloze.
  *
- * @param {number} podil   0 = nov, 0,5 = čtvrt, 1 = úplněk
+ * @param {number} podil   0 = nov, 0,5 = čtvrť, 1 = úplněk
  * @param {boolean} dorusta
  * @returns {{kotouc: number[], svetlo: string|null}}
  */

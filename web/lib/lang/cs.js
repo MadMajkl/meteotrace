@@ -509,11 +509,11 @@ export default {
   moonPhase: {
     new: 'Nov',
     waxingCrescent: 'Dorůstající srpek',
-    firstQuarter: 'První čtvrt',
+    firstQuarter: 'První čtvrť',
     waxingGibbous: 'Dorůstající měsíc',
     full: 'Úplněk',
     waningGibbous: 'Ubývající měsíc',
-    lastQuarter: 'Poslední čtvrt',
+    lastQuarter: 'Poslední čtvrť',
     waningCrescent: 'Ubývající srpek',
   },
 
@@ -588,6 +588,9 @@ export default {
     about: 'O aplikaci',
     privacy: 'Zásady ochrany soukromí',
     briefs: 'Ranní a večerní zpráva',
+    // Druhý řádek pod ním (Miki 24. 11. 2026). Fáze = čtyři hlavní okamžiky
+    // (nov, čtvrti, úplněk) v den, kdy nastanou — viz `brief.moon`.
+    briefsMoon: 'Hlásí i fáze Měsíce.',
     briefsOff: 'Vypnuto',
     briefsOn: 'Zapnuto',
     briefMorning: 'Ráno v',
@@ -681,11 +684,13 @@ export default {
     variable: 'proměnlivý',
     calm: 'bezvětří',
     gusts: 'nárazy {g}',
-    // Úplněk nebo nov, který padne na dnešek (den místa) — první řádek.
-    // Bez slovesa: ranní zpráva ho hlásí předem, večerní potom.
+    // Hlavní fáze Měsíce, která padne na dnešek (den místa) — první řádek.
+    // Bez slovesa: ranní zpráva ji hlásí předem, večerní potom.
     moon: {
-      full: '{icon} Úplněk dnes v {time}',
       new: '{icon} Nov dnes v {time}',
+      firstQuarter: '{icon} První čtvrť dnes v {time}',
+      full: '{icon} Úplněk dnes v {time}',
+      lastQuarter: '{icon} Poslední čtvrť dnes v {time}',
     },
     titleMorning: 'Ráno · {place}',
     titleEvening: 'Večer · {place}',

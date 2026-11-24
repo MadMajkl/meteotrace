@@ -46,8 +46,8 @@ const DEN_MS = 86400000;
 /**
  * Osm fází i s podílem oběhu, ve kterém platí.
  *
- * ⚠️ Hranice nejsou stejně velké schválně. Nov, první čtvrt, úplněk a
- * poslední čtvrt jsou v jednu chvíli **okamžiky**, ne období — ale člověk
+ * ⚠️ Hranice nejsou stejně velké schválně. Nov, první čtvrť, úplněk a
+ * poslední čtvrť jsou v jednu chvíli **okamžiky**, ne období — ale člověk
  * je vidí jako stav, který pár dní vydrží. Kolem nich je proto úzké pásmo
  * a mezi nimi široké.
  */
@@ -100,7 +100,8 @@ export function moonPhase(nowMs = Date.now()) {
 export const MOON_KEYS = [...new Set(FAZE.map((f) => f.klic))];
 
 /* ────────────────────────────────────────────────────────────────────────
- * PŘESNÝ OKAMŽIK NOVU A ÚPLŇKU (Miki 24. 11. 2026: upozornění na úplněk a nov)
+ * PŘESNÝ OKAMŽIK HLAVNÍCH FÁZÍ (Miki 24. 11. 2026: upozornění na úplněk a nov,
+ * týž večer i na první a poslední čtvrť — R47, R48)
  *
  * Střední měsíc výš stačí na POJMENOVÁNÍ fáze, ale „úplněk v 15:53" by
  * minul o hodiny. Tady je Meeus, Astronomical Algorithms, kap. 49: střední
@@ -117,13 +118,14 @@ const DELTA_T_S = 69;
 
 const RAD = Math.PI / 180;
 const sinD = (stupne) => Math.sin(stupne * RAD);
+const cosD = (stupne) => Math.cos(stupne * RAD);
 
 /** Juliánské datum → ms od 1970 (UT). */
 const jdNaMs = (jde) => (jde - 2440587.5) * DEN_MS - DELTA_T_S * 1000;
 
 /**
- * Okamžik fáze pro „lunaci" k. Celé k = nov, k + 0,5 = úplněk
- * (k = 0 je nov 6. 1. 2000).
+ * Okamžik fáze pro „lunaci" k. Celé k = nov, k + 0,25 = první čtvrť,
+ * k + 0,5 = úplněk, k + 0,75 = poslední čtvrť (k = 0 je nov 6. 1. 2000).
  */
 function okamzikFaze(k) {
   const T = k / 1236.85;
@@ -136,14 +138,43 @@ function okamzikFaze(k) {
   const F = 160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4;
   const O = 124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3;
 
-  const uplnek = Math.abs(k - Math.floor(k) - 0.5) < 1e-9;
+  const zlomek = k - Math.floor(k);
+  if (Math.abs(zlomek - 0.25) < 1e-9 || Math.abs(zlomek - 0.75) < 1e-9) {
+    jde += opravaCtvrti(Mm, M, F, O, E, zlomek < 0.5);
+  } else {
+    jde += opravaNovuUplnku(Mm, M, F, O, E, Math.abs(zlomek - 0.5) < 1e-9);
+  }
+
+  // Opravy společné všem fázím (planety).
+  const A = [
+    [299.77 + 0.107408 * k - 0.009173 * T2, 0.000325],
+    [251.88 + 0.016321 * k, 0.000165],
+    [251.83 + 26.651886 * k, 0.000164],
+    [349.42 + 36.412478 * k, 0.000126],
+    [84.66 + 18.206239 * k, 0.00011],
+    [141.74 + 53.303771 * k, 0.000062],
+    [207.14 + 2.453732 * k, 0.00006],
+    [154.84 + 7.30686 * k, 0.000056],
+    [34.52 + 27.261239 * k, 0.000047],
+    [207.19 + 0.121824 * k, 0.000042],
+    [291.34 + 1.844379 * k, 0.00004],
+    [161.72 + 24.198154 * k, 0.000037],
+    [239.56 + 25.513099 * k, 0.000035],
+    [331.55 + 3.592518 * k, 0.000023],
+  ];
+  for (const [uhel, vaha] of A) jde += vaha * sinD(uhel);
+  return jde;
+}
+
+/** Periodické opravy novu a úplňku (Meeus, tab. 49.A, první dva sloupce). */
+function opravaNovuUplnku(Mm, M, F, O, E, uplnek) {
   // Prvních šest koeficientů se u novu a úplňku liší, zbytek je společný.
   const [a, b, c, d, e, f] = uplnek
     ? [-0.40614, 0.17302, 0.01614, 0.01043, 0.00734, -0.00515]
     : [-0.4072, 0.17241, 0.01608, 0.01039, 0.00739, -0.00514];
   const g = uplnek ? 0.00209 : 0.00208;
 
-  jde += a * sinD(Mm)
+  return a * sinD(Mm)
     + b * E * sinD(M)
     + c * sinD(2 * Mm)
     + d * sinD(2 * F)
@@ -168,35 +199,66 @@ function okamzikFaze(k) {
     - 0.00002 * sinD(Mm - M - 2 * F)
     - 0.00002 * sinD(3 * Mm + M)
     + 0.00002 * sinD(4 * Mm);
+}
 
-  // Opravy společné všem fázím (planety).
-  const A = [
-    [299.77 + 0.107408 * k - 0.009173 * T2, 0.000325],
-    [251.88 + 0.016321 * k, 0.000165],
-    [251.83 + 26.651886 * k, 0.000164],
-    [349.42 + 36.412478 * k, 0.000126],
-    [84.66 + 18.206239 * k, 0.00011],
-    [141.74 + 53.303771 * k, 0.000062],
-    [207.14 + 2.453732 * k, 0.00006],
-    [154.84 + 7.30686 * k, 0.000056],
-    [34.52 + 27.261239 * k, 0.000047],
-    [207.19 + 0.121824 * k, 0.000042],
-    [291.34 + 1.844379 * k, 0.00004],
-    [161.72 + 24.198154 * k, 0.000037],
-    [239.56 + 25.513099 * k, 0.000035],
-    [331.55 + 3.592518 * k, 0.000023],
-  ];
-  for (const [uhel, vaha] of A) jde += vaha * sinD(uhel);
-  return jde;
+/**
+ * Periodické opravy první a poslední čtvrti (Meeus, tab. 49.A, třetí
+ * sloupec) a k tomu oprava W: k první čtvrti se přičítá, od poslední odečítá.
+ *
+ * 🚨 Miki 24. 11. 2026: *„by asi měl hlásit i přesný čtvrt a půlměsíc"*.
+ * Čtvrť a půlměsíc jsou tentýž úkaz: svítí přesně půlka kotouče.
+ */
+function opravaCtvrti(Mm, M, F, O, E, prvni) {
+  const oprava = -0.62801 * sinD(Mm)
+    + 0.17172 * E * sinD(M)
+    - 0.01183 * E * sinD(Mm + M)
+    + 0.00862 * sinD(2 * Mm)
+    + 0.00804 * sinD(2 * F)
+    + 0.00454 * E * sinD(Mm - M)
+    + 0.00204 * E * E * sinD(2 * M)
+    - 0.0018 * sinD(Mm - 2 * F)
+    - 0.0007 * sinD(Mm + 2 * F)
+    - 0.0004 * sinD(3 * Mm)
+    - 0.00034 * E * sinD(2 * Mm - M)
+    + 0.00032 * E * sinD(M + 2 * F)
+    + 0.00032 * E * sinD(M - 2 * F)
+    - 0.00028 * E * E * sinD(Mm + 2 * M)
+    + 0.00027 * E * sinD(2 * Mm + M)
+    - 0.00017 * sinD(O)
+    - 0.00005 * sinD(Mm - M - 2 * F)
+    + 0.00004 * sinD(2 * Mm + 2 * F)
+    - 0.00004 * sinD(Mm + M + 2 * F)
+    + 0.00004 * sinD(Mm - 2 * M)
+    + 0.00003 * sinD(Mm + M - 2 * F)
+    + 0.00003 * sinD(3 * M)
+    + 0.00002 * sinD(2 * Mm - 2 * F)
+    + 0.00002 * sinD(Mm - M + 2 * F)
+    - 0.00002 * sinD(3 * Mm + M);
+  const W = 0.00306
+    - 0.00038 * E * cosD(M)
+    + 0.00026 * cosD(Mm)
+    - 0.00002 * cosD(Mm - M)
+    + 0.00002 * cosD(Mm + M)
+    + 0.00002 * cosD(2 * F);
+  return oprava + (prvni ? W : -W);
 }
 
 /** Juliánské datum (TT) — pro samotest proti příkladu z knihy. */
 export const _okamzikFazeJDE = okamzikFaze;
 
+/** Čtyři hlavní fáze: posun v lunaci, klíč (týž jako u `moonPhase`), ikona. */
+const HLAVNI_FAZE = [
+  [0, 'new', '🌑'],
+  [0.25, 'firstQuarter', '🌓'],
+  [0.5, 'full', '🌕'],
+  [0.75, 'lastQuarter', '🌗'],
+];
+
 /**
- * Novy a úplňky v rozmezí `[odMs, doMs)`, seřazené podle času.
+ * Nov, první čtvrť, úplněk a poslední čtvrť v rozmezí `[odMs, doMs)`,
+ * seřazené podle času.
  *
- * @returns {{klic: 'new'|'full', ms: number, ikona: string}[]}
+ * @returns {{klic: 'new'|'firstQuarter'|'full'|'lastQuarter', ms: number, ikona: string}[]}
  */
 export function moonEvents(odMs, doMs) {
   const od = Number(odMs);
@@ -207,8 +269,8 @@ export function moonEvents(odMs, doMs) {
   const kDo = Math.ceil((doo - NOV_2000) / DEN_MS / SYNODICKY_MESIC_DNU) + 1;
   const vysledek = [];
   for (let k = kOd; k <= kDo; k++) {
-    for (const [kk, klic, ikona] of [[k, 'new', '🌑'], [k + 0.5, 'full', '🌕']]) {
-      const ms = jdNaMs(okamzikFaze(kk));
+    for (const [posun, klic, ikona] of HLAVNI_FAZE) {
+      const ms = jdNaMs(okamzikFaze(k + posun));
       if (ms >= od && ms < doo) vysledek.push({ klic, ms: Math.round(ms), ikona });
     }
   }

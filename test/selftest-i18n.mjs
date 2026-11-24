@@ -96,6 +96,20 @@ test('🚨 parita: každá fáze Měsíce má překlad ve všech jazycích', () 
   }
 });
 
+test('🚨 karta Měsíce a zpráva jmenují fázi stejně', () => {
+  // Zpráva psala „První čtvrť", karta na meteostanici „První čtvrt" — jedna
+  // appka, dva pravopisy. Miki 24. 11. 2026: sjednotit na „čtvrť"
+  // (astronomický název). Hlídá se každá fáze, kterou zpráva hlásí.
+  for (const lang of Object.keys(LANGS)) {
+    for (const key of ['new', 'firstQuarter', 'full', 'lastQuarter']) {
+      const karta = t(`moonPhase.${key}`, lang);
+      const zprava = tf(`brief.moon.${key}`, { icon: '', time: '' }, lang).trim();
+      assert.ok(zprava.startsWith(karta),
+        `${lang}/${key}: karta „${karta}", zpráva „${zprava}"`);
+    }
+  }
+});
+
 test('🚨 parita: každá světová strana má překlad', () => {
   const dirs = new Set();
   for (let d = 0; d < 360; d += 5) dirs.add(windDirKey(d));

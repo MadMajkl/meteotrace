@@ -489,7 +489,12 @@
        poslední poloha, kterou appka zná, a kdo odjel a appku neotevřel,
        dostane zprávu pro to staré místo. -->
   <div class="setting">
-    <label for="set-briefs" data-i18n="settings.briefs"></label>
+    <!-- Druhý řádek říká, že zpráva hlásí i hlavní fáze Měsíce (R48):
+         bez něj by o tom věděl jen ten, kdo zprávu už dostal ve správný den. -->
+    <label for="set-briefs">
+      <span data-i18n="settings.briefs"></span>
+      <span class="setting-stav" data-i18n="settings.briefsMoon"></span>
+    </label>
     <select id="set-briefs"></select>
   </div>
   <div class="setting" id="brief-times" hidden>

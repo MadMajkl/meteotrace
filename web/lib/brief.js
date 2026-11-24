@@ -246,11 +246,14 @@ export function briefText({ forecast, kind, nowMs, lang = 'en', units }) {
 }
 
 /**
- * Úplněk nebo nov, který padne na DNEŠNÍ den místa: „🌕 Úplněk dnes v 15:53".
+ * Hlavní fáze Měsíce, která padne na DNEŠNÍ den místa: „🌕 Úplněk dnes
+ * v 15:53", „🌓 První čtvrť dnes v 12:48".
  *
  * Miki 24. 11. 2026: *„vždyť jsme chtěli notifikace na úplněk a nov"* —
  * a *„hlavně ať tam svítí už dneska"*. Proto ve zprávě, kterou skládá
- * server: dostane se k lidem hned po nasazení, bez nového AAB.
+ * server: dostane se k lidem hned po nasazení, bez nového AAB. Týž večer
+ * přibyly čtvrti (*„by asi měl hlásit i přesný čtvrt a půlměsíc"*), takže
+ * zpráva hlásí všechny čtyři hlavní fáze — a popisek v ⚙ to může říct.
  *
  * ⚠️ Jen dnešní den, ráno i večer. Den předem ani po něm ne: zpráva by
  * o témže úkazu mluvila třikrát a „zítra úplněk" ve večerní zprávě se
@@ -266,9 +269,11 @@ function mesicDnes(dnes, posunS, lang) {
   const minuta = 60_000;
   return moonEvents(od, od + 86_400_000).map((u) => tf(`brief.moon.${u.klic}`, {
     icon: u.ikona,
-    // ⚠️ Minuta, ve které úkaz nastane (dolů, ne zaokrouhlit). Meeus má
-    // chybu do ~20 s a tabulky se mezi sebou liší o minutu; dnešní úplněk
-    // vyšel 14:53:32 UTC a USNO píše 14:53, ne 14:54.
-    time: clock(Math.floor(u.ms / minuta) * minuta + posun, 'UTC', lang),
+    // ⚠️ Na NEJBLIŽŠÍ minutu, stejně jako tabulky. Do 24. 11. 2026 večer
+    // se uřezávalo dolů (podle jediného úplňku: 14:53:32 vs. USNO 14:53)
+    // a proti 50 úkazům roku 2026 z katalogu NASA to sedělo jen 29×;
+    // zaokrouhlení 41×. Zbytek jsou hraniční případy: Meeus má chybu
+    // do ~35 s a tabulky samy počítají s jiným ΔT.
+    time: clock(Math.round(u.ms / minuta) * minuta + posun, 'UTC', lang),
   }, lang));
 }
