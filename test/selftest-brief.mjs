@@ -348,3 +348,41 @@ test('neznámý druh zprávy se ven neptá vůbec', async () => {
   assert.equal(r.text, null);
   assert.equal(f.volani.length, 0);
 });
+
+
+/* ── úplněk a nov ve zprávě (Miki 24. 11. 2026) ─────────────────────── */
+
+/** Listopad v Praze: +1 h. Úplněk 24. 11. 2026 14:53 UTC = 15:53 SEČ. */
+const listopad = (dny) => predpoved({ dny, posunS: 3600 });
+
+test('🚨 úplněk v den úkazu: první řádek ranní i večerní zprávy', () => {
+  const f = listopad(['2026-11-24', '2026-11-25']);
+  const rano = zprava('morning', Date.UTC(2026, 10, 24, 5, 30), f).text.split('\n');
+  assert.equal(rano[0], '🌕 Úplněk dnes v 15:53');
+  const vecer = zprava('evening', Date.UTC(2026, 10, 24, 19, 0), f).text.split('\n');
+  assert.equal(vecer[0], '🌕 Úplněk dnes v 15:53');
+  assert.equal(vecer.length, 3, 'měsíc + noc + zítřek');
+  assert.match(vecer[1], /^V noci/);
+});
+
+test('den předem ani den potom o úplňku nemluví', () => {
+  const den = (d) => d.slice(0, 10);
+  const predem = zprava('evening', Date.UTC(2026, 10, 23, 19, 0), listopad(['2026-11-23', '2026-11-24'])).text;
+  const potom = zprava('morning', Date.UTC(2026, 10, 25, 5, 30), listopad(['2026-11-25', '2026-11-26'])).text;
+  for (const text of [predem, potom]) assert.doesNotMatch(text, /Úplněk|Nov /, den(text));
+});
+
+test('anglicky a nov', () => {
+  const f = listopad(['2026-11-24', '2026-11-25']);
+  assert.equal(zprava('evening', Date.UTC(2026, 10, 24, 19, 0), f, 'en').text.split('\n')[0], '🌕 Full moon today at 15:53');
+  const nov = zprava('morning', Date.UTC(2026, 11, 9, 5, 30), listopad(['2026-12-09', '2026-12-10'])).text;
+  assert.equal(nov.split('\n')[0], '🌑 Nov dnes v 01:51');
+});
+
+test('🚨 den úkazu je den MÍSTA, ne serveru: nov 9. 12. 00:51 UTC je v New Yorku 8. 12. večer', () => {
+  const ny = (dny) => predpoved({ dny, posunS: -5 * 3600 });
+  const osmy = zprava('morning', Date.UTC(2026, 11, 8, 11, 30), ny(['2026-12-08', '2026-12-09'])).text;
+  assert.equal(osmy.split('\n')[0], '🌑 Nov dnes v 19:51');
+  const devaty = zprava('morning', Date.UTC(2026, 11, 9, 11, 30), ny(['2026-12-09', '2026-12-10'])).text;
+  assert.doesNotMatch(devaty, /Nov dnes/);
+});

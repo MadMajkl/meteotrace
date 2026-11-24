@@ -113,6 +113,7 @@ tohle je jen shrnutí.**
 | Patra oblačnosti | 🚨 „zataženo" jen vysoko NENÍ zataženo — `jenZavoj()` ve `weather-code.js`; platí na stanici, na trase i u sond |
 | Kdy to bude | `web/lib/when.js` — k času se připíše den, jakmile není dnešní (`zítra 02:16`, `1. 9. 03:17`). 🚨 Bez toho vypadala dvoudenní pěší cesta jako dnes večer. Zkratky dnů česky nejdou: „příjezd po 08:41" se čte jako „po osmé" |
 | Fáze Měsíce | `web/lib/moon.js` — **počítá se, nestahuje**; je to astronomie, ne předpověď |
+| Úplněk a nov ve zprávě (R47, 1.5.10) | Miki 24. 11. 2026: *„hlavně ať tam svítí už dneska"*. Přesný okamžik `moonEvents()` v `moon.js` (Meeus kap. 49, ΔT 69 s; střední měsíc `moonPhase` by minul o hodiny). Padne-li na DNEŠNÍ den MÍSTA, je to PRVNÍ řádek ranní i večerní zprávy (`mesicDnes` v `brief.js`): „🌕 Úplněk dnes v 15:53". Minuta DOLŮ (14:53:32 UTC = USNO 14:53). Den předem a potom nic. Server → jde ven bez AAB. Hlídá `selftest-moon.mjs` (příklad z knihy + 5 efemerid) a `selftest-brief.mjs` |
 | Počasí po trase | vítr, nárazy a pocitovka u bodů + věta o tom, co je v cíli |
 | Rozpis úseků | u trasy se zastávkami: km a čas příjezdu po úsecích + celkem |
 | Mezibody trasy | libovolné zastávky mezi startem a cílem; skládá se z úseků, protože proxy je jen GET (R4) |

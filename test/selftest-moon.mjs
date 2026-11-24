@@ -75,3 +75,53 @@ test('nesmyslný vstup vrátí nic, ne nesmysl', () => {
   assert.equal(moonPhase(NaN), null);
   assert.equal(moonPhase('včera'), null);
 });
+
+
+/* ── přesný okamžik novu a úplňku (Meeus, kap. 49) ─────────────────── */
+
+import { moonEvents, _okamzikFazeJDE } from '../web/lib/moon.js';
+
+test('🚨 Meeus 49.a: nov v únoru 1977 sedí na příklad z knihy', () => {
+  // Kniha: k = −283, JDE = 2443192,65118 (18. 2. 1977 03:37:42 TD).
+  // Jiná cesta k témuž číslu než náš výpočet — tištěný výsledek.
+  const jde = _okamzikFazeJDE(-283);
+  assert.ok(Math.abs(jde - 2443192.65118) < 0.00001, `vyšlo ${jde}`);
+});
+
+/**
+ * Úkazy z veřejných efemerid (USNO / lunaf / theskylive, ověřeno
+ * 24. 11. 2026), časy v UTC zaokrouhlené na minutu.
+ */
+const PRESNE = [
+  ['new', '2026-08-12T17:37Z'],
+  ['full', '2026-08-28T04:18Z'],
+  ['full', '2026-11-24T14:53Z'],
+  ['new', '2026-12-09T00:52Z'],
+  ['full', '2026-12-24T01:28Z'],
+];
+
+test('🚨 nov a úplněk sedí na efemeridy do minuty', () => {
+  for (const [klic, kdy] of PRESNE) {
+    const cil = Date.parse(kdy.replace('Z', ':00Z'));
+    const nalez = moonEvents(cil - 86400000, cil + 86400000).filter((u) => u.klic === klic);
+    assert.equal(nalez.length, 1, `${klic} ${kdy}: nalezeno ${nalez.length}`);
+    const odchylka = Math.abs(nalez[0].ms - cil) / 1000;
+    assert.ok(odchylka <= 60, `${klic} ${kdy}: mimo o ${odchylka.toFixed(0)} s`);
+  }
+});
+
+test('za rok je 12–13 novů a 12–13 úplňků, střídají se', () => {
+  const rok = moonEvents(Date.UTC(2026, 0, 1), Date.UTC(2027, 0, 1));
+  const novu = rok.filter((u) => u.klic === 'new').length;
+  const uplnku = rok.filter((u) => u.klic === 'full').length;
+  assert.ok(novu >= 12 && novu <= 13 && uplnku >= 12 && uplnku <= 13, `${novu} novů, ${uplnku} úplňků`);
+  for (let i = 1; i < rok.length; i++) assert.notEqual(rok[i].klic, rok[i - 1].klic, 'dvě stejné fáze za sebou');
+});
+
+test('rozmezí je zleva uzavřené, zprava otevřené; nesmysl vrátí prázdno', () => {
+  const u = moonEvents(Date.UTC(2026, 10, 24), Date.UTC(2026, 10, 25))[0];
+  assert.equal(moonEvents(u.ms, u.ms + 1).length, 1);
+  assert.equal(moonEvents(u.ms - 1, u.ms).length, 0);
+  assert.deepEqual(moonEvents(NaN, 5), []);
+  assert.deepEqual(moonEvents(10, 5), []);
+});

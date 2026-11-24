@@ -43,6 +43,8 @@ import { t, tf } from './i18n.js';
 import { weatherKey } from './weather-code.js';
 import { formatTemp, formatTempRange, formatWind, windDirKey } from './units.js';
 import { jeNarazSilny } from './tile-tone.js';
+import { moonEvents } from './moon.js';
+import { clock } from './when.js';
 
 /**
  * Co se stahuje kvůli zprávě. Dva dny stačí: večerní okno končí zítra
@@ -238,6 +240,35 @@ export function briefText({ forecast, kind, nowMs, lang = 'en', units }) {
   if (souhrny.some((s) => !s)) return null;
 
   const dnes = hodinaVMiste(nowMs, forecast.utc_offset_seconds).slice(0, 10);
-  const text = casti.map((u, i) => vetaUseku(u, souhrny[i], dnes, lang, units)).join('\n');
+  const radky = casti.map((u, i) => vetaUseku(u, souhrny[i], dnes, lang, units));
+  const text = [...mesicDnes(dnes, forecast.utc_offset_seconds, lang), ...radky].join('\n');
   return { text, den: casti.find((u) => u.druh === 'den')?.datum ?? null, kind };
+}
+
+/**
+ * Úplněk nebo nov, který padne na DNEŠNÍ den místa: „🌕 Úplněk dnes v 15:53".
+ *
+ * Miki 24. 11. 2026: *„vždyť jsme chtěli notifikace na úplněk a nov"* —
+ * a *„hlavně ať tam svítí už dneska"*. Proto ve zprávě, kterou skládá
+ * server: dostane se k lidem hned po nasazení, bez nového AAB.
+ *
+ * ⚠️ Jen dnešní den, ráno i večer. Den předem ani po něm ne: zpráva by
+ * o témže úkazu mluvila třikrát a „zítra úplněk" ve večerní zprávě se
+ * snadno přečte jako dnešek.
+ *
+ * ⚠️ Řádek jde PRVNÍ: sbalené upozornění ukáže jen první řádek a úkaz je
+ * dvakrát do měsíce — počasí je o klepnutí níž. Čas bez slovesa („Úplněk
+ * dnes v 15:53"), protože ranní zpráva ho hlásí předem a večerní potom.
+ */
+function mesicDnes(dnes, posunS, lang) {
+  const posun = (Number(posunS) || 0) * 1000;
+  const od = Date.parse(`${dnes}T00:00:00Z`) - posun;
+  const minuta = 60_000;
+  return moonEvents(od, od + 86_400_000).map((u) => tf(`brief.moon.${u.klic}`, {
+    icon: u.ikona,
+    // ⚠️ Minuta, ve které úkaz nastane (dolů, ne zaokrouhlit). Meeus má
+    // chybu do ~20 s a tabulky se mezi sebou liší o minutu; dnešní úplněk
+    // vyšel 14:53:32 UTC a USNO píše 14:53, ne 14:54.
+    time: clock(Math.floor(u.ms / minuta) * minuta + posun, 'UTC', lang),
+  }, lang));
 }

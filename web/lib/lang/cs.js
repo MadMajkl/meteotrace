@@ -681,6 +681,12 @@ export default {
     variable: 'proměnlivý',
     calm: 'bezvětří',
     gusts: 'nárazy {g}',
+    // Úplněk nebo nov, který padne na dnešek (den místa) — první řádek.
+    // Bez slovesa: ranní zpráva ho hlásí předem, večerní potom.
+    moon: {
+      full: '{icon} Úplněk dnes v {time}',
+      new: '{icon} Nov dnes v {time}',
+    },
     titleMorning: 'Ráno · {place}',
     titleEvening: 'Večer · {place}',
   },

@@ -589,6 +589,11 @@ export default {
     variable: 'variable',
     calm: 'calm',
     gusts: 'gusts {g}',
+    // A full or new moon falling on today (local date), first line.
+    moon: {
+      full: '{icon} Full moon today at {time}',
+      new: '{icon} New moon today at {time}',
+    },
     titleMorning: 'Morning · {place}',
     titleEvening: 'Evening · {place}',
   },
