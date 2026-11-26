@@ -204,6 +204,8 @@ export function casVydani(body) {
  * @param {object} [opts]
  * @param {Array} [opts.areas]  rozbalené hranice ORP (`unpackAreas`)
  * @param {number} [opts.nowMs] čas pro vyhození prošlých výstrah
+ * @param {object|Array} [opts.faze]  teplota v místě pro sníh (`R49`): u jednoho
+ *   místa objekt, u `mista` pole ve stejném pořadí; stahuje ji `server/proxy.js`
  */
 export function filterByPlace(service, body, params = {}, opts = {}) {
   // Víc hlídaných míst jedním dotazem (`R38`): každé místo projde TOUŽ
@@ -213,9 +215,9 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   if (params.mista != null && (UPSTREAMS[service]?.local || []).includes('mista')) {
     const { mista: _m, geo: _g, ...zbytek } = params;
     return {
-      mista: (mistaZDotazu(params.mista) || []).map((m) => filterByPlace(service, body, {
+      mista: (mistaZDotazu(params.mista) || []).map((m, i) => filterByPlace(service, body, {
         ...zbytek, lat: String(m.lat), lon: String(m.lon),
-      }, opts)),
+      }, { ...opts, faze: Array.isArray(opts.faze) ? opts.faze[i] : null })),
     };
   }
 
@@ -224,7 +226,8 @@ export function filterByPlace(service, body, params = {}, opts = {}) {
   // Začátek deště (`R42`) z téhož podkladu — mřížka v něm leží vedle jader.
   if (UPSTREAMS[service]?.normalize === 'storm') {
     const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : 0;
-    return { ...odpovedProMisto(body, params, nowMs), dest: odpovedDeste(body, params, nowMs) };
+    const faze = opts.faze && !Array.isArray(opts.faze) ? opts.faze : null;
+    return { ...odpovedProMisto(body, params, nowMs), dest: odpovedDeste(body, params, nowMs, faze) };
   }
   if (service !== 'warnings') return body;
 

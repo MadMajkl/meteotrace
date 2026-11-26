@@ -19,6 +19,9 @@ import {
 import { findArea } from '../web/lib/orp.js';
 import { createLimiter, originPovolen, tridaSluzby } from '../web/lib/rate-limit.js';
 import { UPSTREAMS } from '../web/lib/upstreams.js';
+import { potrebujeFazi } from '../web/lib/rain-watch.js';
+import { mistaZDotazu } from '../web/lib/watched-places.js';
+import { fazeProMista } from './faze-srazek.js';
 
 /**
  * Vypadá odpověď hledání jako „nic jsme nenašli"?
@@ -143,6 +146,27 @@ function mistniOdpoved(service, params, deps) {
   };
 }
 
+/**
+ * Teplota u míst, kam se blíží srážky — aby šlo poznat sníh (`R49`).
+ *
+ * Vrací u jednoho místa objekt, u `mista` pole ve stejném pořadí (`null` =
+ * netřeba nebo nevíme). V suchu `null` hned, bez jediného dotazu ven.
+ */
+async function teplotaProSnih(digest, params, nowMs, { fetchImpl, cache, log }) {
+  const vice = params.mista != null;
+  const mista = vice
+    ? (mistaZDotazu(params.mista) || [])
+    : [{ lat: Number(params.lat), lon: Number(params.lon) }];
+  const treba = mista.map((m) => potrebujeFazi(digest, { lat: m.lat, lon: m.lon, nowMs }));
+  if (!treba.some(Boolean)) return null;
+
+  const kde = mista.filter((_, i) => treba[i]);
+  const zjisteno = await fazeProMista({ fetchImpl, base: UPSTREAMS.forecast.base, mista: kde, cache, log });
+  let k = 0;
+  const vsechna = treba.map((t) => (t ? zjisteno[k++] : null));
+  return vice ? vsechna : vsechna[0];
+}
+
 export async function serveProxy(req, deps) {
   const { cache } = deps;
   const fetchImpl = deps.fetchImpl || globalThis.fetch;
@@ -175,13 +199,22 @@ export async function serveProxy(req, deps) {
 
   // Výřez podle polohy se dělá až za cache — v cache leží odpověď společná
   // všem. Viz `filterByPlace()`.
-  const proMisto = (value) => filterByPlace(plan.service, value, params, { areas: deps.areas, nowMs: (deps.now || Date.now)() });
+  //
+  // ⚠️ U radaru (`storm`) se předtím zjistí, jestli u místa mrzne — jen tam,
+  // kam se blíží srážky (`R49`, `teplotaProSnih`). Proto `async`.
+  const proMisto = async (value) => {
+    const nowMs = (deps.now || Date.now)();
+    const faze = UPSTREAMS[plan.service]?.normalize === 'storm'
+      ? await teplotaProSnih(value, params, nowMs, { fetchImpl, cache, log })
+      : null;
+    return filterByPlace(plan.service, value, params, { areas: deps.areas, nowMs, faze });
+  };
 
   // 1) Čerstvé v cache → hotovo, ven se nechodí.
   const hit = cache.get(plan.cacheKey);
   if (hit && hit.fresh) {
     log('cache: čerstvé', { key: plan.cacheKey });
-    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: proMisto(hit.value) };
+    return { status: 200, headers: responseHeaders({ ttlS: plan.ttlS }), body: await proMisto(hit.value) };
   }
 
   // 1b) Místní služba: odpověď si skládáme sami, ven se nechodí vůbec.
@@ -206,7 +239,7 @@ export async function serveProxy(req, deps) {
       return {
         status: 200,
         headers: responseHeaders({ ttlS: plan.ttlS, fresh: false, ageS: hit.ageS }),
-        body: proMisto(hit.value),
+        body: await proMisto(hit.value),
       };
     }
     return {
@@ -302,7 +335,7 @@ export async function serveProxy(req, deps) {
     return {
       status: 200,
       headers: responseHeaders({ ttlS: platnostS, zeZalohy }),
-      body: proMisto(out),
+      body: await proMisto(out),
     };
   } catch (e) {
     // 3) Nepovedlo se. Máme-li prošlou odpověď, je nesrovnatelně lepší než chyba —
@@ -313,7 +346,7 @@ export async function serveProxy(req, deps) {
       return {
         status: 200,
         headers: responseHeaders({ ttlS: plan.ttlS, fresh: false, ageS: hit.ageS }),
-        body: proMisto(hit.value),
+        body: await proMisto(hit.value),
       };
     }
     // 🚨 Vyčerpaná kvóta NENÍ výpadek. Cizí služba odpověděla, a to zcela

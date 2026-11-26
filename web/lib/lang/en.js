@@ -177,6 +177,14 @@ export default {
     coming: 'Rain will start here in about {min} min.',
     soon: 'Rain will start here within 10 minutes.',
     advice: 'Bring the laundry and pets inside.',
+    // Snow (R49): the same sentence when it is freezing at the place.
+    // Dangerous snow is for the ČHMÚ warnings — this is just "it starts soon".
+    snowComing: 'Snow will start here in about {min} min.',
+    snowSoon: 'Snow will start here within 10 minutes.',
+    // "Just started" (R50): it formed right here and the forecast missed it.
+    started: 'Rain has just started here.',
+    snowStarted: 'Snow has just started here.',
+    snowAdvice: 'Car under cover, and allow extra time on the road.',
   },
 
   /* Pull down at the top of the page and the data reloads. Each state has

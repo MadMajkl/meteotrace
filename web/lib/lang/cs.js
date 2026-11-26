@@ -195,6 +195,14 @@ export default {
     coming: 'Asi za {min} min tu začne pršet.',
     soon: 'Do 10 minut tu začne pršet.',
     advice: 'Prádlo a zvířata pod střechu.',
+    // Sníh (R49): táž věta, když v místě mrzne. Nebezpečný sníh hlásí
+    // výstrahy ČHMÚ — tohle je jen „za chvíli to začne".
+    snowComing: 'Asi za {min} min tu začne sněžit.',
+    snowSoon: 'Do 10 minut tu začne sněžit.',
+    // „Právě začalo" (R50): srážky vznikly na místě, předpověď je minula.
+    started: 'Právě tu začalo pršet.',
+    snowStarted: 'Právě tu začalo sněžit.',
+    snowAdvice: 'Auto pod střechu a na cestu víc času.',
   },
 
   /* Potažení dolů nahoře na stránce data natáhne znovu. Každý stav má svoje

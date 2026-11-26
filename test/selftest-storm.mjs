@@ -420,6 +420,53 @@ test('🌧 stavitel přidá mřížku deště z TÝCHŽ snímků — a místo z 
   // Bouřka 30 km západně PRŠÍ — tam je „prsi", ne „dest".
   const zapadne = filterByPlace('storm', d, { lat: String(BOD.lat), lon: String(BOD.lon - 0.42), lang: 'cs' }, { nowMs: NOW });
   assert.equal(zapadne.dest.stav, 'prsi');
+  // Sníh (R49): táž mřížka se slabším prahem z TÝCHŽ snímků. Kde mrzne, čte se
+  // ona — v létě 8. 10. tedy totéž, kde prší; jen víc, protože vidí i slabé.
+  assert.ok(Array.isArray(d.snih) && d.snih.length, 'mřížka sněhu chybí');
+  const mraz = filterByPlace('storm', d, { lat: String(BOD.lat), lon: String(BOD.lon), lang: 'cs' }, { nowMs: NOW, faze: { t: -2, tw: -3 } });
+  assert.equal(mraz.dest.druh, 'snih');
+  assert.match(mraz.dest.text, /začne sněžit/);
+});
+
+test('🌨 stavitel: „Právě začalo" ze snímku o 20 min staršího, bez stahování navíc (R50)', async () => {
+  const zapadne = { lat: String(BOD.lat), lon: String(BOD.lon - 0.42), lang: 'cs' };
+  const volane = [];
+  const pozorovani = { 'z_max3d.20261008.1325.0.png': ted(), 'z_max3d.20261008.1320.0.png': predtim() };
+  // 13:05 je o 20 min starší než 13:25 a nad bouřkou 30 km západně tehdy nic.
+  const d = await stavBourky({
+    fetchImpl: cizinaCHMU({
+      pozorovani: { ...pozorovani, 'z_max3d.20261008.1305.0.png': zapisPng(snimek([]), SIRKA, VYSKA) },
+      behy: { 'fct_z_max.20261008.1320.ft60s10.tar': beh() },
+      volane,
+    }),
+    base: BASE, nowMs: NOW,
+  });
+  assert.equal(new Date(d.driv.ms).toISOString(), '2026-10-08T13:05:00.000Z');
+  assert.equal(volane.length, new Set(volane).size, 'starší snímek se nestahuje podruhé');
+  const o = filterByPlace('storm', d, zapadne, { nowMs: NOW });
+  assert.equal(o.dest.stav, 'dest', 'zvoní se: tehdy sucho, teď prší');
+  assert.equal(o.dest.zacalo, true);
+  assert.equal(o.dest.za, 0);
+  assert.equal(o.dest.text, 'Právě tu začalo pršet. Prádlo a zvířata pod střechu. Podle radaru ČHMÚ.');
+
+  // ⚠️ Starší snímek nepřišel → podklad bez něj a „prší" jako dřív, žádné
+  // „právě začalo" naslepo.
+  const bez = await stavBourky({
+    fetchImpl: cizinaCHMU({ pozorovani, behy: { 'fct_z_max.20261008.1320.ft60s10.tar': beh() } }),
+    base: BASE, nowMs: NOW,
+  });
+  assert.equal(bez.driv, undefined);
+  assert.equal(filterByPlace('storm', bez, zapadne, { nowMs: NOW }).dest.stav, 'prsi');
+
+  // Pršelo už tehdy → „prší", nezvoní se.
+  const porad = await stavBourky({
+    fetchImpl: cizinaCHMU({
+      pozorovani: { ...pozorovani, 'z_max3d.20261008.1305.0.png': ted() },
+      behy: { 'fct_z_max.20261008.1320.ft60s10.tar': beh() },
+    }),
+    base: BASE, nowMs: NOW,
+  });
+  assert.equal(filterByPlace('storm', porad, zapadne, { nowMs: NOW }).dest.stav, 'prsi');
 });
 
 test('stavitel: chybí-li snímek před 5 min, vezme se ten před 10 min', async () => {

@@ -27,7 +27,7 @@ import {
   tabulkaOdrazivosti, souvislaJadra, stopaPredpovedi, nazevSnimku, ZDROJ, LICENCE, SIRKA, VYSKA,
 } from '../web/lib/storm-watch.js';
 import { kandidatiBehu, nazevBehu, rozbalTar, snimkyZArchivu, VYREZ } from '../web/lib/nowcast.js';
-import { mrizkaDeste, zhusti } from '../web/lib/rain-watch.js';
+import { mrizkaDeste, zhusti, PRAH_SNEHU, ZACALO_MIN } from '../web/lib/rain-watch.js';
 
 /** Podsložky v adresáři kompozitů ČHMÚ (`base` z katalogu). */
 const POZOROVANI = 'maxz/png/';
@@ -69,6 +69,7 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
   // 1) Pozorování: nejnovější snímek a k němu ten předchozí. Stahují se
   //    naráz — čtyři malé soubory (~40 kB), čekat na ně po jednom by
   //    zbytečně natahovalo odpověď.
+  //    Plus snímek o `ZACALO_MIN` starší pro „Právě začalo" (`R50`).
   const casy = [];
   for (let i = 0; i < POKUSU + 2; i++) casy.push(Math.floor(nowMs / 300_000) * 300_000 - i * 300_000);
   const soubory = await Promise.all(casy.map((ms) => stahni(fetchImpl, base + POZOROVANI + nazevSnimku(ms))));
@@ -83,10 +84,34 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
   const ted = precti(soubory[iTed]);
   const predtim = precti(soubory[iPredtim]);
 
+  // „Právě začalo" (`R50`): snímek o `ZACALO_MIN` starší než ten nejnovější.
+  // ⚠️ Když nepřijde, podklad je bez něj a appka hlásí „prší" jako dřív —
+  // horší je tvrdit „právě začalo" tam, kde prší hodinu.
+  const drivMs = casy[iTed] - ZACALO_MIN * 60_000;
+  // Obvykle už stažený je (snímky jdou po pěti minutách až 25 min zpátky).
+  const iDriv = casy.indexOf(drivMs);
+  const drivBajty = iDriv >= 0
+    ? soubory[iDriv]
+    : await stahni(fetchImpl, base + POZOROVANI + nazevSnimku(drivMs));
+  let driv = null;
+  if (drivBajty) {
+    try {
+      const d = precti(drivBajty);
+      driv = {
+        ms: drivMs,
+        dest: zhusti(mrizkaDeste(d.pixely, d.dbz, [], d.dbz)),
+        snih: zhusti(mrizkaDeste(d.pixely, d.dbz, [], d.dbz, SIRKA, VYSKA, PRAH_SNEHU)),
+      };
+    } catch (e) {
+      log('bouřka: starší snímek pro „právě začalo" se nepřečetl', { chyba: e.message });
+    }
+  }
+
   // 2) Předpověď: nejnovější běh, po řadě zpátky (jako `stavNowcast`).
   let beh = null;
   let stopa = null;
   let dest = null;
+  let snih = null;
   for (const kandidat of kandidatiBehu(nowMs, POKUSU)) {
     const tar = await stahni(fetchImpl, base + PREDPOVED + nazevBehu(kandidat));
     if (!tar) continue;
@@ -102,8 +127,12 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
     stopa = stopaPredpovedi(prectene.map(({ minut, pixely }) => ({ minut, pixely })), prectene[0].dbz);
     // Začátek deště (`R42`): mřížka po ~2 km, kde prší teď a kdy kde začne.
     // Z TÝCHŽ snímků — žádné stahování navíc.
-    dest = zhusti(mrizkaDeste(ted.pixely, ted.dbz,
-      prectene.map(({ minut, pixely }) => ({ minut, pixely })), prectene[0].dbz));
+    const snimkyPredpovedi = prectene.map(({ minut, pixely }) => ({ minut, pixely }));
+    dest = zhusti(mrizkaDeste(ted.pixely, ted.dbz, snimkyPredpovedi, prectene[0].dbz));
+    // Sníh (`R49`): táž mřížka se slabším prahem. Jestli v místě mrzne,
+    // se pozná až u místa — podklad je společný všem.
+    snih = zhusti(mrizkaDeste(ted.pixely, ted.dbz, snimkyPredpovedi, prectene[0].dbz,
+      SIRKA, VYSKA, PRAH_SNEHU));
     beh = kandidat;
     break;
   }
@@ -122,6 +151,8 @@ export async function stavBourky({ fetchImpl, base, nowMs, log = () => {} }) {
     jadraPredtim: souvislaJadra(predtim.pixely, predtim.dbz),
     stopa,
     dest,
+    snih,
+    ...(driv ? { driv } : {}),
   };
   log('bouřka: radar přečten', {
     pozorovano: new Date(vysledek.pozorovanoMs).toISOString(),
